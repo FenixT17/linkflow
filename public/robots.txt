@@ -58,4 +58,4 @@ Disallow: /auth/
 # -----------------------------------------------------------------------------
 # Sitemap
 # -----------------------------------------------------------------------------
-Sitemap: https://linkflow.app/sitemap.xml
+Sitemap: https://linkflow-web.netlify.app/sitemap.xml

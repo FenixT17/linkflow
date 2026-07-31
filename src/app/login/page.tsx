@@ -26,7 +26,7 @@ function LoginForm() {
     const errorDesc = searchParams.get("error_description");
 
     if (errorParam === "missing_project") {
-      setError("Erro de configuração: APPWRITE_PROJECT_ID não está definido.");
+      setError("Erro de configuração: NEXT_PUBLIC_APPWRITE_PROJECT_ID não está definido.");
       return;
     }
 
@@ -70,8 +70,8 @@ function LoginForm() {
       setError("Insira um email válido.");
       return;
     }
-    if (!password || password.length < 6) {
-      setError("A palavra-passe deve ter pelo menos 6 caracteres.");
+    if (!password || password.length < 8) {
+      setError("A palavra-passe deve ter pelo menos 8 caracteres.");
       return;
     }
     setLoading(true);
@@ -204,17 +204,19 @@ function LoginForm() {
               <GlassButton
                 type="submit"
                 variant="primary"
-                className="w-full"
+                className="w-full tracking-wide"
                 disabled={loading}
               >
                 {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> A entrar...
-                  </>
+                  <span className="inline-flex items-center gap-3">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>A entrar…</span>
+                  </span>
                 ) : (
-                  <>
-                    Entrar <ArrowRight className="h-4 w-4" />
-                  </>
+                  <span className="inline-flex items-center gap-3">
+                    <span>Entrar</span>
+                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-x-1" />
+                  </span>
                 )}
               </GlassButton>
             </form>
@@ -230,10 +232,10 @@ function LoginForm() {
                 type="button"
                 onClick={() => loginWithGoogle()}
                 disabled={loading}
-                className="group relative flex h-11 w-full items-center justify-center gap-3 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:opacity-50"
+                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >
                 <svg
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110"
                   viewBox="0 0 24 24"
                   xmlns="http://www.w3.org/2000/svg"
                 >
@@ -261,10 +263,10 @@ function LoginForm() {
                 type="button"
                 onClick={() => loginWithGitHub()}
                 disabled={loading}
-                className="group relative flex h-11 w-full items-center justify-center gap-3 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:opacity-50"
+                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >
                 <svg
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110"
                   viewBox="0 0 24 24"
                   fill="currentColor"
                   xmlns="http://www.w3.org/2000/svg"

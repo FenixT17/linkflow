@@ -357,6 +357,21 @@
     border-bottom: 1px solid rgba(255, 255, 255, calc(var(--glass-border-opacity) * 0.5));
   }
 
+  /* Mobile (< 768px): navbar must be solid, never transparent —
+     content scrolls underneath the fixed header and glass becomes unreadable */
+  @media (max-width: 767px) {
+    .glass-nav {
+      background: var(--background) !important;
+    }
+    /* When scrolled, elevate the navbar above content with a subtle shadow + border */
+    .glass-nav.glass-strong {
+      border-bottom-color: rgba(255, 255, 255, calc(var(--glass-border-opacity) * 0.9));
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, calc(var(--glass-highlight-opacity) * 0.3)) inset,
+        0 6px 20px rgba(0, 0, 0, calc(var(--glass-shadow-intensity) * 0.9));
+    }
+  }
+
   /* ── Glass Modal ── */
   .glass-modal {
     background: rgba(0, 0, 0, 0.3) !important;

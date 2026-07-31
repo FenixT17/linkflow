@@ -7,6 +7,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { useAuth } from "@/context/AuthContext";
 import { CsrfForm } from "@/components/ui/csrf-form";
 import { sanitizeDisplayName, sanitizeUsername, sanitizeBio } from "@/lib/sanitize";
+import { siteUrl } from "@/lib/seo";
 import { Sparkles } from "lucide-react";
 
 export default function CreatePage() {
@@ -60,7 +61,7 @@ export default function CreatePage() {
                   Nome de utilizador
                 </label>
                 <div className="flex items-center rounded-[var(--glass-radius)] glass-input px-4 py-2.5 text-sm">
-                  <span className="text-[var(--muted-foreground)]">linkflow.app/@</span>
+                  <span className="text-[var(--muted-foreground)]">{siteUrl.replace(/^https?:\/\//, "")}/@</span>
                   <input id="username" value={username} onChange={(e) => setUsername(e.target.value)}
                     placeholder="alex"
                     className="ml-1 min-w-0 flex-1 bg-transparent outline-none text-[var(--foreground)] placeholder:text-white/30" />

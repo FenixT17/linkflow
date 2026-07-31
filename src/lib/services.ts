@@ -285,6 +285,27 @@ function mapLinkDocument(doc: AppwriteDocument): LinkItem {
 
 export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
   await requireOwnerOfPage(pageId);
+
+  // Server-side enforcement: count existing links for free plan users
+  const session = await getCurrentSession();
+  const userDocs = await databases.listDocuments(databaseId, Collections.users, [
+    Query.equal("userId", session.$id),
+    Query.limit(1),
+  ]);
+  const userPlan = (userDocs.documents[0]?.plan as string) ?? "free";
+
+  if (userPlan === "free") {
+    const existingLinks = await databases.listDocuments(databaseId, Collections.links, [
+      Query.equal("pageId", pageId),
+      Query.limit(4), // Só precisamos de saber se há 3 ou mais
+    ]);
+    if (existingLinks.total >= 3) {
+      const error = new Error("Limite de links do plano Gratuito atingido (máx. 3). Faça upgrade para adicionar mais.");
+      (error as Error & { status?: number }).status = 403;
+      throw error;
+    }
+  }
+
   return createOwnedDocument(Collections.links, {
     pageId,
     type: link.type,

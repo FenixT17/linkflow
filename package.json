@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "provision": "tsx scripts/provision-appwrite.ts",
+    "fix:bucket": "tsx scripts/fix-bucket-public.ts",
     "provision:security-logs": "tsx scripts/create-security-logs.ts",
     "seo:audit": "tsx scripts/seo-audit.ts",
     "check:links": "tsx scripts/check-links.ts",

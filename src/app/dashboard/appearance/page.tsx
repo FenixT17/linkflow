@@ -6,7 +6,6 @@ import { useTheme } from "next-themes";
 import { useAuth } from "@/context/AuthContext";
 import { Slider } from "@/components/ui/slider";
 import { PremiumCard } from "@/components/ui/premium-card";
-import { LivePreview } from "@/components/dashboard/live-preview";
 import { toHexColor } from "@/lib/utils";
 import { PREMIUM_TEMPLATES } from "@/lib/templates";
 import NextImage from "next/image";
@@ -208,8 +207,7 @@ export default function AppearancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-        <div className="space-y-5">
+      <div className="space-y-5">
           <Section icon={LayoutTemplate} title="Templates premium">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {PREMIUM_TEMPLATES.map((template) => (
@@ -502,22 +500,6 @@ export default function AppearancePage() {
               </div>
             </div>
           </Section>
-        </div>
-
-        <div className="xl:sticky xl:top-6">
-          <PremiumCard className="p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white/90">Preview em tempo real</h3>
-              <span className="inline-flex items-center gap-1.5 text-xs text-white/50">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live
-              </span>
-            </div>
-            <div className="flex justify-center">
-              <LivePreview />
-            </div>
-          </PremiumCard>
-        </div>
       </div>
     </div>
   );

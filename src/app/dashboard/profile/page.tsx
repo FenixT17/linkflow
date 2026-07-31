@@ -6,7 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LivePreview } from "@/components/dashboard/live-preview";
 import {
   uploadFile,
   updatePageAvatar,
@@ -351,8 +350,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <PremiumCard className="p-0 overflow-hidden" strong>
+      <PremiumCard className="p-0 overflow-hidden" strong>
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, "banner")}
@@ -522,12 +520,7 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
-        </PremiumCard>
-
-        <div className="space-y-6">
-          <LivePreview />
-        </div>
-      </div>
+      </PremiumCard>
     </div>
   );
 }

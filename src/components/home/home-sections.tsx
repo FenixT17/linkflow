@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { GlassButton } from "@/components/ui/glass-button";
 import { FaqItem } from "@/components/ui/faq-item";
-import { TemplateShowcase } from "@/components/public/template-showcase";
 import { faqs } from "@/data/faqs";
 import {
   Check, Crown, ArrowRight, Zap, Shield, LineChart,
@@ -272,7 +271,6 @@ function CTASection() {
 export default function HomeSections() {
   return (
     <>
-      <TemplateShowcase />
       <TrustSection />
       <PricingSection />
       <FaqSection />

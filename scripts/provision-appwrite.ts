@@ -1,15 +1,28 @@
 import { Client, Databases, Storage, Permission, Role, DatabasesIndexType } from "node-appwrite";
 import dotenv from "dotenv";
+import { ensureBucketWithPublicRead } from "./lib/public-bucket";
 
 dotenv.config({ path: ".env.local" });
 
-const endpoint = process.env.APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
-const projectId = process.env.APPWRITE_PROJECT_ID;
+// Convention: NEXT_PUBLIC_APPWRITE_* is the canonical name (same as the runtime
+// code and .env.example). Legacy non-prefixed aliases are accepted for backwards
+// compatibility with older .env.local files.
+const endpoint =
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ??
+  process.env.APPWRITE_ENDPOINT ??
+  "https://cloud.appwrite.io/v1";
+const projectId =
+  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? process.env.APPWRITE_PROJECT_ID;
 const apiKey = process.env.APPWRITE_API_KEY;
-const databaseId = process.env.APPWRITE_DATABASE_ID ?? "linkflow";
+const databaseId =
+  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ??
+  process.env.APPWRITE_DATABASE_ID ??
+  "linkflow";
 
 if (!projectId || !apiKey) {
-  console.error("Missing required environment variables: APPWRITE_PROJECT_ID and APPWRITE_API_KEY");
+  console.error(
+    "Missing required environment variables: NEXT_PUBLIC_APPWRITE_PROJECT_ID and APPWRITE_API_KEY"
+  );
   process.exit(1);
 }
 
@@ -130,35 +143,28 @@ async function createIndex(collectionId: string, key: string, type: IndexType, a
   );
 }
 
-async function createBucket(bucketId: string, name: string) {
-  return runWithIdempotency(
-    () =>
-      storage.createBucket(
-        bucketId,
-        name,
-        [
-          // Files are private by default. Public access to avatars/banners is served
-          // through server-side routes or signed URLs where ownership is verified.
-          Permission.read(Role.users()),
-          Permission.create(Role.users()),
-          Permission.update(Role.users()),
-          Permission.delete(Role.users()),
-        ],
-        true
-      ),
-    `Bucket ${bucketId}`
-  );
-}
 
 async function provision() {
   console.log("🚀 Provisioning LinkFlow on Appwrite Cloud...\n");
 
   // 1. Database
   console.log("📦 Database");
-  await runWithIdempotency(
-    () => databases.create(databaseId, "LinkFlow SaaS"),
-    `Database ${databaseId}`
-  );
+  try {
+    await databases.create(databaseId, "LinkFlow SaaS");
+  } catch (error: unknown) {
+    const err = error instanceof Error ? (error as Error & { code?: number }) : undefined;
+    const message = err?.message ?? String(error);
+    const isAlreadyExists = err?.code === 409 || message.includes("already exists");
+    // Free plan: when the database limit is reached, the `linkflow` database is
+    // typically already provisioned. Continue with collections/attributes/bucket;
+    // if the database truly does not exist, the next step fails loudly.
+    const isPlanLimit = message.includes("maximum number of databases allowed");
+    if (isAlreadyExists || isPlanLimit) {
+      console.log(`   ↳ Database step skipped (already exists or plan limit reached).`);
+    } else {
+      throw error;
+    }
+  }
 
   // 2. Users collection (custom profile data)
   // Each user document is private and scoped to its owner. Server-side APIs
@@ -422,8 +428,10 @@ async function provision() {
   await createIndex("security_logs", "idx_security_createdAt", "key", ["createdAt"]);
 
   // 13. Storage bucket (single bucket for all files to fit free plan)
+  // Public read (Role.any()) so avatars/banners/images are visible on the
+  // public page without authentication. create/update/delete stay private.
   console.log("\n🗂️  Buckets");
-  await createBucket("files", "Files");
+  await ensureBucketWithPublicRead(storage, "files", "Files");
 
   console.log("\n✅ LinkFlow backend provisioned successfully!");
 }

@@ -75,7 +75,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
 
   const theme = getLiquidGlassClasses();
   const visibleLinks = links.filter((link: LinkItem) => link.visible && link.active);
-  const publicUrl = `https://linkflow.app/u/${page.username}`;
+  const publicUrl = `${siteUrl}/u/${page.username}`;
 
   const profileJsonLd = profilePageJsonLd(
     page.username,

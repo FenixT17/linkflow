@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-export const siteUrl = "https://linkflow.app";
+export const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://linkflow-web.netlify.app";
 export const siteName = "LinkFlow";
 export const siteTagline = "Um Link. Possibilidades Infinitas.";
 export const defaultDescription =

@@ -417,6 +417,10 @@ export default function LinksPage() {
 
   const handleAdd = async () => {
     if (!pageId) return;
+    if (!canAddLink) {
+      showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
+      return;
+    }
     if (!newLink.title?.trim() || !newLink.url?.trim()) return;
     const csrfOk = await verifyCsrf();
     if (!csrfOk) return;
@@ -439,8 +443,8 @@ export default function LinksPage() {
       setNewLink({ title: "", url: "", type: "link", active: true, visible: true, newTab: true, clicks: 0 });
       setIsAdding(false);
       showMessage("Link adicionado.");
-    } catch {
-      showMessage("Erro ao adicionar link.", "error");
+    } catch (err: unknown) {
+      showMessage(err instanceof Error ? err.message : "Erro ao adicionar link.", "error");
     } finally {
       setSavingId(null);
     }

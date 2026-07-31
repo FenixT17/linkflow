@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { GlassButton } from "@/components/ui/glass-button";
 import { Globe, Plus, Crown, Check } from "lucide-react";
+import { siteUrl } from "@/lib/seo";
 
 export default function DomainsPage() {
   const [domain, setDomain] = useState("");
   const isPro = false;
+  const dnsTarget = siteUrl.replace(/^https?:\/\//, "");
 
   return (
     <div className="space-y-6 animate-glass-fade-in">
@@ -64,8 +66,8 @@ export default function DomainsPage() {
             <div className="glass-card p-4 space-y-2">
               <p className="text-xs text-white/50">Adicione os seguintes registos DNS:</p>
               {[
-                { type: "CNAME", name: "@", value: "linkflow.app" },
-                { type: "CNAME", name: "www", value: "linkflow.app" },
+                { type: "CNAME", name: "@", value: dnsTarget },
+                { type: "CNAME", name: "www", value: dnsTarget },
               ].map((record, i) => (
                 <div key={i} className="flex items-center gap-3 text-xs">
                   <span className="inline-flex items-center rounded-full glass px-2 py-0.5 font-mono text-xs">{record.type}</span>

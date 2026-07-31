@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getPublicPublishedUsernames } from "@/lib/services.server";
-
-const siteUrl = "https://linkflow.app";
+import { siteUrl } from "@/lib/seo";
 
 /**
  * Gera o sitemap XML do LinkFlow com todas as páginas públicas.

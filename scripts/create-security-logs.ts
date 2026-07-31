@@ -3,13 +3,25 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-const endpoint = process.env.APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
-const projectId = process.env.APPWRITE_PROJECT_ID;
+// Convention: NEXT_PUBLIC_APPWRITE_* is the canonical name (same as the runtime
+// code and .env.example). Legacy non-prefixed aliases are accepted for backwards
+// compatibility with older .env.local files.
+const endpoint =
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ??
+  process.env.APPWRITE_ENDPOINT ??
+  "https://cloud.appwrite.io/v1";
+const projectId =
+  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? process.env.APPWRITE_PROJECT_ID;
 const apiKey = process.env.APPWRITE_API_KEY;
-const databaseId = process.env.APPWRITE_DATABASE_ID ?? "linkflow";
+const databaseId =
+  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ??
+  process.env.APPWRITE_DATABASE_ID ??
+  "linkflow";
 
 if (!projectId || !apiKey) {
-  console.error("Missing required environment variables: APPWRITE_PROJECT_ID and APPWRITE_API_KEY");
+  console.error(
+    "Missing required environment variables: NEXT_PUBLIC_APPWRITE_PROJECT_ID and APPWRITE_API_KEY"
+  );
   process.exit(1);
 }
 

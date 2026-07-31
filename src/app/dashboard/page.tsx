@@ -24,7 +24,6 @@ import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassButton } from "@/components/ui/glass-button";
-import { LivePreview } from "@/components/dashboard/live-preview";
 
 import {
   AreaChart,
@@ -55,7 +54,7 @@ interface ChartPoint {
 function useChartData(): ChartPoint[] {
   const { analytics } = useAuth();
 
-  const data = useMemo<ChartPoint[]>(() => {
+  return useMemo<ChartPoint[]>(() => {
     if (analytics?.dailyStats && analytics.dailyStats.length > 0) {
       return analytics.dailyStats.map((d) => ({
         label: formatDate(d.day),
@@ -63,18 +62,8 @@ function useChartData(): ChartPoint[] {
         clicks: d.clicks,
       }));
     }
-    return [
-      { label: "Seg", views: 12, clicks: 4 },
-      { label: "Ter", views: 18, clicks: 6 },
-      { label: "Qua", views: 15, clicks: 5 },
-      { label: "Qui", views: 25, clicks: 9 },
-      { label: "Sex", views: 22, clicks: 8 },
-      { label: "Sáb", views: 30, clicks: 12 },
-      { label: "Dom", views: 28, clicks: 10 },
-    ];
+    return [];
   }, [analytics]);
-
-  return data;
 }
 
 function ChartTooltip({
@@ -112,34 +101,39 @@ export default function DashboardPage() {
 
   const chartData = useChartData();
 
+  const hasWeeklyGrowth = (analytics?.weeklyGrowth ?? 0) > 0;
+  const hasMonthlyGrowth = (analytics?.monthlyGrowth ?? 0) > 0;
+
   const stats = useMemo(
     () => [
       {
         label: "Visualizações hoje",
         value: formatNumber(analytics?.views ?? 0),
         icon: Eye,
-        trend: { value: "+12%", positive: true },
+        trend: hasWeeklyGrowth
+          ? { value: `+${analytics!.weeklyGrowth}% esta semana`, positive: true }
+          : undefined,
       },
       {
         label: "Cliques hoje",
         value: formatNumber(analytics?.clicks ?? 0),
         icon: MousePointer,
-        trend: { value: "+8%", positive: true },
+        trend: hasMonthlyGrowth
+          ? { value: `+${analytics!.monthlyGrowth}% este mês`, positive: true }
+          : undefined,
       },
       {
         label: "CTR",
         value: `${analytics?.ctr ?? 0}%`,
         icon: Percent,
-        trend: { value: "+2%", positive: true },
       },
       {
         label: "Visitantes",
         value: formatNumber(analytics?.followers ?? 0),
         icon: Users,
-        trend: { value: "+5%", positive: true },
       },
     ],
-    [analytics]
+    [analytics, hasWeeklyGrowth, hasMonthlyGrowth]
   );
 
   const activeLinks = links.filter((l) => l.active && l.visible).length;
@@ -194,8 +188,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <PremiumCard className="xl:col-span-2 p-6" strong>
+      <PremiumCard className="p-6" strong>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-base font-semibold text-white/90">
@@ -205,63 +198,72 @@ export default function DashboardPage() {
                 Visualizações e cliques nos últimos 7 dias
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-              <TrendingUp className="h-3.5 w-3.5" />+
-              {analytics?.weeklyGrowth ?? 0}%
+            {(analytics?.weeklyGrowth ?? 0) > 0 && (
+              <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                <TrendingUp className="h-3.5 w-3.5" />+
+                {analytics?.weeklyGrowth ?? 0}%
+              </div>
+            )}
+          </div>
+          {chartData.length > 0 ? (
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ffffff" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="label"
+                    stroke="rgba(255,255,255,0.2)"
+                    tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="rgba(255,255,255,0.2)"
+                    tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="views"
+                    name="Visualizações"
+                    stroke="rgba(255,255,255,0.6)"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorViews)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="clicks"
+                    name="Cliques"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorClicks)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="label"
-                  stroke="rgba(255,255,255,0.2)"
-                  tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="rgba(255,255,255,0.2)"
-                  tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  name="Visualizações"
-                  stroke="rgba(255,255,255,0.6)"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorViews)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="clicks"
-                  name="Cliques"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorClicks)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </PremiumCard>
-
-        <LivePreview />
-      </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-center">
+              <Calendar className="h-8 w-8 text-white/20 mb-3" />
+              <p className="text-sm text-white/40">Ainda não há dados suficientes</p>
+              <p className="text-xs text-white/25 mt-1">
+                O gráfico aparecerá aqui após os primeiros visitantes.
+              </p>
+            </div>
+          )}
+      </PremiumCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <PremiumCard className="p-0 overflow-hidden" strong>

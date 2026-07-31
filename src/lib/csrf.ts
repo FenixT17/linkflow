@@ -35,10 +35,11 @@ export function generateToken(): string {
  * Define o cookie CSRF na resposta.
  */
 export function setCsrfCookie(response: NextResponse, token: string): void {
+  const isProduction = process.env.NODE_ENV === "production";
   response.cookies.set(CSRF_COOKIE_NAME, token, {
     httpOnly: false, // Must be false for Double Submit Cookie pattern (client reads it)
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
     path: "/",
     maxAge: CSRF_COOKIE_MAX_AGE,
   });
@@ -99,6 +100,21 @@ export function csrfGuard(request: NextRequest): NextResponse | null {
   }
 
   return null;
+}
+
+/**
+ * Limpa o cookie CSRF da resposta.
+ * Usar no logout para garantir que o token não pode ser reutilizado.
+ */
+export function clearCsrfCookie(response: NextResponse): void {
+  const isProduction = process.env.NODE_ENV === "production";
+  response.cookies.set(CSRF_COOKIE_NAME, "", {
+    httpOnly: false,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    path: "/",
+    maxAge: 0, // Expira imediatamente
+  });
 }
 
 export { CSRF_COOKIE_NAME, CSRF_HEADER_NAME };

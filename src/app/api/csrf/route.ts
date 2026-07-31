@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateToken, setCsrfCookie } from "@/lib/csrf";
+import { generateToken, setCsrfCookie, clearCsrfCookie } from "@/lib/csrf";
 
 /**
  * GET /api/csrf
@@ -10,5 +10,16 @@ export async function GET() {
   const token = generateToken();
   const response = NextResponse.json({ token }, { status: 200 });
   setCsrfCookie(response, token);
+  return response;
+}
+
+/**
+ * DELETE /api/csrf
+ * Limpa o cookie CSRF. Usar durante o logout para impedir reutilização
+ * do token após a sessão ser terminada.
+ */
+export async function DELETE() {
+  const response = NextResponse.json({ cleared: true }, { status: 200 });
+  clearCsrfCookie(response);
   return response;
 }

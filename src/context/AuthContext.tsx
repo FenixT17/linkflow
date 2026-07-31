@@ -22,7 +22,7 @@ import {
 } from "@/lib/types";
 
 import { detectSuspiciousInput } from "@/lib/sanitize";
-import { initCsrfToken, fetchWithCsrf } from "@/hooks/use-csrf";
+import { initCsrfToken, refreshCsrfToken, clearCsrfToken, fetchWithCsrf } from "@/hooks/use-csrf";
 import {
   defaultAppearance,
   defaultSettings,
@@ -99,6 +99,36 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Ocorreu um erro.";
+}
+
+/**
+ * Traduz erros comuns do Appwrite para mensagens amigáveis em português.
+ */
+function getFriendlyError(rawError: unknown, context: "register" | "login"): string {
+  const msg = getErrorMessage(rawError).toLowerCase();
+
+  // Email já registado
+  if (msg.includes("already exists") || msg.includes("already_exist") || msg.includes("user_already_exists")) {
+    return "Este email já tem uma conta. Tente entrar ou use outro email.";
+  }
+
+  // Credenciais inválidas (login)
+  if (context === "login" && (msg.includes("invalid credentials") || msg.includes("invalid_credentials") || msg.includes("unauthorized"))) {
+    return "Email ou palavra-passe incorretos.";
+  }
+
+  // Password fraca
+  if (msg.includes("password") && (msg.includes("weak") || msg.includes("too short") || msg.includes("invalid"))) {
+    return "A palavra-passe não cumpre os requisitos de segurança. Use 8+ caracteres, 1 maiúscula, 1 minúscula e 1 número.";
+  }
+
+  // Rate limit
+  if (msg.includes("rate") || msg.includes("too many")) {
+    return "Muitas tentativas. Aguarde um momento antes de tentar novamente.";
+  }
+
+  // Fallback: passa a mensagem original
+  return getErrorMessage(rawError);
 }
 
 function isProtectedRoute(pathname: string) {
@@ -347,6 +377,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await loginUser(email, password);
       const session = await getCurrentSession();
 
+      // Mitigação de session fixation: renova o token CSRF após login
+      refreshCsrfToken().catch(() => {});
+
       // Log success (anonymous + authenticated)
       createSecurityLog({
         userId: "anonymous",
@@ -367,7 +400,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
         metadata: { error: getErrorMessage(error) },
       });
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, error: getFriendlyError(error, "login") };
     }
   }, [loadUserData]);
 
@@ -410,6 +443,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const newAccount = await registerUser(email, password, name);
 
+      // Mitigação de session fixation: renova o token CSRF após registo
+      refreshCsrfToken().catch(() => {});
+
       // Log success (anonymous for security dashboard visibility)
       createSecurityLog({
         userId: "anonymous",
@@ -444,7 +480,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
         metadata: { error: getErrorMessage(error), displayName: name },
       });
-      return { success: false, error: getErrorMessage(error) };
+      return { success: false, error: getFriendlyError(error, "register") };
     }
   }, [loadUserData]);
 
@@ -459,6 +495,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
       await logoutUser();
+      // Limpa o cookie CSRF primeiro no servidor...
+      fetch("/api/csrf", { method: "DELETE", credentials: "include" }).catch(() => {});
+      // ...depois limpa o token local (memória + cookie do browser)
+      clearCsrfToken();
     } finally {
       setAccountData(null);
       setPage(null);

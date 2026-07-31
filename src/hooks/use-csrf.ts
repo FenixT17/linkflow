@@ -70,6 +70,31 @@ export function initCsrfToken(): Promise<string> {
 }
 
 /**
+ * Força a renovação do token CSRF — útil após login para prevenir
+ * session fixation. Limpa o token em memória e faz um novo fetch.
+ */
+export function refreshCsrfToken(): Promise<string> {
+  tokenRef = null;
+  tokenPromise = null;
+  return initCsrfToken();
+}
+
+/**
+ * Limpa o token CSRF da memória e do cookie do navegador.
+ * Usar durante o logout para impedir reutilização.
+ * Nota: o servidor também deve ser chamado (DELETE /api/csrf) para
+ * limpar o cookie com HttpOnly se aplicável.
+ */
+export function clearCsrfToken(): void {
+  tokenRef = null;
+  tokenPromise = null;
+  // Remove o cookie CSRF do navegador
+  if (typeof document !== "undefined") {
+    document.cookie = `${CSRF_COOKIE_NAME}=; path=/; max-age=0`;
+  }
+}
+
+/**
  * Fetch wrapper com CSRF para usar em módulos de serviço.
  * Inicializa o token automaticamente se necessário.
  * Usar em chamadas fetch a API routes do próprio domínio.
