@@ -1,0 +1,405 @@
+"use client";
+
+import { useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Eye,
+  MousePointer,
+  Percent,
+  Users,
+  TrendingUp,
+  ArrowUpRight,
+  Plus,
+  Link2,
+  Globe,
+  Smartphone,
+  Clock,
+  Calendar,
+  Activity,
+  ArrowRight,
+} from "lucide-react";
+import { StatCard } from "@/components/ui/stat-card";
+import { PremiumCard } from "@/components/ui/premium-card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GlassButton } from "@/components/ui/glass-button";
+import { LivePreview } from "@/components/dashboard/live-preview";
+
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+function formatNumber(num: number) {
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}k`;
+  return num.toString();
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+}
+
+interface ChartPoint {
+  label: string;
+  views: number;
+  clicks: number;
+}
+
+function useChartData(): ChartPoint[] {
+  const { analytics } = useAuth();
+
+  const data = useMemo<ChartPoint[]>(() => {
+    if (analytics?.dailyStats && analytics.dailyStats.length > 0) {
+      return analytics.dailyStats.map((d) => ({
+        label: formatDate(d.day),
+        views: d.views,
+        clicks: d.clicks,
+      }));
+    }
+    return [
+      { label: "Seg", views: 12, clicks: 4 },
+      { label: "Ter", views: 18, clicks: 6 },
+      { label: "Qua", views: 15, clicks: 5 },
+      { label: "Qui", views: 25, clicks: 9 },
+      { label: "Sex", views: 22, clicks: 8 },
+      { label: "Sáb", views: 30, clicks: 12 },
+      { label: "Dom", views: 28, clicks: 10 },
+    ];
+  }, [analytics]);
+
+  return data;
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { color: string; value: number; name: string }[];
+  label?: string;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-white/[0.08] bg-[#0a0a0a]/95 px-3 py-2 text-xs shadow-xl">
+      <p className="mb-1 font-medium text-white/70">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} className="flex items-center gap-2" style={{ color: p.color }}>
+          <span>{p.name}:</span>
+          <span className="font-semibold">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const { page, analytics, links, account } = useAuth();
+
+  useEffect(() => {
+    if (!page) {
+      router.replace("/dashboard/create");
+    }
+  }, [page, router]);
+
+  const chartData = useChartData();
+
+  const stats = useMemo(
+    () => [
+      {
+        label: "Visualizações hoje",
+        value: formatNumber(analytics?.views ?? 0),
+        icon: Eye,
+        trend: { value: "+12%", positive: true },
+      },
+      {
+        label: "Cliques hoje",
+        value: formatNumber(analytics?.clicks ?? 0),
+        icon: MousePointer,
+        trend: { value: "+8%", positive: true },
+      },
+      {
+        label: "CTR",
+        value: `${analytics?.ctr ?? 0}%`,
+        icon: Percent,
+        trend: { value: "+2%", positive: true },
+      },
+      {
+        label: "Visitantes",
+        value: formatNumber(analytics?.followers ?? 0),
+        icon: Users,
+        trend: { value: "+5%", positive: true },
+      },
+    ],
+    [analytics]
+  );
+
+  const activeLinks = links.filter((l) => l.active && l.visible).length;
+  const topLink = [...(analytics?.topLinks ?? [])].sort(
+    (a, b) => b.clicks - a.clicks
+  )[0];
+  const recentVisitors = (analytics?.recentVisitors ?? []).slice(0, 6);
+
+  const summaryItems = [
+    { icon: Link2, label: "Links ativos", value: activeLinks },
+    {
+      icon: MousePointer,
+      label: "Link mais clicado",
+      value: topLink?.title || "—",
+    },
+    {
+      icon: Globe,
+      label: "Países",
+      value: analytics?.topCountries?.length ?? 0,
+    },
+    {
+      icon: Smartphone,
+      label: "Dispositivos",
+      value: analytics?.topDevices?.length ?? 0,
+    },
+  ];
+
+  return (
+    <div className="space-y-6 animate-glass-fade-in">
+      <SectionHeader
+        title="Visão geral"
+        description={`Bem-vindo de volta, ${account?.displayName || "Utilizador"}.`}
+      >
+        <GlassButton
+          variant="primary"
+          size="sm"
+          onClick={() => router.push("/dashboard/links")}
+        >
+          <Plus className="h-4 w-4" /> Criar Link
+        </GlassButton>
+      </SectionHeader>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <StatCard
+            key={s.label}
+            label={s.label}
+            value={s.value}
+            icon={s.icon}
+            trend={s.trend}
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <PremiumCard className="xl:col-span-2 p-6" strong>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-base font-semibold text-white/90">
+                Performance semanal
+              </h3>
+              <p className="text-sm text-white/50">
+                Visualizações e cliques nos últimos 7 dias
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+              <TrendingUp className="h-3.5 w-3.5" />+
+              {analytics?.weeklyGrowth ?? 0}%
+            </div>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="label"
+                  stroke="rgba(255,255,255,0.2)"
+                  tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="rgba(255,255,255,0.2)"
+                  tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="views"
+                  name="Visualizações"
+                  stroke="rgba(255,255,255,0.6)"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorViews)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="clicks"
+                  name="Cliques"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorClicks)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </PremiumCard>
+
+        <LivePreview />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <PremiumCard className="p-0 overflow-hidden" strong>
+          <div className="p-6">
+            <h3 className="text-base font-semibold text-white/90">Resumo</h3>
+            <p className="text-sm text-white/50">Estado atual da página</p>
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {summaryItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
+                    <item.icon className="h-4 w-4 text-white/60" />
+                  </div>
+                  <span className="text-sm text-white/70">{item.label}</span>
+                </div>
+                <span className="text-sm font-medium text-white/90 truncate max-w-[140px]">
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </PremiumCard>
+
+        <PremiumCard className="lg:col-span-2 p-6" strong>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold text-white/90">Top links</h3>
+              <p className="text-sm text-white/50">Links com melhor desempenho</p>
+            </div>
+            <GlassButton
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/dashboard/analytics")}
+            >
+              Ver analytics <ArrowUpRight className="h-4 w-4" />
+            </GlassButton>
+          </div>
+
+          {analytics?.topLinks && analytics.topLinks.length > 0 ? (
+            <div className="space-y-3">
+              {analytics.topLinks.slice(0, 5).map((link) => (
+                <div
+                  key={link.id}
+                  className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white/90 truncate">
+                      {link.title}
+                    </p>
+                    <p className="text-xs text-white/40">{link.ctr}% CTR</p>
+                  </div>
+                  <span className="text-sm font-medium text-white/70">
+                    {link.clicks} cliques
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Link2}
+              title="Ainda não há dados de cliques"
+              description="Os seus links começarão a aparecer aqui assim que receberem tráfego."
+            />
+          )}
+        </PremiumCard>
+      </div>
+
+      <PremiumCard className="p-6" strong>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-white/90">
+              Últimos visitantes
+            </h3>
+            <p className="text-sm text-white/50">Atividade recente na página</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <Clock className="h-3.5 w-3.5" /> <span>Em tempo real</span>
+          </div>
+        </div>
+
+        {recentVisitors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentVisitors.map((visitor) => (
+              <div
+                key={visitor.id}
+                className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
+                  <Globe className="h-4 w-4 text-white/60" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white/90 truncate">
+                    {visitor.country || "Desconhecido"}
+                  </p>
+                  <p className="text-xs text-white/40">
+                    {visitor.browser} • {visitor.os}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Calendar}
+            title="Ainda não há visitantes registados"
+            description="Quando alguém visitar a sua página, os dados aparecerão aqui."
+          />
+        )}
+      </PremiumCard>
+
+      <PremiumCard className="p-6" strong>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] ring-1 ring-white/[0.06]">
+              <Activity className="h-5 w-5 text-white/60" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-white/90">
+                Atividades recentes
+              </h3>
+              <p className="text-sm text-white/50">
+                Resumo das ações mais recentes na sua conta.
+              </p>
+            </div>
+          </div>
+          <GlassButton variant="ghost" size="sm" onClick={() => router.push("/dashboard/analytics")}>
+            Ver tudo <ArrowRight className="h-4 w-4" />
+          </GlassButton>
+        </div>
+        <div className="mt-6 text-center py-8 text-white/40 text-sm">
+          <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>Nenhuma atividade recente.</p>
+        </div>
+      </PremiumCard>
+    </div>
+  );
+}

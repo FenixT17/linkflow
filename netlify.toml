@@ -1,0 +1,40 @@
+# ──────────────────────────────────────────────
+# LinkFlow — Netlify Configuration
+# ──────────────────────────────────────────────
+#
+# Variáveis de ambiente obrigatórias (definir no
+# dashboard do Netlify: Site Settings > Environment):
+#
+#   NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+#   NEXT_PUBLIC_APPWRITE_PROJECT_ID=<your-project-id>
+#   NEXT_PUBLIC_APPWRITE_DATABASE_ID=linkflow
+#   NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID=files
+#   APPWRITE_API_KEY=<your-server-api-key>
+#
+# NOTA: Os redirects, rewrites e security headers
+# são geridos pelo next.config.ts — o plugin
+# @netlify/plugin-nextjs processa-os automaticamente.
+# ──────────────────────────────────────────────
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.processing]
+  skip_processing = true
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── Next.js Runtime Plugin ────────────────────
+# Gere SSR, ISR, API routes, Server Actions,
+# middleware e edge functions automaticamente.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ── Serverless Functions ─────────────────────
+# API routes do Next.js são convertidas em
+# Netlify Functions pelo plugin acima.
+
+[functions]
+  node_bundler = "esbuild"

@@ -1,0 +1,61 @@
+# =============================================================================
+# LinkFlow Robots.txt — Configuração Profissional e Segura
+# =============================================================================
+# Objetivo: permitir a indexação apenas das páginas públicas e impedir a
+# indexação de áreas privadas, APIs e autenticação.
+#
+# ATENÇÃO: este ficheiro NÃO deve ser usado como mecanismo de segurança.
+# As rotas privadas são protegidas pelo servidor. As diretivas abaixo servem
+# apenas para orientar os crawlers.
+#
+# Páginas públicas: /, /demo, /u/:username
+# Áreas bloqueadas: /dashboard, /api, /auth, /login, /register
+# =============================================================================
+
+User-agent: *
+Allow: /
+Allow: /demo
+Allow: /u/
+Disallow: /dashboard
+Disallow: /api
+Disallow: /auth
+Disallow: /login
+Disallow: /register
+
+# -----------------------------------------------------------------------------
+# Crawlers de IA e motores de busca específicos
+# -----------------------------------------------------------------------------
+User-agent: ChatGPT
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: GPTBot
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: ClaudeBot
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: Google-Extended
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: Bytespider
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: CCBot
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+# -----------------------------------------------------------------------------
+# Sitemap
+# -----------------------------------------------------------------------------
+Sitemap: https://linkflow.app/sitemap.xml
