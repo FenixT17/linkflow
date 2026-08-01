@@ -468,13 +468,6 @@ export async function getRecentSecurityLogs(_userId: string, limit = 50): Promis
 
 // ---------- Social Links ----------
 
-export async function updateSocialLinks(pageId: string, social: SocialLinks) {
-  await requireOwnerOfPage(pageId);
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
-    socialJson: JSON.stringify(social),
-  });
-}
-
 /**
  * Persist the structured social network list.
  * Entries are normalized server-side (platform whitelist, URL() validation,
