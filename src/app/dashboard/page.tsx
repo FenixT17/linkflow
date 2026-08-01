@@ -13,7 +13,6 @@ import {
   Plus,
   Link2,
   Globe,
-  Smartphone,
   Clock,
   Calendar,
   Activity,
@@ -24,6 +23,7 @@ import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassButton } from "@/components/ui/glass-button";
+import { ResumoCard } from "@/components/dashboard/resumo-card";
 
 import {
   AreaChart,
@@ -91,13 +91,26 @@ function ChartTooltip({
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { page, analytics, links, account } = useAuth();
+  const { page, analytics, links, account, refreshAnalytics } = useAuth();
 
   useEffect(() => {
     if (!page) {
       router.replace("/dashboard/create");
     }
   }, [page, router]);
+
+  // Atualização automática das estatísticas (sem recarregar a página)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refreshAnalytics();
+    }, 30_000);
+    const onFocus = () => void refreshAnalytics();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshAnalytics]);
 
   const chartData = useChartData();
 
@@ -129,37 +142,21 @@ export default function DashboardPage() {
       },
       {
         label: "Visitantes",
-        value: formatNumber(analytics?.followers ?? 0),
+        value: formatNumber(analytics?.uniqueVisitors ?? 0),
         icon: Users,
+        trend:
+          (analytics?.uniqueVisitors ?? 0) > 0
+            ? {
+                value: `${(analytics?.visitorGrowth ?? 0) > 0 ? "+" : ""}${analytics?.visitorGrowth ?? 0}% · 7 dias`,
+                positive: (analytics?.visitorGrowth ?? 0) >= 0,
+              }
+            : undefined,
       },
     ],
     [analytics, hasWeeklyGrowth, hasMonthlyGrowth]
   );
 
-  const activeLinks = links.filter((l) => l.active && l.visible).length;
-  const topLink = [...(analytics?.topLinks ?? [])].sort(
-    (a, b) => b.clicks - a.clicks
-  )[0];
   const recentVisitors = (analytics?.recentVisitors ?? []).slice(0, 6);
-
-  const summaryItems = [
-    { icon: Link2, label: "Links ativos", value: activeLinks },
-    {
-      icon: MousePointer,
-      label: "Link mais clicado",
-      value: topLink?.title || "—",
-    },
-    {
-      icon: Globe,
-      label: "Países",
-      value: analytics?.topCountries?.length ?? 0,
-    },
-    {
-      icon: Smartphone,
-      label: "Dispositivos",
-      value: analytics?.topDevices?.length ?? 0,
-    },
-  ];
 
   return (
     <div className="space-y-6 animate-glass-fade-in">
@@ -266,30 +263,7 @@ export default function DashboardPage() {
       </PremiumCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PremiumCard className="p-0 overflow-hidden" strong>
-          <div className="p-6">
-            <h3 className="text-base font-semibold text-white/90">Resumo</h3>
-            <p className="text-sm text-white/50">Estado atual da página</p>
-          </div>
-          <div className="divide-y divide-white/[0.06]">
-            {summaryItems.map((item) => (
-              <div
-                key={item.label}
-                className="flex items-center justify-between px-6 py-4 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
-                    <item.icon className="h-4 w-4 text-white/60" />
-                  </div>
-                  <span className="text-sm text-white/70">{item.label}</span>
-                </div>
-                <span className="text-sm font-medium text-white/90 truncate max-w-[140px]">
-                  {item.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </PremiumCard>
+        <ResumoCard links={links} analytics={analytics} />
 
         <PremiumCard className="lg:col-span-2 p-6" strong>
           <div className="flex items-center justify-between mb-4">

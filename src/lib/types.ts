@@ -37,6 +37,20 @@ export interface LinkItem {
   scheduledFor?: string;
 }
 
+export type PageType =
+  | "minimal"
+  | "creator"
+  | "business"
+  | "store"
+  | "portfolio"
+  | "photographer"
+  | "music"
+  | "restaurant"
+  | "event"
+  | "resume"
+  | "gamer"
+  | "developer";
+
 export interface PageProfile {
   username: string;
   displayName: string;
@@ -44,6 +58,7 @@ export interface PageProfile {
   avatar?: string;
   banner?: string;
   published: boolean;
+  pageType?: PageType;
   scheduledPublishAt?: string;
   scheduledUnpublishAt?: string;
 }
@@ -99,6 +114,10 @@ export interface AnalyticsData {
   clicks: number;
   ctr: number;
   followers: number;
+  /** Visitantes únicos (visitorHash distintos) */
+  uniqueVisitors: number;
+  /** Crescimento real de visitantes: últimos 7 dias vs os 7 anteriores (%) */
+  visitorGrowth: number;
   weeklyGrowth: number;
   monthlyGrowth: number;
   topLinks: TopLink[];
@@ -112,12 +131,14 @@ export interface AnalyticsData {
 export interface TopLink {
   id: string;
   title: string;
+  url?: string;
   clicks: number;
   ctr: number;
 }
 
 export interface TopCountry {
   country: string;
+  countryCode?: string;
   region?: string;
   city?: string;
   count: number;
@@ -132,14 +153,13 @@ export interface TopDevice {
 export interface Visitor {
   id: string;
   country: string;
+  countryCode?: string;
+  city?: string;
   device: string;
   browser: string;
   os: string;
-  language: string;
-  resolution: string;
-  firstVisit: string;
-  lastVisit: string;
-  visits: number;
+  referer?: string;
+  time: string;
 }
 
 export interface HourlyStat {

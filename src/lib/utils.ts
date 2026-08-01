@@ -71,3 +71,24 @@ export function hexToRgba(hex: string, alpha: number): string {
   const a = Number.isFinite(alpha) ? Math.min(1, Math.max(0, alpha)) : 1;
   return `rgba(${r},${g},${b},${a})`;
 }
+
+// ---------- Link tracking ----------
+
+/**
+ * Regista um clique num link da página pública (POST /api/click).
+ * Partilhado entre os componentes de tracking (trackable-link e
+ * tracked-link dos templates) para evitar duplicação.
+ */
+export async function recordLinkClick(pageId: string, linkId: string) {
+  try {
+    await fetch("/api/click", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId, linkId }),
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[recordLinkClick] failed:", error);
+    }
+  }
+}

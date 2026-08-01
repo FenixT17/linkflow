@@ -209,9 +209,10 @@ async function provision() {
   await createStringAttribute("pages", "avatarId", 255, false);
   await createStringAttribute("pages", "bannerId", 255, false);
   await createBooleanAttribute("pages", "published", true, false);
+  await createStringAttribute("pages", "pageType", 32, false, "minimal");
   await createDatetimeAttribute("pages", "scheduledPublishAt", false);
   await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "scheduledPublishAt", "scheduledUnpublishAt"]);
+  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "scheduledPublishAt", "scheduledUnpublishAt"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 
@@ -275,6 +276,38 @@ async function provision() {
   await createStringAttribute("analytics", "metricsJson", 1048576, false);
   await waitForAttributes("analytics", ["pageId", "views", "clicks", "followers", "metricsJson"]);
   await createIndex("analytics", "idx_analytics_pageId", "unique", ["pageId"]);
+
+  // 5b. Visits collection (raw analytics events)
+  // Server-only: raw visits stored by the view/click API routes. The IP is
+  // never exposed to clients — it is only used to derive the country and to
+  // deduplicate unique visitors. No permissions: only the server SDK (API
+  // key) writes/reads this collection; clients have zero access.
+  console.log("\n🕵️ Collection: visits");
+  await createCollection(
+    "visits",
+    "Visits",
+    [],
+    true
+  );
+  await createStringAttribute("visits", "pageId", 255, true);
+  await createStringAttribute("visits", "visitorHash", 128, false);
+  await createStringAttribute("visits", "ip", 64, false);
+  await createStringAttribute("visits", "country", 128, false);
+  await createStringAttribute("visits", "countryCode", 8, false);
+  await createStringAttribute("visits", "city", 128, false);
+  await createStringAttribute("visits", "device", 32, false);
+  await createStringAttribute("visits", "browser", 64, false);
+  await createStringAttribute("visits", "os", 64, false);
+  await createStringAttribute("visits", "referer", 512, false);
+  await createStringAttribute("visits", "userAgent", 512, false);
+  await createStringAttribute("visits", "clickedLink", 255, false);
+  await createDatetimeAttribute("visits", "createdAt", false);
+  await waitForAttributes("visits", [
+    "pageId", "visitorHash", "ip", "country", "countryCode", "city", "device",
+    "browser", "os", "referer", "userAgent", "clickedLink", "createdAt",
+  ]);
+  await createIndex("visits", "idx_visits_pageId", "key", ["pageId"]);
+  await createIndex("visits", "idx_visits_pageId_createdAt", "key", ["pageId", "createdAt"]);
 
   // 6. Themes collection
   // Public read access is NOT granted at collection level. Public themes are

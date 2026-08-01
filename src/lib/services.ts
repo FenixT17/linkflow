@@ -6,6 +6,7 @@ import {
   Appearance,
   LinkItem,
   PageProfile,
+  PageType,
   UserAccount,
   AnalyticsData,
   TopDevice,
@@ -173,6 +174,7 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
     ...profile,
     userId: session.$id,
     published: false,
+    pageType: profile.pageType ?? "minimal",
   }, [
     Permission.read(Role.user(session.$id)),
     Permission.update(Role.user(session.$id)),
@@ -192,6 +194,7 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
       ctr: 0,
       weeklyGrowth: 0,
       monthlyGrowth: 0,
+      visitorGrowth: 0,
       topLinks: [],
       topCountries: [],
       topDevices: [],
@@ -199,6 +202,9 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
       recentVisitors: [],
       hourlyStats: [],
       dailyStats: [],
+      visitorSet: [],
+      dailyVisitors: [],
+      uniqueVisitors: 0,
     }),
   });
   return doc;
@@ -237,6 +243,7 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
     avatar: doc.avatarId ? getFilePreviewUrl(Buckets.files, String(doc.avatarId)) : undefined,
     banner: doc.bannerId ? getFilePreviewUrl(Buckets.files, String(doc.bannerId)) : undefined,
     published: Boolean(doc.published),
+    pageType: (doc.pageType as PageType) ?? "minimal",
     scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
     scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,
   };
@@ -439,35 +446,49 @@ export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsDat
   if (!doc) {
     return emptyAnalytics();
   }
-  const metrics: Partial<AnalyticsData> & { deviceLog?: string[] } = JSON.parse(String(doc.metricsJson ?? "{}"));
+  const metrics: Partial<AnalyticsData> & { deviceLog?: string[]; visitorSet?: string[] } = JSON.parse(String(doc.metricsJson ?? "{}"));
 
-  // Compute topDevices from deviceLog (real device type data)
+  // topDevices: agregado real (contagens por tipo). Fallback: deviceLog legado.
   let topDevices: TopDevice[];
-  const deviceLog = Array.isArray(metrics.deviceLog) ? metrics.deviceLog : [];
-  if (deviceLog.length > 0) {
-    const counts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 };
-    for (const d of deviceLog) {
-      if (d in counts) counts[d] += 1;
-    }
-    const total = deviceLog.length;
-    topDevices = ["mobile", "desktop", "tablet"].map((type) => ({
-      type: type as TopDevice["type"],
-      count: counts[type],
-      percentage: Math.round((counts[type] / total) * 100),
+  const storedDevices = Array.isArray(metrics.topDevices) ? metrics.topDevices : [];
+  if (storedDevices.length > 0) {
+    const total = storedDevices.reduce((sum, d) => sum + (d.count || 0), 0);
+    topDevices = storedDevices.map((d) => ({
+      type: d.type,
+      count: d.count || 0,
+      percentage: total > 0 ? Math.round(((d.count || 0) / total) * 100) : 0,
     }));
   } else {
-    topDevices = Array.isArray(metrics.topDevices) ? metrics.topDevices : [];
+    const deviceLog = Array.isArray(metrics.deviceLog) ? metrics.deviceLog : [];
+    if (deviceLog.length > 0) {
+      const counts: Record<string, number> = { mobile: 0, desktop: 0, tablet: 0 };
+      for (const d of deviceLog) {
+        if (d in counts) counts[d] += 1;
+      }
+      const total = deviceLog.length;
+      topDevices = ["mobile", "desktop", "tablet"].map((type) => ({
+        type: type as TopDevice["type"],
+        count: counts[type],
+        percentage: Math.round((counts[type] / total) * 100),
+      }));
+    } else {
+      topDevices = [];
+    }
   }
+
+  const uniqueVisitors = Number(metrics.uniqueVisitors ?? 0);
 
   return {
     views: Number(doc.views),
     clicks: Number(doc.clicks),
     ctr: Number(metrics.ctr ?? 0),
     followers: Number(doc.followers),
+    uniqueVisitors,
+    visitorGrowth: Number(metrics.visitorGrowth ?? 0),
     weeklyGrowth: Number(metrics.weeklyGrowth ?? 0),
     monthlyGrowth: Number(metrics.monthlyGrowth ?? 0),
-    topLinks: Array.isArray(metrics.topLinks) ? metrics.topLinks : [],
-    topCountries: Array.isArray(metrics.topCountries) ? metrics.topCountries : [],
+    topLinks: (Array.isArray(metrics.topLinks) ? metrics.topLinks : []).sort((a, b) => b.clicks - a.clicks),
+    topCountries: (Array.isArray(metrics.topCountries) ? metrics.topCountries : []).sort((a, b) => b.count - a.count),
     topDevices,
     recentVisitors: Array.isArray(metrics.recentVisitors) ? metrics.recentVisitors : [],
     hourlyStats: Array.isArray(metrics.hourlyStats) ? metrics.hourlyStats : [],

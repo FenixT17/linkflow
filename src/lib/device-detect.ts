@@ -33,6 +33,37 @@ export function detectDeviceType(userAgent: string | null | undefined): DeviceTy
 }
 
 /**
+ * Deteta o browser a partir do user-agent.
+ */
+export function detectBrowser(userAgent: string | null | undefined): string {
+  if (!userAgent) return "Desconhecido";
+  const ua = userAgent.toLowerCase();
+  if (ua.includes("edg/")) return "Edge";
+  if (ua.includes("opr/") || ua.includes("opera")) return "Opera";
+  if (ua.includes("chrome") && !ua.includes("chromium")) return "Chrome";
+  if (ua.includes("firefox")) return "Firefox";
+  if (ua.includes("safari") && !ua.includes("chrome")) return "Safari";
+  if (ua.includes("samsungbrowser")) return "Samsung Internet";
+  if (ua.includes("ucbrowser")) return "UC Browser";
+  return "Outro";
+}
+
+/**
+ * Deteta o sistema operativo a partir do user-agent.
+ */
+export function detectOS(userAgent: string | null | undefined): string {
+  if (!userAgent) return "Desconhecido";
+  const ua = userAgent.toLowerCase();
+  if (ua.includes("windows")) return "Windows";
+  if (ua.includes("android")) return "Android";
+  if (ua.includes("iphone") || ua.includes("ipod")) return "iOS";
+  if (ua.includes("ipad") || (ua.includes("macintosh") && ua.includes("mobile"))) return "iPadOS";
+  if (ua.includes("mac os") || ua.includes("macintosh")) return "macOS";
+  if (ua.includes("linux")) return "Linux";
+  return "Outro";
+}
+
+/**
  * Regista o tipo de dispositivo no metricsJson.
  * Devolve o metricsJson atualizado.
  */

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { Query } from "node-appwrite";
-import { updateDailyStats } from "@/lib/analytics";
+import { recordAnalyticsEvent } from "@/lib/analytics";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { recordDeviceVisit } from "@/lib/device-detect";
+import { resolveGeo } from "@/lib/geo";
+import { detectDeviceType, detectBrowser, detectOS } from "@/lib/device-detect";
 
 // NOTA: Este endpoint é público e anónimo — regista cliques de
 // visitantes não autenticados na página pública /u/[username]. Aplica
@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createServerClient();
 
+    let pageDoc;
     try {
-      const pageDoc = await databases.getDocument(databaseId, "pages", pageId);
+      pageDoc = await databases.getDocument(databaseId, "pages", pageId);
       if (!pageDoc.published) {
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
@@ -38,28 +39,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
     }
 
-    const analyticsDocs = await databases.listDocuments(databaseId, "analytics", [
-      Query.equal("pageId", pageId),
-    ]);
+    const userAgent = request.headers.get("user-agent") ?? "";
+    const referer = request.headers.get("referer") ?? "";
+    const geo = await resolveGeo(ip, request);
 
-    if (analyticsDocs.documents.length > 0) {
-      const doc = analyticsDocs.documents[0];
-      const metricsJson = JSON.parse(String(doc.metricsJson ?? "{}"));
-      const dailyStats = Array.isArray(metricsJson.dailyStats) ? metricsJson.dailyStats : [];
-      const updatedDailyStats = updateDailyStats(dailyStats, "clicks");
-      const userAgent = request.headers.get("user-agent") ?? "";
-      const updatedMetrics = recordDeviceVisit({ ...metricsJson, dailyStats: updatedDailyStats }, userAgent);
-
-      await databases.updateDocument(databaseId, "analytics", doc.$id, {
-        clicks: (Number(doc.clicks) || 0) + 1,
-        metricsJson: JSON.stringify(updatedMetrics),
-      });
-    }
-
+    // Detalhes do link clicado (para o agregado real de Top Links)
+    let linkTitle = "";
+    let linkUrl = "";
     if (linkId) {
       try {
         const linkDoc = await databases.getDocument(databaseId, "links", linkId);
         if (linkDoc) {
+          linkTitle = String(linkDoc.title ?? "");
+          linkUrl = String(linkDoc.url ?? "");
           await databases.updateDocument(databaseId, "links", linkId, {
             clicks: (Number(linkDoc.clicks) || 0) + 1,
           });
@@ -68,6 +60,23 @@ export async function POST(request: NextRequest) {
         // Link not found; ignore
       }
     }
+
+    // Regista o clique com todos os dados reais recolhidos.
+    await recordAnalyticsEvent(databases, {
+      pageId,
+      ownerUserId: String(pageDoc.userId),
+      type: "clicks",
+      userAgent,
+      ip,
+      referer,
+      geo,
+      device: detectDeviceType(userAgent),
+      browser: detectBrowser(userAgent),
+      os: detectOS(userAgent),
+      linkId,
+      linkTitle,
+      linkUrl,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

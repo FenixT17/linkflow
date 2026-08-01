@@ -6,6 +6,7 @@ import { sanitizeUrl } from "@/lib/sanitize";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
 import { getLiquidGlassClasses } from "@/lib/themes";
+import { recordLinkClick } from "@/lib/utils";
 
 interface TrackableLinkProps {
   link: LinkItem;
@@ -17,13 +18,7 @@ export function TrackableLink({ link, pageId, appearance }: TrackableLinkProps) 
   const theme = getLiquidGlassClasses();
 
   const handleClick = () => {
-    fetch("/api/click", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId, linkId: link.id }),
-    }).catch((error) => {
-      console.error("[TrackableLink] failed to record click:", error);
-    });
+    void recordLinkClick(pageId, link.id);
   };
 
   return (

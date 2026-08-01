@@ -35,6 +35,8 @@ export function emptyAnalytics(): AnalyticsData {
     clicks: 0,
     ctr: 0,
     followers: 0,
+    uniqueVisitors: 0,
+    visitorGrowth: 0,
     weeklyGrowth: 0,
     monthlyGrowth: 0,
     topLinks: [],

@@ -66,6 +66,7 @@ interface AuthContextValue {
   createPage: (profile: Omit<PageProfile, "published">) => Promise<void>;
   updatePage: (patch: Partial<PageProfile>) => Promise<void>;
   refreshPage: () => Promise<void>;
+  refreshAnalytics: () => Promise<void>;
   setLinks: (links: LinkItem[] | ((prev: LinkItem[]) => LinkItem[])) => void;
   updateAppearance: (patch: Partial<Appearance>) => void;
   updateSettings: (patch: Partial<UserSettings>) => void;
@@ -542,6 +543,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [pageId]);
 
+  const refreshAnalytics = useCallback(async () => {
+    if (!pageId) return;
+    try {
+      const fetched = await getAnalyticsByPageId(pageId);
+      setAnalytics(fetched ?? emptyAnalytics());
+    } catch (error) {
+      console.error("[AuthContext] refreshAnalytics failed:", error);
+    }
+  }, [pageId]);
+
   const setLinks = useCallback((value: LinkItem[] | ((prev: LinkItem[]) => LinkItem[])) => {
     setLinksState((prev) => (typeof value === "function" ? (value as (prev: LinkItem[]) => LinkItem[])(prev) : value));
   }, []);
@@ -628,6 +639,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createPage,
       updatePage,
       refreshPage,
+      refreshAnalytics,
       setLinks,
       updateAppearance,
       updateSettings,
@@ -651,6 +663,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createPage,
       updatePage,
       refreshPage,
+      refreshAnalytics,
       setLinks,
       updateAppearance,
       updateSettings,

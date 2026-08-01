@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { Query } from "node-appwrite";
-import { updateDailyStats } from "@/lib/analytics";
+import { recordAnalyticsEvent } from "@/lib/analytics";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { recordDeviceVisit } from "@/lib/device-detect";
+import { resolveGeo } from "@/lib/geo";
+import { detectDeviceType, detectBrowser, detectOS } from "@/lib/device-detect";
 
 // NOTA: Este endpoint é público e anónimo — regista visualizações de
 // visitantes não autenticados na página pública /u/[username]. Aplica
@@ -28,8 +28,9 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createServerClient();
 
+    let pageDoc;
     try {
-      const pageDoc = await databases.getDocument(databaseId, "pages", pageId);
+      pageDoc = await databases.getDocument(databaseId, "pages", pageId);
       if (!pageDoc.published) {
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
@@ -37,24 +38,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
     }
 
-    const docs = await databases.listDocuments(databaseId, "analytics", [
-      Query.equal("pageId", pageId),
-    ]);
-
-    if (docs.documents.length === 0) {
-      return NextResponse.json({ error: "Analytics not found" }, { status: 404 });
-    }
-
-    const doc = docs.documents[0];
-    const metricsJson = JSON.parse(String(doc.metricsJson ?? "{}"));
-    const dailyStats = Array.isArray(metricsJson.dailyStats) ? metricsJson.dailyStats : [];
-    const updatedDailyStats = updateDailyStats(dailyStats, "views");
     const userAgent = request.headers.get("user-agent") ?? "";
-    const updatedMetrics = recordDeviceVisit({ ...metricsJson, dailyStats: updatedDailyStats }, userAgent);
+    const referer = request.headers.get("referer") ?? "";
 
-    await databases.updateDocument(databaseId, "analytics", doc.$id, {
-      views: (Number(doc.views) || 0) + 1,
-      metricsJson: JSON.stringify(updatedMetrics),
+    // GeoIP real (país/cidade) a partir do IP — nunca exposto ao cliente.
+    const geo = await resolveGeo(ip, request);
+
+    // Regista a visualização com todos os dados reais recolhidos.
+    await recordAnalyticsEvent(databases, {
+      pageId,
+      ownerUserId: String(pageDoc.userId),
+      type: "views",
+      userAgent,
+      ip,
+      referer,
+      geo,
+      device: detectDeviceType(userAgent),
+      browser: detectBrowser(userAgent),
+      os: detectOS(userAgent),
     });
 
     return NextResponse.json({ success: true });

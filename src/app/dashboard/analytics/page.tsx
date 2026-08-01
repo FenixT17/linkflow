@@ -58,7 +58,7 @@ function exportAnalyticsCSV(analytics: ReturnType<typeof useAuth>["analytics"]) 
 
   lines.push("Métricas");
   lines.push("Visualizações,Cliques,CTR,Visitantes");
-  lines.push(`${analytics.views},${analytics.clicks},${analytics.ctr},${analytics.followers}`);
+  lines.push(`${analytics.views},${analytics.clicks},${analytics.ctr},${analytics.uniqueVisitors}`);
   lines.push("");
 
   if (analytics.dailyStats.length > 0) {
@@ -139,7 +139,7 @@ export default function AnalyticsPage() {
       views: analytics?.views ?? 0,
       clicks: analytics?.clicks ?? 0,
       ctr: analytics?.ctr ?? 0,
-      followers: analytics?.followers ?? 0,
+      uniqueVisitors: analytics?.uniqueVisitors ?? 0,
       weeklyGrowth: analytics?.weeklyGrowth ?? 0,
       monthlyGrowth: analytics?.monthlyGrowth ?? 0,
       topDevices: analytics?.topDevices ?? [],
@@ -169,7 +169,7 @@ export default function AnalyticsPage() {
     { label: "Visualizações", value: formatNumber(safe.views), icon: Eye, trend: safe.weeklyGrowth },
     { label: "Cliques", value: formatNumber(safe.clicks), icon: MousePointer, trend: safe.weeklyGrowth },
     { label: "CTR", value: `${safe.ctr}%`, icon: Percent },
-    { label: "Visitantes", value: formatNumber(safe.followers), icon: Users, trend: safe.monthlyGrowth },
+    { label: "Visitantes", value: formatNumber(safe.uniqueVisitors), icon: Users, trend: safe.monthlyGrowth },
   ];
 
   const deviceIcons: Record<string, typeof Smartphone> = {

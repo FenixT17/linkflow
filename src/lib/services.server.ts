@@ -5,6 +5,7 @@ import {
   Appearance,
   LinkItem,
   PageProfile,
+  PageType,
   AnalyticsData,
 } from "./types";
 
@@ -36,6 +37,7 @@ export const getPublicPageByUsername = cache(
       avatar: doc.avatarId ? getFileUrl(String(doc.avatarId)) : undefined,
       banner: doc.bannerId ? getFileUrl(String(doc.bannerId)) : undefined,
       published: Boolean(doc.published),
+      pageType: (doc.pageType as PageType) ?? "minimal",
     } as PageProfile & { $id: string };
   }
 );
