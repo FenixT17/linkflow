@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { requireAuth } from "@/lib/auth.server";
+import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { ID, Query } from "node-appwrite";
 
@@ -13,12 +14,15 @@ const COLLECTION_USERS = "users";
  * Usa o server SDK (com API key) para garantir permissões de escrita,
  * ao contrário do client SDK que pode falhar por falta de permissões.
  *
- * NOTA: Este endpoint NÃO usa CSRF porque é chamado internamente durante
- * o fluxo OAuth, antes do token CSRF estar inicializado. No entanto,
- * verifica obrigatoriamente o cookie de sessão do Appwrite e deriva o
- * userId a partir da sessão, nunca do corpo do pedido.
+ * NOTA (M3): o cliente chama este endpoint via fetchWithCsrf, por isso o
+ * token CSRF já está validado aqui (csrfGuard) — postura consistente com o
+ * resto das mutações. Além disso, verifica obrigatoriamente o cookie de
+ * sessão do Appwrite e deriva o userId a partir da sessão, nunca do corpo.
  */
 export async function POST(request: NextRequest) {
+  const csrfCheck = csrfGuard(request);
+  if (csrfCheck) return csrfCheck;
+
   try {
     // 1. Verificar sessão e obter o utilizador autenticado
     // NOTA: Todos os dados são derivados EXCLUSIVAMENTE da sessão server-side.

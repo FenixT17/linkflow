@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
     } catch {
+      // M5: resposta IDÊNTICA em ambos os casos (doc inexistente vs permissão
+      // negada) — sem timing/body diferente que permita enumerar páginas.
       return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
     }
 

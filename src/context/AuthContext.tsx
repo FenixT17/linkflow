@@ -22,7 +22,7 @@ import {
 } from "@/lib/types";
 
 import { detectSuspiciousInput } from "@/lib/sanitize";
-import { initCsrfToken, refreshCsrfToken, clearCsrfToken, fetchWithCsrf } from "@/hooks/use-csrf";
+import { initCsrfToken, refreshCsrfToken, clearCsrfToken } from "@/hooks/use-csrf";
 import {
   defaultAppearance,
   defaultSettings,
@@ -120,7 +120,7 @@ function getFriendlyError(rawError: unknown, context: "register" | "login"): str
 
   // Password fraca
   if (msg.includes("password") && (msg.includes("weak") || msg.includes("too short") || msg.includes("invalid"))) {
-    return "A palavra-passe não cumpre os requisitos de segurança. Use 8+ caracteres, 1 maiúscula, 1 minúscula e 1 número.";
+    return "A palavra-passe não cumpre os requisitos de segurança. Use 12+ caracteres, 1 maiúscula, 1 minúscula, 1 número e 1 símbolo.";
   }
 
   // Rate limit
@@ -593,12 +593,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSettingsState((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // /api/view e /api/click são endpoints públicos anónimos (rate-limited por
+  // IP) que NÃO usam csrfGuard. Usamos fetch simples de propósito: com o
+  // fetchWithCsrf fail-closed (M2), um token CSRF indisponível quebraria o
+  // tracking destes endpoints que não exigem CSRF.
   const recordView = useCallback(async () => {
     if (!pageId) return;
     setAnalytics((prev) => ({ ...prev, views: prev.views + 1 }));
     try {
-      await fetchWithCsrf("/api/view", {
+      await fetch("/api/view", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId }),
       });
     } catch (error) {
@@ -614,8 +619,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ...prev, clicks, ctr };
     });
     try {
-      await fetchWithCsrf("/api/click", {
+      await fetch("/api/click", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pageId, linkId }),
       });
     } catch (error) {

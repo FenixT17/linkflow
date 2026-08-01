@@ -21,14 +21,15 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
 
-  // Real-time password strength checks
+  // Real-time password strength checks (política L1: 12+ chars + símbolo)
   const passwordChecks = useMemo(() => {
     if (!password) return null;
     return [
-      { label: "Pelo menos 8 caracteres", pass: password.length >= 8 },
+      { label: "Pelo menos 12 caracteres", pass: password.length >= 12 },
       { label: "Uma letra maiúscula", pass: /[A-Z]/.test(password) },
       { label: "Uma letra minúscula", pass: /[a-z]/.test(password) },
       { label: "Um número", pass: /[0-9]/.test(password) },
+      { label: "Um símbolo", pass: /[^A-Za-z0-9]/.test(password) },
     ];
   }, [password]);
 
@@ -141,7 +142,7 @@ function RegisterForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onFocus={() => setPasswordTouched(true)}
-                  placeholder="Mín. 8 caracteres, 1 maiúscula, 1 número"
+                  placeholder="Mín. 12 caracteres, 1 maiúscula, 1 número, 1 símbolo"
                   required
                   className="glass-input w-full px-4 py-2.5 text-sm"
                 />

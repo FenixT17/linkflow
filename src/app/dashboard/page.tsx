@@ -12,7 +12,7 @@ import {
   ArrowUpRight,
   Plus,
   Link2,
-  Globe,
+  UserRound,
   Clock,
   Calendar,
   Activity,
@@ -24,6 +24,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassButton } from "@/components/ui/glass-button";
 import { ResumoCard } from "@/components/dashboard/resumo-card";
+import { countryFlag, timeAgo, formatVisitTime } from "@/lib/utils";
 
 import {
   AreaChart,
@@ -329,16 +330,32 @@ export default function DashboardPage() {
                 key={visitor.id}
                 className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
-                  <Globe className="h-4 w-4 text-white/60" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/[0.06]">
+                  <UserRound className="h-4 w-4 text-white/60" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white/90 truncate">
-                    {visitor.country || "Desconhecido"}
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-white/90 truncate">
+                    <span className="text-base leading-none" aria-hidden="true">
+                      {countryFlag(visitor.countryCode)}
+                    </span>
+                    <span className="truncate">{visitor.country || "Desconhecido"}</span>
                   </p>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-white/40 truncate">
                     {visitor.browser} • {visitor.os}
                   </p>
+                </div>
+                <div
+                  className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-white/50"
+                  title={
+                    visitor.time && formatVisitTime(visitor.time)
+                      ? `Visitou às ${formatVisitTime(visitor.time)}`
+                      : undefined
+                  }
+                >
+                  <Clock className="h-3 w-3" />
+                  <span className="tabular-nums">
+                    {visitor.time ? timeAgo(visitor.time) : "—"}
+                  </span>
                 </div>
               </div>
             ))}

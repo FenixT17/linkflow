@@ -3,6 +3,7 @@
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getSafeTheme } from "@/lib/theme-security";
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
@@ -12,7 +13,8 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   if (!mounted) return <div className={["h-9 w-9", className].filter(Boolean).join(" ")} />;
 
-  const isDark = resolvedTheme === "dark";
+  // Apenas valores da whitelist controlam a UI (defesa em profundidade).
+  const isDark = getSafeTheme(resolvedTheme) === "dark";
 
   return (
     <button

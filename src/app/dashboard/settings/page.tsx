@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { GlassButton } from "@/components/ui/glass-button";
 import { useCsrfAction } from "@/components/ui/csrf-form";
 import { account as appwriteAccount } from "@/lib/appwrite";
-import { Save, Globe, Bell, Shield, Trash2, Mail, Lock, Smartphone } from "lucide-react";
+import { Save, Globe, Bell, Shield, Trash2, Mail, Lock, Smartphone, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { account } = useAuth();
@@ -61,8 +61,20 @@ export default function SettingsPage() {
                 </div>
                 {csrfError && <p className="text-sm text-red-400">{csrfError}</p>}
                 {message && <p className="text-sm text-emerald-400">{message}</p>}
-                <GlassButton type="submit" disabled={saving}>
-                  <Save className="h-4 w-4" /> {saving ? "A guardar..." : "Guardar"}
+                <GlassButton
+                  type="submit"
+                  variant="primary"
+                  loading={saving}
+                  className="pl-4! drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--background)]/80 ring-1 ring-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_6px_rgba(0,0,0,0.3)]">
+                    {saving ? (
+                      <Loader2 className="h-3.5 w-3.5 text-[var(--foreground)] animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5 text-[var(--foreground)]" strokeWidth={2.75} />
+                    )}
+                  </span>
+                  {saving ? "A guardar..." : "Guardar"}
                 </GlassButton>
               </form>
             </div>

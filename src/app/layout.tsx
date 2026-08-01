@@ -4,7 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/AuthContext";
 import { ZoomBlocker } from "@/components/zoom-blocker";
-import { organizationJsonLd, websiteJsonLd, softwareApplicationJsonLd, siteUrl, siteName, siteTagline, defaultDescription } from "@/lib/seo";
+import { organizationJsonLd, websiteJsonLd, softwareApplicationJsonLd, renderJsonLd, siteUrl, siteName, siteTagline, defaultDescription } from "@/lib/seo";
+import { THEME_SANITIZER_SCRIPT } from "@/lib/theme-security";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -104,15 +105,19 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        {/* Sanitização pré-hidratação: valida localStorage["theme"] contra a
+            whitelist ANTES do script inline do next-themes o aplicar ao DOM
+            (previne DOM XSS via secondary source — CWE-79). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={renderJsonLd(structuredData)}
         />
       </head>
       <body
         className={`${inter.variable} ${geist.variable}`}
       >
-        <ThemeProvider defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider defaultTheme="dark" enableSystem>
           <AuthProvider>
             <ZoomBlocker />
             {children}

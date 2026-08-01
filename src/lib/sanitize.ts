@@ -85,14 +85,19 @@ export function isValidEmail(input: string): boolean {
 }
 
 /**
- * Valida se uma password tem complexidade mínima.
+ * Valida se uma password tem complexidade mínima (L1 da auditoria).
+ *
+ * Política atual: >= 12 caracteres, 1 maiúscula, 1 minúscula,
+ * 1 número e 1 símbolo. (HIBP range API — k-anonymity — é opcional e
+ * não integrado para não adicionar dependência de rede no registo.)
  */
 export function isValidPassword(input: string): boolean {
   if (!input) return false;
-  if (input.length < 8) return false;
+  if (input.length < 12) return false;
   if (!/[A-Z]/.test(input)) return false;
   if (!/[a-z]/.test(input)) return false;
   if (!/[0-9]/.test(input)) return false;
+  if (!/[^A-Za-z0-9]/.test(input)) return false;
   return true;
 }
 

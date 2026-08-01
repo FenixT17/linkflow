@@ -29,7 +29,10 @@ import {
   Monitor,
   Tablet,
   Activity,
+  UserRound,
+  Clock,
 } from "lucide-react";
+import { countryFlag, timeAgo, formatVisitTime } from "@/lib/utils";
 
 function formatNumber(num: number) {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -147,6 +150,8 @@ export default function AnalyticsPage() {
     }),
     [analytics]
   );
+
+  const recentVisitors = (analytics?.recentVisitors ?? []).slice(0, 6);
 
   const chartData = useMemo(() => {
     if (safe.dailyStats.length >= range) {
@@ -327,6 +332,65 @@ export default function AnalyticsPage() {
           </div>
         </PremiumCard>
       </div>
+
+      <PremiumCard className="p-6" strong>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-white/90">
+              Últimos visitantes
+            </h3>
+            <p className="text-sm text-white/50">Atividade recente na página</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/40">
+            <Clock className="h-3.5 w-3.5" /> <span>Em tempo real</span>
+          </div>
+        </div>
+
+        {recentVisitors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentVisitors.map((visitor) => (
+              <div
+                key={visitor.id}
+                className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/[0.06]">
+                  <UserRound className="h-4 w-4 text-white/60" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-white/90 truncate">
+                    <span className="text-base leading-none" aria-hidden="true">
+                      {countryFlag(visitor.countryCode)}
+                    </span>
+                    <span className="truncate">{visitor.country || "Desconhecido"}</span>
+                  </p>
+                  <p className="text-xs text-white/40 truncate">
+                    {visitor.browser} • {visitor.os}
+                  </p>
+                </div>
+                <div
+                  className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-white/50"
+                  title={
+                    visitor.time && formatVisitTime(visitor.time)
+                      ? `Visitou às ${formatVisitTime(visitor.time)}`
+                      : undefined
+                  }
+                >
+                  <Clock className="h-3 w-3" />
+                  <span className="tabular-nums">
+                    {visitor.time ? timeAgo(visitor.time) : "—"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={UserRound}
+            title="Ainda não há visitantes registados"
+            description="Quando alguém visitar a sua página, os dados aparecerão aqui."
+          />
+        )}
+      </PremiumCard>
     </div>
   );
 }

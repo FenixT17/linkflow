@@ -20,14 +20,19 @@ const VALID_EVENTS = [
  * we record it as "anonymous" or derive nothing from the body. IP and
  * user agent are captured from the request for monitoring only.
  *
- * This endpoint is rate-limited to prevent log spam.
+ * This endpoint is rate-limited to prevent log spam (5/min por IP).
+ * Os logs são append-only (imutáveis) — não existe endpoint de edição ou
+ * remoção, e o rate limit por IP + CSRF + validação de eventType cobrem os
+ * 11 eventTypes aceites. O email é guardado apenas como hash (nunca em
+ * texto plano).
  */
 export async function POST(request: NextRequest) {
   const csrfCheck = csrfGuard(request);
   if (csrfCheck) return csrfCheck;
 
   // Rate limit: max 5 anonymous logs per IP per minute
-  const ip = getClientIp(request);    const rateLimit = checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }

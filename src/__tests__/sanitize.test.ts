@@ -142,27 +142,32 @@ describe("isValidEmail", () => {
 });
 
 describe("isValidPassword", () => {
-  it("accepts strong passwords (8+ chars, upper, lower, digit)", () => {
-    expect(isValidPassword("Abcdef12")).toBe(true);
-    expect(isValidPassword("P4ssw0rd")).toBe(true);
-    expect(isValidPassword("Secure123")).toBe(true);
+  it("accepts strong passwords (12+ chars, upper, lower, digit, symbol)", () => {
+    expect(isValidPassword("Abcdefghij12!")).toBe(true);
+    expect(isValidPassword("P4ssw0rdLong!")).toBe(true);
+    expect(isValidPassword("Secure#Passw0rd99")).toBe(true);
   });
 
   it("rejects short passwords", () => {
     expect(isValidPassword("Ab1")).toBe(false);
+    expect(isValidPassword("Abcdef12!")).toBe(false); // 9 chars
     expect(isValidPassword("")).toBe(false);
   });
 
   it("rejects passwords without uppercase", () => {
-    expect(isValidPassword("abcdef12")).toBe(false);
+    expect(isValidPassword("abcdefghij12!")).toBe(false);
   });
 
   it("rejects passwords without lowercase", () => {
-    expect(isValidPassword("ABCDEF12")).toBe(false);
+    expect(isValidPassword("ABCDEFGHIJ12!")).toBe(false);
   });
 
   it("rejects passwords without digits", () => {
-    expect(isValidPassword("Abcdefgh")).toBe(false);
+    expect(isValidPassword("Abcdefghijkl!")).toBe(false);
+  });
+
+  it("rejects passwords without a symbol", () => {
+    expect(isValidPassword("Abcdefghij12")).toBe(false);
   });
 });
 

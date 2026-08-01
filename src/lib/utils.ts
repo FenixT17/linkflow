@@ -72,6 +72,52 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+// ---------- Country flags ----------
+
+/**
+ * Converte um código ISO 3166-1 alpha-2 (ex: "PT") no emoji da bandeira
+ * correspondente. Códigos inválidos/ausentes devolvem o globo 🌍.
+ * Usado no dashboard (resumo de países e últimos visitantes).
+ */
+export function countryFlag(code?: string): string {
+  if (!code || code.length !== 2) return "🌍";
+  return String.fromCodePoint(
+    ...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0))
+  );
+}
+
+// ---------- Tempo relativo (dashboard) ----------
+
+/**
+ * Tempo relativo em pt-PT a partir de um ISO string (ex: "há 5 min",
+ * "há 3h", "há 2 dias"). Datas inválidas devolvem "—".
+ * Usado no cartão "Últimos visitantes" (dados chegam client-side).
+ */
+export function timeAgo(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "agora mesmo";
+  if (mins < 60) return `há ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `há ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "há 1 dia";
+  if (days < 7) return `há ${days} dias`;
+  return date.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+}
+
+/**
+ * Hora absoluta HH:MM (pt-PT) a partir de um ISO string.
+ * Datas inválidas devolvem string vazia.
+ */
+export function formatVisitTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+}
+
 // ---------- Link tracking ----------
 
 /**

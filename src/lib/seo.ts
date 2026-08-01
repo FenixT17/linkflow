@@ -195,8 +195,22 @@ export function webPageJsonLd(title: string, description: string, url: string) {
   };
 }
 
+/**
+ * Serializa dados JSON-LD de forma segura para injeção num <script>.
+ *
+ * `JSON.stringify` NÃO escapa `<`, `>`, `&` nem U+2028/U+2029. Se um campo
+ * controlado pelo utilizador (ex.: bio, displayName) contiver `</script>…`,
+ * o valor quebraria o <script type="application/ld+json"> e permitiria
+ * stored XSS (CWE-79). Este escape impede o breakout do script tag.
+ */
 export function renderJsonLd(data: object) {
+  const json = JSON.stringify(data)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
   return {
-    __html: JSON.stringify(data),
+    __html: json,
   };
 }

@@ -25,17 +25,20 @@ async function getCurrentSessionOrThrow(): Promise<Models.User<Models.Preference
 
 async function createOwnedDocument<T extends Record<string, unknown>>(
   collectionId: string,
-  data: T
+  data: T,
+  session?: Models.User<Models.Preferences>
 ) {
-  const session = await getCurrentSessionOrThrow();
+  // M7: reutiliza o session já obtido pelo caller (ex: requireOwnerOfPage)
+  // para evitar um account.get() redundante por mutação.
+  const current = session ?? (await getCurrentSessionOrThrow());
   return databases.createDocument(databaseId, collectionId, ID.unique(), data, [
-    Permission.read(Role.user(session.$id)),
-    Permission.update(Role.user(session.$id)),
-    Permission.delete(Role.user(session.$id)),
+    Permission.read(Role.user(current.$id)),
+    Permission.update(Role.user(current.$id)),
+    Permission.delete(Role.user(current.$id)),
   ]);
 }
 
-async function requireOwnerOfPage(pageId: string): Promise<void> {
+async function requireOwnerOfPage(pageId: string): Promise<Models.User<Models.Preferences>> {
   const session = await getCurrentSessionOrThrow();
   try {
     const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
@@ -57,6 +60,7 @@ async function requireOwnerOfPage(pageId: string): Promise<void> {
     }
     throw error;
   }
+  return session;
 }
 
 // ---------- Auth ----------
@@ -88,7 +92,10 @@ export async function loginUser(email: string, password: string) {
 }
 
 export async function logoutUser() {
-  return account.deleteSession("current");
+  // M4: termina TODAS as sessões do utilizador no projeto Appwrite
+  // (account.deleteSession("current") só fechava a sessão atual — um
+  // atacante com um cookie de sessão paralela ficaria válido após logout).
+  return account.deleteSessions();
 }
 
 export async function getCurrentSession() {
@@ -109,6 +116,9 @@ function createOAuthSession(provider: OAuthProvider) {
     window.location.assign(`${window.location.origin}/login?error=missing_project`);
     return;
   }
+  // L6: o callback usa window.location.origin (a origem da própria app) —
+  // não é um open redirect. A allowlist de origens continua a ser validada
+  // pelo projeto Appwrite (Web Platform).
   account.createOAuth2Session(
     provider,
     `${window.location.origin}/dashboard`,
@@ -126,18 +136,17 @@ export function loginWithGitHub() {
 
 export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences>) {
   try {
-    // Usa o server SDK via API route para criar/verificar o documento,
-    // evitando problemas de permissão do client SDK.
-    const res = await fetch("/api/auth/oauth/sync", {
+    // M3: usa fetchWithCsrf (com header X-CSRF-Token) — o endpoint agora
+    // valida CSRF. Usa o server SDK via API route para criar/verificar o
+    // documento, evitando problemas de permissão do client SDK.
+    const res = await fetchWithCsrf("/api/auth/oauth/sync", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: user.$id,
         email: user.email,
         displayName: user.name || "Utilizador",
         createdAt: user.$createdAt || new Date().toISOString(),
       }),
-      credentials: "include",
     });
 
     if (!res.ok) {
@@ -280,16 +289,39 @@ function mapLinkDocument(doc: AppwriteDocument): LinkItem {
   };
 }
 
-export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
-  await requireOwnerOfPage(pageId);
+// ---------- M7: cache em memória do plano do utilizador ----------
+// Evita 2-3 queries Appwrite por mutação autenticada (owner check + user
+// doc + listDocuments). TTL curto — só cacheia dados de quota, nunca
+// dados sensíveis. Invalidação implícita pelo TTL (30s).
+const planCache = new Map<string, { plan: string; expiresAt: number }>();
+const PLAN_CACHE_TTL_MS = 30_000;
 
-  // Server-side enforcement: count existing links for free plan users
-  const session = await getCurrentSession();
+async function getCachedUserPlan(sessionId: string): Promise<string> {
+  const cached = planCache.get(sessionId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.plan;
+  }
   const userDocs = await databases.listDocuments(databaseId, Collections.users, [
-    Query.equal("userId", session.$id),
+    Query.equal("userId", sessionId),
     Query.limit(1),
   ]);
-  const userPlan = (userDocs.documents[0]?.plan as string) ?? "free";
+  const plan = (userDocs.documents[0]?.plan as string) ?? "free";
+  planCache.set(sessionId, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
+  // Evita crescimento infinito do mapa
+  if (planCache.size > 500) {
+    const now = Date.now();
+    for (const [key, entry] of planCache) {
+      if (entry.expiresAt <= now) planCache.delete(key);
+    }
+  }
+  return plan;
+}
+
+export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
+  const session = await requireOwnerOfPage(pageId);
+
+  // Server-side enforcement: count existing links for free plan users
+  const userPlan = await getCachedUserPlan(session.$id);
 
   if (userPlan === "free") {
     const existingLinks = await databases.listDocuments(databaseId, Collections.links, [
@@ -319,7 +351,7 @@ export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
     order: link.order,
     clicks: link.clicks,
     scheduledFor: link.scheduledFor,
-  });
+  }, session);
 }
 
 export async function updateLink(linkId: string, patch: Partial<Omit<LinkItem, "id">>) {

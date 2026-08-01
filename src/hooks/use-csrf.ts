@@ -111,8 +111,11 @@ export async function fetchWithCsrf(
     t = tokenRef || (await initCsrfToken());
   }
 
+  // Fail-closed (M2 da auditoria): se o token CSRF não estiver disponível,
+  // NÃO degradar silenciosamente para um pedido sem header CSRF. O chamador
+  // decide como reagir (geralmente mostrar erro e pedir reload).
   if (!t || t === "__missing__") {
-    return fetch(url, options);
+    throw new Error("CSRF token unavailable. Recarregue a página e tente novamente.");
   }
 
   const headers = new Headers(options.headers || {});

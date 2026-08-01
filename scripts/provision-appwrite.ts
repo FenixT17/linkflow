@@ -309,6 +309,40 @@ async function provision() {
   await createIndex("visits", "idx_visits_pageId", "key", ["pageId"]);
   await createIndex("visits", "idx_visits_pageId_createdAt", "key", ["pageId", "createdAt"]);
 
+  // 5c. Collected IPs collection (deduplicação de IPs — server-only)
+  // Cada IP é recolhido NO MÁXIMO UMA VEZ: o índice único em `ip` garante
+  // que o SaaS nunca grava o mesmo IP duas vezes. Se o registo for APAGADO
+  // da base de dados, o próximo acesso volta a recolher o IP + país
+  // (a chave única fica livre para ser reutilizada). Sem permissões:
+  // só o SDK do servidor (API key) escreve/lê esta coleção.
+  console.log("\n🛡️ Collection: collected_ips");
+  await createCollection(
+    "collected_ips",
+    "Collected IPs",
+    [],
+    true
+  );
+  await createStringAttribute("collected_ips", "ip", 64, true);
+  await createStringAttribute("collected_ips", "visitorHash", 128, false);
+  await createStringAttribute("collected_ips", "country", 128, false);
+  await createStringAttribute("collected_ips", "countryCode", 8, false);
+  await createStringAttribute("collected_ips", "city", 128, false);
+  await createStringAttribute("collected_ips", "device", 32, false);
+  await createStringAttribute("collected_ips", "browser", 64, false);
+  await createStringAttribute("collected_ips", "os", 64, false);
+  await createDatetimeAttribute("collected_ips", "firstSeenAt", true);
+  await createDatetimeAttribute("collected_ips", "lastSeenAt", false);
+  await waitForAttributes("collected_ips", [
+    "ip", "visitorHash", "country", "countryCode", "city", "device",
+    "browser", "os", "firstSeenAt", "lastSeenAt",
+  ]);
+  // M6 (privacidade): o IP cru NUNCA é persistido — apenas hashIp(ip) é
+  // gravado no campo `ip` e em `visitorHash`. O índice único em `ip` (hash)
+  // garante "1 registo por IP" (mesmo IP → mesmo hash → 409); o índice único
+  // em visitorHash cobre a query de dedup por hash.
+  await createIndex("collected_ips", "idx_collected_ips_ip", "unique", ["ip"]);
+  await createIndex("collected_ips", "idx_collected_ips_visitorHash", "unique", ["visitorHash"]);
+
   // 6. Themes collection
   // Public read access is NOT granted at collection level. Public themes are
   // served through server-side API routes after verifying the page is published.

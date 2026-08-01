@@ -1,4 +1,4 @@
-import { faqPageJsonLd, webPageJsonLd, siteUrl } from "@/lib/seo";
+import { faqPageJsonLd, webPageJsonLd, siteUrl, renderJsonLd } from "@/lib/seo";
 import { faqs } from "@/data/faqs";
 
 const faqJsonLd = faqPageJsonLd(faqs);
@@ -15,7 +15,7 @@ export function SiteJsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdData) }}
+      dangerouslySetInnerHTML={renderJsonLd(jsonLdData)}
     />
   );
 }

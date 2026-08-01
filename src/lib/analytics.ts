@@ -2,8 +2,74 @@ import type { Databases, Models } from "node-appwrite";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { databaseId } from "./appwrite.server";
 import { detectDeviceType, type DeviceType } from "./device-detect";
-import { hashIp, type GeoInfo } from "./geo";
+import { hashIp, isPrivateIp, type GeoInfo } from "./geo";
 import type { TopCountry, TopDevice, TopLink, Visitor } from "./types";
+
+/**
+ * Coleção server-only onde cada IP é recolhido NO MÁXIMO UMA VEZ.
+ *
+ * PRIVACIDADE (M6 / RGPD-LGPD): o IP CRU nunca é persistido. A chave de
+ * deduplicação é `visitorHash` = hashIp(ip) — um hash salgado não reversível.
+ * O campo `ip` da coleção (mantido por compatibilidade de schema) guarda
+ * apenas esse hash, nunca o IP em texto plano.
+ *
+ * Garantias (regra de negócio):
+ * - O SaaS nunca regista o mesmo IP duas vezes: o índice único em `ip` na
+ *   coleção `collected_ips` rejeita (409) qualquer tentativa de gravar um
+ *   hash que já existe (o mesmo IP → o mesmo hash → 409).
+ * - Se o registo for APAGADO da base de dados, o próximo acesso volta a
+ *   recolher esse IP + país (a chave única fica livre).
+ * - IPs privados/locais (dev) são ignorados — nunca entram na tabela.
+ */
+export async function collectIpIfNew(
+  databases: Databases,
+  input: RecordAnalyticsEventInput
+): Promise<{ collected: boolean; alreadyExists: boolean }> {
+  const ip = (input.ip || "").trim().slice(0, 64);
+  if (!ip || isPrivateIp(ip)) {
+    return { collected: false, alreadyExists: false };
+  }
+
+  // Nunca usar o IP cru: deduplicação e persistência apenas via hash salgado.
+  const visitorHash = hashIp(ip);
+
+  // 1. Verifica se o IP (via hash) já foi recolhido.
+  const existing = await databases.listDocuments(databaseId, "collected_ips", [
+    Query.equal("visitorHash", visitorHash),
+    Query.limit(1),
+  ]);
+  if (existing.documents.length > 0) {
+    return { collected: false, alreadyExists: true };
+  }
+
+  // 2. Recolhe o país + hash. Se entretanto outro pedido gravou o mesmo IP
+  //    (race), o índice único devolve 409 e tratamos como "já existe".
+  const now = new Date().toISOString();
+  try {
+    await databases.createDocument(databaseId, "collected_ips", ID.unique(), {
+      // `ip` guarda apenas o hash (nunca o IP cru) — o índice único existente
+      // continua a garantir "1 registo por IP" sem persistir PII.
+      ip: visitorHash,
+      visitorHash,
+      country: input.geo?.country ?? "",
+      countryCode: input.geo?.countryCode ?? "",
+      city: input.geo?.city ?? "",
+      device: input.device ?? detectDeviceType(input.userAgent),
+      browser: input.browser ?? "",
+      os: input.os ?? "",
+      firstSeenAt: now,
+      lastSeenAt: now,
+    });
+    return { collected: true, alreadyExists: false };
+  } catch (error) {
+    const err = error as { code?: number; message?: string };
+    // 409 = índice único violado → já existe (ou foi gravado agora mesmo).
+    if (err?.code === 409 || err?.message?.includes("already exists")) {
+      return { collected: false, alreadyExists: true };
+    }
+    throw error;
+  }
+}
 
 export interface DailyStat {
   day: string;
@@ -377,5 +443,14 @@ export async function recordAnalyticsEvent(
   } catch (visitError) {
     // Nunca deve quebrar o tracking principal
     console.error("[analytics] failed to store raw visit:", visitError);
+  }
+
+  // Tabela de coleta de IPs: cada IP é guardado no máximo UMA VEZ.
+  // Se o registo for apagado, o próximo acesso volta a recolher o IP + país.
+  try {
+    await collectIpIfNew(databases, input);
+  } catch (collectError) {
+    // Nunca deve quebrar o tracking principal
+    console.error("[analytics] failed to collect ip:", collectError);
   }
 }

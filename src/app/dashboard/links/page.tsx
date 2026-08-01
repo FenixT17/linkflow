@@ -30,6 +30,7 @@ import {
   QrCode,
   ArrowUpDown,
   ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 const FREE_LINK_LIMIT = 3;
@@ -179,8 +180,21 @@ function LinkEditor({
         <GlassButton variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
           <X className="h-4 w-4" /> Cancelar
         </GlassButton>
-        <GlassButton size="sm" onClick={onSave} disabled={saving}>
-          <Check className="h-4 w-4" /> {saving ? "A guardar..." : "Guardar"}
+        <GlassButton
+          size="sm"
+          variant="primary"
+          loading={saving}
+          onClick={onSave}
+          className="pl-3!"
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--background)]/80 ring-1 ring-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_6px_rgba(0,0,0,0.3)]">
+            {saving ? (
+              <Loader2 className="h-3 w-3 text-[var(--foreground)] animate-spin" />
+            ) : (
+              <Check className="h-3 w-3 text-[var(--foreground)]" strokeWidth={2.75} />
+            )}
+          </span>
+          {saving ? "A guardar..." : "Guardar"}
         </GlassButton>
       </div>
     </div>
@@ -691,10 +705,10 @@ export default function LinksPage() {
           size="md"
           onClick={openPicker}
           disabled={!canAddLink || isAdding}
-          className="group/btn relative !px-5 shadow-[0_0_24px_rgba(99,102,241,0.22)]"
+          className="pl-4! drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
         >
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 ring-1 ring-white/20 transition-transform duration-300 group-hover/btn:rotate-90">
-            <Plus className="h-3.5 w-3.5" />
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--background)]/80 ring-1 ring-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_6px_rgba(0,0,0,0.3)] transition-all duration-300 group-hover/btn:rotate-90 group-hover/btn:scale-110">
+            <Plus className="h-3.5 w-3.5 text-[var(--foreground)]" strokeWidth={2.75} />
           </span>
           Novo link
         </GlassButton>

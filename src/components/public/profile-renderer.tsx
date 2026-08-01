@@ -7,6 +7,7 @@ import { getLiquidGlassClasses } from "@/lib/themes";
 import { ExternalLink, Share2 } from "lucide-react";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
+import { sanitizeUrl } from "@/lib/sanitize";
 import { toHexColor, hexToRgba } from "@/lib/utils";
 
 interface PublicProfileRendererProps {
@@ -124,7 +125,7 @@ export function PublicProfileRenderer({
           {links.map((link) => (
             <a
               key={link.id}
-              href={link.url}
+              href={sanitizeUrl(link.url)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={onRecordClick}

@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { CsrfForm } from "@/components/ui/csrf-form";
 import { sanitizeDisplayName, sanitizeUsername, sanitizeBio } from "@/lib/sanitize";
 import { siteUrl } from "@/lib/seo";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 
 export default function CreatePage() {
   const router = useRouter();
@@ -88,7 +88,19 @@ export default function CreatePage() {
                 <GlassButton type="button" className="w-full sm:flex-1" onClick={() => router.push("/dashboard")}>
                   Cancelar
                 </GlassButton>
-                <GlassButton type="submit" variant="primary" className="w-full sm:flex-1" disabled={saving}>
+                <GlassButton
+                  type="submit"
+                  variant="primary"
+                  className="w-full sm:flex-1 pl-4! drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+                  loading={saving}
+                >
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-[var(--background)]/80 ring-1 ring-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_6px_rgba(0,0,0,0.3)]">
+                    {saving ? (
+                      <Loader2 className="h-3.5 w-3.5 text-[var(--foreground)] animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5 text-[var(--foreground)]" strokeWidth={2.75} />
+                    )}
+                  </span>
                   {saving ? "A guardar..." : "Salvar e continuar"}
                 </GlassButton>
               </div>

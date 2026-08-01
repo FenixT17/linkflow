@@ -7,18 +7,12 @@ import type { AnalyticsData, LinkItem } from "@/lib/types";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
+import { countryFlag } from "@/lib/utils";
 
 function formatNumber(num: number) {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}k`;
   return num.toString();
-}
-
-function countryFlag(code?: string): string {
-  if (!code || code.length !== 2) return "🌍";
-  return String.fromCodePoint(
-    ...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0))
-  );
 }
 
 function Modal({
