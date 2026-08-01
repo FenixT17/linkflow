@@ -70,9 +70,33 @@ async function requireOwnerOfPage(pageId: string): Promise<Models.User<Models.Pr
 
 // ---------- Auth ----------
 
+/**
+ * Recolhe o país/moeda do utilizador via GET /api/geo/lookup (server-side,
+ * derivado do IP — nunca do body). Usado no registo e no sync OAuth para
+ * apresentar os preços dos planos na moeda local do utilizador.
+ */
+export async function fetchUserGeo(): Promise<{
+  country?: string;
+  countryCode?: string;
+  currency?: string;
+}> {
+  try {
+    const res = await fetch("/api/geo/lookup", { credentials: "include" });
+    if (!res.ok) return {};
+    return (await res.json()) as { country?: string; countryCode?: string; currency?: string };
+  } catch {
+    return {};
+  }
+}
+
 export async function registerUser(email: string, password: string, name: string) {
   const newAccount = await account.create(ID.unique(), email, password, name);
   await account.createEmailPasswordSession(email, password);
+
+  // Recolhe o país do utilizador para definir a moeda do plano.
+  const geo = await fetchUserGeo();
+  const currency = geo.currency || "EUR";
+
   const existing = await databases.listDocuments(databaseId, Collections.users, [
     Query.equal("userId", newAccount.$id),
   ]);
@@ -82,14 +106,25 @@ export async function registerUser(email: string, password: string, name: string
       email,
       displayName: name,
       plan: "free",
+      country: geo.country ?? "",
+      countryCode: geo.countryCode ?? "",
+      currency,
       createdAt: new Date().toISOString(),
     }, [
       Permission.read(Role.user(newAccount.$id)),
       Permission.update(Role.user(newAccount.$id)),
       Permission.delete(Role.user(newAccount.$id)),
     ]);
+  } else {
+    // Conta já existia (ex: re-registo) — garante a moeda preenchida.
+    const doc = existing.documents[0];
+    await databases.updateDocument(databaseId, Collections.users, doc.$id, {
+      country: geo.country ?? String(doc.country ?? ""),
+      countryCode: geo.countryCode ?? String(doc.countryCode ?? ""),
+      currency: currency || String(doc.currency ?? "EUR"),
+    });
   }
-  return newAccount;
+  return { account: newAccount, geo };
 }
 
 export async function loginUser(email: string, password: string) {
@@ -198,6 +233,9 @@ export async function getUserProfile(userId: string): Promise<UserAccount | null
     displayName: String(doc.displayName),
     createdAt: String(doc.createdAt),
     plan: doc.plan as UserAccount["plan"],
+    country: doc.country ? String(doc.country) : undefined,
+    countryCode: doc.countryCode ? String(doc.countryCode) : undefined,
+    currency: doc.currency ? String(doc.currency) : undefined,
   };
 }
 
@@ -851,6 +889,52 @@ export async function applyForStaff(message: string): Promise<StaffApplication> 
     status: "pending",
     createdAt: String(doc.createdAt ?? ""),
   };
+}
+
+/**
+ * Atualiza o país/moeda do utilizador no documento users (recolha por IP).
+ * Devolve os dados recolhidos ou null se falhou. Usado quando a conta já
+ * existe sem moeda (contas antigas) — ex: botão "Detetar país" na Faturação.
+ */
+export async function syncUserGeo(force = false): Promise<{
+  country?: string;
+  countryCode?: string;
+  currency?: string;
+} | null> {
+  try {
+    const session = await getCurrentSession();
+    const docs = await databases.listDocuments(databaseId, Collections.users, [
+      Query.equal("userId", session.$id),
+      Query.limit(1),
+    ]);
+    if (docs.documents.length === 0) return null;
+    const doc = docs.documents[0];
+
+    // Já sincronizado — devolve o estado atual sem escrever (poupa quota).
+    // O botão manual "Detetar país" passa force=true para re-detetar por IP.
+    const existingCode = String(doc.countryCode ?? "");
+    if (existingCode && !force) {
+      return {
+        country: String(doc.country ?? ""),
+        countryCode: existingCode,
+        currency: String(doc.currency ?? "EUR"),
+      };
+    }
+
+    // Guard só pelo countryCode: a rota devolve sempre currency como
+    // fallback ("EUR") mesmo quando o país não resolve — sem countryCode
+    // não há nada útil para persistir (evita writes vazios por sessão).
+    const geo = await fetchUserGeo();
+    if (!geo.countryCode) return null;
+    await databases.updateDocument(databaseId, Collections.users, doc.$id, {
+      country: geo.country ?? "",
+      countryCode: geo.countryCode ?? "",
+      currency: geo.currency || "EUR",
+    });
+    return geo;
+  } catch {
+    return null;
+  }
 }
 
 /** Última candidatura ao staff do utilizador (ou null se nunca se candidatou). */

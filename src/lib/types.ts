@@ -70,6 +70,12 @@ export interface UserAccount {
   displayName: string;
   createdAt: string;
   plan: PlanType;
+  /** País do utilizador (recolhido por IP no registo) — ex: "Portugal" */
+  country?: string;
+  /** Código ISO do país — ex: "PT" */
+  countryCode?: string;
+  /** Moeda local do plano (ISO 4217) — ex: "EUR", "BRL" */
+  currency?: string;
 }
 
 export type PlanType = "free" | "pro" | "business" | "enterprise";

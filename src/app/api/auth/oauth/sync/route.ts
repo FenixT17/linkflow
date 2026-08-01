@@ -3,6 +3,8 @@ import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { requireAuth } from "@/lib/auth.server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { resolveGeo } from "@/lib/geo";
+import { currencyForCountry } from "@/lib/currencies";
 import { ID, Query } from "node-appwrite";
 
 const COLLECTION_USERS = "users";
@@ -43,6 +45,19 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createServerClient();
 
+    // 2b. Recolhe o país do utilizador (via IP) para definir a moeda do plano
+    let country = "";
+    let countryCode = "";
+    let currency = "EUR";
+    try {
+      const geo = await resolveGeo(ip, request);
+      country = geo.country ?? "";
+      countryCode = geo.countryCode?.toUpperCase() ?? "";
+      currency = currencyForCountry(countryCode);
+    } catch {
+      // Sem GeoIP → fallback neutro (EUR)
+    }
+
     // 3. Verificar se já existe um documento para este userId
     const existing = await databases.listDocuments(
       databaseId,
@@ -61,9 +76,24 @@ export async function POST(request: NextRequest) {
           email: user.email || "",
           displayName: user.name || "Utilizador",
           plan: "free",
+          country,
+          countryCode,
+          currency,
           createdAt: user.$createdAt || new Date().toISOString(),
         }
       );
+    } else {
+      // 4b. Conta já existia — garante o país/moeda preenchidos (contas antigas)
+      const doc = existing.documents[0];
+      const needsGeo =
+        !String(doc.countryCode ?? "") && (countryCode || currency !== "EUR");
+      if (needsGeo) {
+        await databases.updateDocument(databaseId, COLLECTION_USERS, doc.$id, {
+          country,
+          countryCode,
+          currency,
+        });
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -48,6 +48,7 @@ import {
   loginWithGitHub,
   checkAndSyncOAuthUser,
   createSecurityLog,
+  syncUserGeo,
 } from "@/lib/services";
 
 interface AuthContextValue {
@@ -71,6 +72,7 @@ interface AuthContextValue {
   createPage: (profile: Omit<PageProfile, "published">) => Promise<void>;
   updatePage: (patch: Partial<PageProfile>) => Promise<void>;
   refreshPage: () => Promise<void>;
+  refreshAccount: () => Promise<void>;
   refreshAnalytics: () => Promise<void>;
   setLinks: (links: LinkItem[] | ((prev: LinkItem[]) => LinkItem[])) => void;
   updateAppearance: (patch: Partial<Appearance>) => void;
@@ -455,7 +457,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metadata: { displayName: name },
       });
 
-      const newAccount = await registerUser(email, password, name);
+      const { account: newAccount, geo } = await registerUser(email, password, name);
 
       // Registo de atividade: conta criada
       void logActivity("register", { displayName: name });
@@ -477,6 +479,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: name,
         createdAt: new Date().toISOString(),
         plan: "free",
+        country: geo?.country || undefined,
+        countryCode: geo?.countryCode || undefined,
+        currency: geo?.currency || undefined,
       });
 
       // Carrega dados da página/ tema / links após registro bem-sucedido.
@@ -562,6 +567,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPage(refreshed);
     }
   }, [pageId]);
+
+  const refreshAccount = useCallback(async () => {
+    try {
+      const session = await getCurrentSession();
+      const profile = await getUserProfile(session.$id);
+      if (profile) setAccountData(profile);
+    } catch {
+      // silencioso — mantém o estado atual
+    }
+  }, []);
+
+  // Backfill do país/moeda para contas antigas (criadas antes da moeda
+  // localizada): quando o documento users não tem countryCode/currency,
+  // recolhe o geo por IP em background e atualiza o estado. Idempotente
+  // (syncUserGeo devolve cedo se já sincronizado) — sem loops de refresh.
+  useEffect(() => {
+    if (!accountData || accountData.countryCode || accountData.currency) return;
+    let cancelled = false;
+    syncUserGeo()
+      .then((geo) => {
+        if (cancelled || !geo || !geo.countryCode) return;
+        setAccountData((prev) => (prev ? { ...prev, ...geo } : prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [accountData]);
 
   const refreshAnalytics = useCallback(async () => {
     if (!pageId) return;
@@ -676,6 +709,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createPage,
       updatePage,
       refreshPage,
+      refreshAccount,
       refreshAnalytics,
       setLinks,
       updateAppearance,
@@ -702,6 +736,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createPage,
       updatePage,
       refreshPage,
+      refreshAccount,
       refreshAnalytics,
       setLinks,
       updateAppearance,

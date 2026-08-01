@@ -193,8 +193,11 @@ async function provision() {
   await createStringAttribute("users", "email", 255, true);
   await createStringAttribute("users", "displayName", 255, true);
   await createStringAttribute("users", "plan", 32, true, "free");
+  await createStringAttribute("users", "country", 128, false, "");
+  await createStringAttribute("users", "countryCode", 8, false, "");
+  await createStringAttribute("users", "currency", 8, false, "EUR");
   await createDatetimeAttribute("users", "createdAt", true);
-  await waitForAttributes("users", ["userId", "email", "displayName", "plan", "createdAt"]);
+  await waitForAttributes("users", ["userId", "email", "displayName", "plan", "country", "countryCode", "currency", "createdAt"]);
   await createIndex("users", "idx_users_userId", "unique", ["userId"]);
   await createIndex("users", "idx_users_email", "unique", ["email"]);
 
