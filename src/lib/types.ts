@@ -46,7 +46,10 @@ export interface PageProfile {
   published: boolean;
   scheduledPublishAt?: string;
   scheduledUnpublishAt?: string;
+  /** Legacy flat social record (backwards compatibility) */
   social?: SocialLinks;
+  /** Structured social network list — platform, normalized URL, username, order, active */
+  socialList?: SocialLinkEntry[];
 }
 
 export interface SocialLinks {
@@ -60,6 +63,23 @@ export interface SocialLinks {
   telegram?: string;
   whatsapp?: string;
   email?: string;
+}
+
+/**
+ * Structured social network entry.
+ * Only these fields are persisted — never HTML/SVG/scripts.
+ */
+export interface SocialLinkEntry {
+  /** Platform id from PLATFORMS (e.g. "instagram") */
+  platform: string;
+  /** Final normalized URL (https://, mailto: for email, tel: for phone) */
+  url: string;
+  /** Raw username when derived from a username (optional) */
+  username?: string;
+  /** Position in the list */
+  order: number;
+  /** Active / inactive status */
+  active: boolean;
 }
 
 export interface UserAccount {

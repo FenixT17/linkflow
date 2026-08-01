@@ -11,7 +11,9 @@ import {
 import { ViewTracker } from "@/components/public/view-tracker";
 import { TrackableLink } from "@/components/public/trackable-link";
 import { ShareActions } from "@/components/public/share-actions";
-import { LinkItem } from "@/lib/types";
+import { PlatformIcon } from "@/components/ui/platform-icon";
+import { getPlatform } from "@/lib/platforms";
+import { LinkItem, SocialLinkEntry } from "@/lib/types";
 import { sanitizeUrl } from "@/lib/sanitize";
 import { siteUrl, profilePageJsonLd, renderJsonLd, webPageJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
 
@@ -76,6 +78,12 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
   const theme = getLiquidGlassClasses();
   const visibleLinks = links.filter((link: LinkItem) => link.visible && link.active);
   const publicUrl = `${siteUrl}/u/${page.username}`;
+
+  // Structured social list (new format) — active + ordered. Falls back to the
+  // legacy flat `social` record rendered further down for backwards compatibility.
+  const socialList: SocialLinkEntry[] = (page.socialList ?? [])
+    .filter((s) => s.active)
+    .sort((a, b) => a.order - b.order);
 
   const profileJsonLd = profilePageJsonLd(
     page.username,
@@ -156,7 +164,34 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
                 {page.bio}
               </p>
             )}
-            {appearance.showSocial !== false && social && Object.values(social).some(Boolean) && (
+            {appearance.showSocial !== false && socialList.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2 relative z-[1]">
+                {socialList.map((entry) => {
+                  const platform = getPlatform(entry.platform);
+                  return (
+                    <a
+                      key={`${entry.platform}-${entry.order}`}
+                      href={sanitizeUrl(entry.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={platform?.name ?? entry.platform}
+                      className="glass-btn !rounded-full !h-8 !px-3 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    >
+                      {platform && (
+                        <PlatformIcon
+                          platformId={entry.platform}
+                          size={14}
+                          color={platform.color}
+                          className="relative z-[1]"
+                        />
+                      )}
+                      {platform?.name ?? entry.platform}
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+            {appearance.showSocial !== false && socialList.length === 0 && social && Object.values(social).some(Boolean) && (
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2 relative z-[1]">
                 {social.instagram && (
                   <a href={sanitizeUrl(social.instagram)} target="_blank" rel="noopener noreferrer" className="glass-btn !rounded-full !h-8 !px-3 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">

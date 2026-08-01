@@ -1,9 +1,18 @@
 import { cache } from "react";
 import { Query } from "node-appwrite";
 import { createServerClient, databaseId, filesBucketId } from "./appwrite.server";
-import { Appearance, LinkItem, PageProfile, SocialLinks, AnalyticsData } from "./types";
+import {
+  Appearance,
+  LinkItem,
+  PageProfile,
+  SocialLinks,
+  SocialLinkEntry,
+  AnalyticsData,
+} from "./types";
 
 import { defaultAppearance, emptyAnalytics } from "./defaults";
+import { sanitizeSocialEntries } from "./social";
+import { sanitizeUrl } from "./sanitize";
 
 const Collections = {
   pages: "pages",
@@ -24,11 +33,23 @@ export const getPublicPageByUsername = cache(
     }
     const doc = docs.documents[0] as unknown as Record<string, unknown> & { $id: string };
     let social: SocialLinks | undefined = undefined;
+    let socialList: SocialLinkEntry[] | undefined = undefined;
     if (doc.socialJson) {
       try {
-        social = JSON.parse(String(doc.socialJson)) as SocialLinks;
+        const parsed: unknown = JSON.parse(String(doc.socialJson));
+        if (Array.isArray(parsed)) {
+          socialList = sanitizeSocialEntries(parsed);
+        } else if (parsed && typeof parsed === "object") {
+          const legacy: SocialLinks = {};
+          for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+            if (typeof value === "string") {
+              (legacy as Record<string, string | undefined>)[key] = sanitizeUrl(value);
+            }
+          }
+          social = legacy;
+        }
       } catch {
-        social = undefined;
+        // Invalid JSON — ignore
       }
     }
     return {
@@ -40,6 +61,7 @@ export const getPublicPageByUsername = cache(
       banner: doc.bannerId ? getFileUrl(String(doc.bannerId)) : undefined,
       published: Boolean(doc.published),
       social,
+      socialList,
     } as PageProfile & { $id: string };
   }
 );

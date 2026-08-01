@@ -113,6 +113,7 @@ export const PLATFORMS: Platform[] = [
   { id: "behance", name: "Behance", category: "design", color: "#1769FF", urlPrefix: "https://behance.net/" },
   { id: "dribbble", name: "Dribbble", category: "design", color: "#EA4C89", urlPrefix: "https://dribbble.com/" },
   { id: "figma", name: "Figma", category: "design", color: "#F24E1E", urlPrefix: "https://figma.com/@" },
+  { id: "codepen", name: "CodePen", category: "design", color: "#000000", keywords: ["pen", "code"], urlPrefix: "https://codepen.io/" },
   { id: "adobeportfolio", name: "Adobe Portfolio", category: "design", color: "#000000", keywords: ["adobe", "portfolio"] },
 
   // ── Streaming ──
@@ -157,6 +158,9 @@ export const PLATFORMS: Platform[] = [
   { id: "buymeacoffee", name: "Buy Me a Coffee", category: "payments", color: "#FFDD00", keywords: ["bmc", "coffee"], urlPrefix: "https://buymeacoffee.com/" },
   { id: "patreon", name: "Patreon", category: "payments", color: "#000000", urlPrefix: "https://patreon.com/" },
 
+  // ── Content creator / premium ──
+  { id: "onlyfans", name: "OnlyFans", category: "social", color: "#00AFF0", keywords: ["only fans", "of"], urlPrefix: "https://onlyfans.com/" },
+
   // ── Portfólios ──
   { id: "linktree", name: "Linktree", category: "portfolios", color: "#43E55E", urlPrefix: "https://linktr.ee/" },
   { id: "carrd", name: "Carrd", category: "portfolios", color: "#596CAF", urlPrefix: "https://carrd.co/" },
@@ -164,9 +168,11 @@ export const PLATFORMS: Platform[] = [
   { id: "substack", name: "Substack", category: "portfolios", color: "#FF6719", urlPrefix: "https://substack.com/@" },
   { id: "hashnode", name: "Hashnode", category: "portfolios", color: "#2962FF", urlPrefix: "https://hashnode.com/@" },
   { id: "devto", name: "Dev.to", category: "portfolios", color: "#0A0A0A", keywords: ["dev"], urlPrefix: "https://dev.to/" },
+  { id: "portfolio", name: "Portfólio", category: "portfolios", color: "#6366F1", keywords: ["portfólio", "portfolio", "trabalhos"] },
+  { id: "blog", name: "Blog", category: "portfolios", color: "#6366F1", keywords: ["blog", "artigos", "posts"] },
 
   // ── Contacto ──
-  { id: "website", name: "Website", category: "contact", color: "#6366F1", keywords: ["site", "blog", "página"] },
+  { id: "website", name: "Website", category: "contact", color: "#6366F1", keywords: ["site", "página"] },
   { id: "email", name: "E-mail", category: "contact", color: "#6366F1", keywords: ["mail", "correo"], urlPrefix: "mailto:" },
   { id: "phone", name: "Telefone", category: "contact", color: "#22C55E", keywords: ["chamada", "numero"], urlPrefix: "tel:" },
   { id: "sms", name: "SMS", category: "contact", color: "#22C55E", keywords: ["mensagem", "texto"], urlPrefix: "sms:" },

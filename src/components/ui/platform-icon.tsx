@@ -25,7 +25,7 @@ import {
   siPaypal, siStripe, siRevolut, siWise, siKofi, siBuymeacoffee,
   siPatreon,
   siLinktree, siCarrd, siMedium, siSubstack, siHashnode, siDevdotto,
-  siGooglemaps, siWaze,
+  siGooglemaps, siWaze, siOnlyfans,
 } from "simple-icons";
 
 // ── simple-icons lookup ──
@@ -105,6 +105,7 @@ const SI_MAP: Record<string, { path: string; hex: string }> = {
   devto: { path: siDevdotto.path, hex: siDevdotto.hex },
   googlemaps: { path: siGooglemaps.path, hex: siGooglemaps.hex },
   waze: { path: siWaze.path, hex: siWaze.hex },
+  onlyfans: { path: siOnlyfans.path, hex: siOnlyfans.hex },
 };
 
 // ── Custom SVGs for platforms removed from simple-icons ──
@@ -133,6 +134,10 @@ const CUSTOM_PATHS: Record<string, { path: string; hex: string }> = {
   },
   adobeportfolio: {
     path: "M22.07 0H1.93A1.93 1.93 0 000 1.93v20.14C0 23.137.863 24 1.93 24h20.14a1.93 1.93 0 001.93-1.93V1.93A1.93 1.93 0 0022.07 0zM5.65 18.21V5.79h2.79v12.42H5.65zm12.7 0V5.79l-5.84 12.42h-2.8L4.06 5.79h2.62l5.62 12.42h2.8z",
+    hex: "000000",
+  },
+  codepen: {
+    path: "M12 0 1.5 6.5v11L12 24l10.5-6.5v-11L12 0zm-1.5 19.7-6-3.7v-4.3l6 3.7 6-3.7v4.3l-6 3.7zm6-8.3L12 14.6 7.5 11.4 12 8.2l4.5 3.2zm1.5-1.1 3-1.9v3.8l-3-1.9zM6 10.3l-3 1.9V8.4l3 1.9zm1.5 1 3 2-3 2v-4zm9 0v4l-3-2 3-2zm1.5 1 3 1.9v-3.8l-3 1.9z",
     hex: "000000",
   },
   primevideo: {
@@ -169,6 +174,8 @@ const GENERIC_ICONS: Record<string, string> = {
   phone: "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 1.23 0 2.44.2 3.57.57.35.13.74.03 1.02-.24l2.2-2.2z",
   sms: "M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z",
   mbway: "M3 6h18a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1zm3.5 3.5v5h1.5v-3.5H7V11h1v-1H6.5zm5 0c-1.1 0-2 .9-2 2v1c0 1.1.9 2 2 2s2-.9 2-2v-1c0-1.1-.9-2-2-2zm4 0v5h1.5v-1.5h.5l.75 1.5H19l-.75-1.5h.25c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-2zm-4 1c.55 0 1 .45 1 1v1c0 .55-.45 1-1 1s-1-.45-1-1v-1c0-.55.45-1 1-1zm5.5 0H18v1h-.5v-1z",
+  portfolio: "M10 2h4a2 2 0 0 1 2 2v1h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 2v1h4V4h-4zm-6 4v10h16V8H4zm4 3h2v2H8v-2zm4 0h4v2h-4v-2z",
+  blog: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z",
 };
 
 // ── Component ──

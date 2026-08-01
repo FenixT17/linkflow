@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
+import { SocialLinksSection } from "@/components/dashboard/social-links-section";
 import { useCsrfAction } from "@/components/ui/csrf-form";
 import { cn } from "@/lib/utils";
 import {
@@ -765,6 +766,8 @@ export default function LinksPage() {
           />
         ))}
       </div>
+
+      <SocialLinksSection className="mt-2" />
 
       {qrLink && <LinkQRModal link={qrLink} onClose={() => setQrLink(null)} />}
     </div>
