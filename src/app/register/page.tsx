@@ -10,6 +10,7 @@ import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/context/AuthContext";
 import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
+import { rememberEmail } from "@/lib/email-hint";
 import { Check, X } from "lucide-react";
 
 function RegisterForm() {
@@ -58,9 +59,23 @@ function RegisterForm() {
         userAgent: navigator.userAgent,
         metadata: { error: parsed.message, rawError: errorParam, type: parsed.type },
       });
+
+      // O utilizador já tem conta — encaminha para o login com o email
+      // pré-preenchido (fontes: erro, ?email=, último email conhecido).
+      // reason=oauth_exists informa o login para mostrar um hint subtil.
+      if (parsed.type === "user_already_exists") {
+        const email = parsed.email || searchParams.get("email") || "";
+        if (email) rememberEmail(email);
+        const emailQuery = email ? `email=${encodeURIComponent(email)}` : "";
+        const reasonQuery = "reason=oauth_exists";
+        const query = [emailQuery, reasonQuery].filter(Boolean).join("&");
+        router.replace(`/login?${query}`);
+        return;
+      }
+
       setError(parsed.friendly);
     }
-  }, [searchParams]);
+  }, [router, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +92,9 @@ function RegisterForm() {
       setError("A palavra-passe não cumpre os requisitos de segurança. Verifique as regras abaixo.");
       return;
     }
+    // Guarda o email para pré-preencher o login se o OAuth devolver
+    // user_already_exists (o Appwrite não devolve o email no erro).
+    rememberEmail(email);
     setLoading(true);
     const result = await register(name.trim(), email.trim(), password);
     if (result.success) {

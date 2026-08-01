@@ -24,6 +24,7 @@ import {
 
 import { detectSuspiciousInput } from "@/lib/sanitize";
 import { initCsrfToken, refreshCsrfToken, clearCsrfToken } from "@/hooks/use-csrf";
+import { clearEmailHint } from "@/lib/email-hint";
 import {
   defaultAppearance,
   defaultSettings,
@@ -533,10 +534,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setThemeId(null);
       setAnalytics(emptyAnalytics());
       setActivities([]);
-      // Limpa qualquer cache/estado local sensível
+      // Limpa qualquer cache/estado local sensível (inclui o email lembrado)
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("linkflow_session_checked");
       }
+      clearEmailHint();
       clearAppStorage();
       // Permite que o efeito de inicialização reexecute após novo login.
       hasLoadedRef.current = false;

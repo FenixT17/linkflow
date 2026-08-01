@@ -13,6 +13,8 @@
  * "Falha na autenticação." mesmo quando o erro real era `user_already_exists`.
  */
 
+import { extractEmailFromText } from "./email-hint";
+
 export interface ParsedOAuthError {
   /** Código/tipo do erro Appwrite (ex: "user_already_exists", "provider_disabled"). */
   type: string;
@@ -20,6 +22,8 @@ export interface ParsedOAuthError {
   message: string;
   /** Mensagem amigável em português para mostrar ao utilizador. */
   friendly: string;
+  /** Email detetado no erro, se existir (defensivo — o Appwrite normalmente NÃO o envia). */
+  email?: string;
 }
 
 /** Tenta extrair { type, message } de um valor que pode ser JSON URL-encoded. */
@@ -97,9 +101,14 @@ export function parseOAuthError(errorParam: string | null, errorDescription: str
     haystack.includes("user already exists") ||
     haystack.includes("user with the same id")
   ) {
+    // O Appwrite normalmente não devolve o email no erro, mas se algum setup
+    // o incluir (error_description/message), extraímos para pré-preencher o
+    // formulário de login.
+    const email = extractEmailFromText(`${errorDescription ?? ""} ${message}`) ?? undefined;
     return {
       type,
       message: messageText,
+      email,
       friendly:
         "Já existe uma conta com este email. Entre com email e palavra-passe (ou termine a sessão atual e tente novamente).",
     };

@@ -31,6 +31,15 @@ describe("parseOAuthError — erros OAuth do Appwrite", () => {
     expect(parsed?.friendly).toContain("Já existe uma conta");
   });
 
+  it("extrai o email quando o error_description o inclui (defensivo)", () => {
+    const parsed = parseOAuthError(
+      JSON.stringify({ message: "User already exists", type: "user_already_exists", code: 409 }),
+      "User with email joao@exemplo.com already exists"
+    );
+    expect(parsed?.type).toBe("user_already_exists");
+    expect(parsed?.email).toBe("joao@exemplo.com");
+  });
+
   it("prioriza o error_description quando preenchido", () => {
     const parsed = parseOAuthError("some_error", "O provedor recusou o pedido");
     expect(parsed?.message).toBe("O provedor recusou o pedido");

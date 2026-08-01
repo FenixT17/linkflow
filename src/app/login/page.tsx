@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -9,6 +9,7 @@ import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/context/AuthContext";
 import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
+import { getLastKnownEmail, rememberEmail } from "@/lib/email-hint";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 
 function LoginForm() {
@@ -21,6 +22,12 @@ function LoginForm() {
   const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // Hint quando o registo redireciona para o login (reason=oauth_exists):
+  // o utilizador já tem conta — só precisa da palavra-passe. Derivado
+  // diretamente do searchParams (sem estado) para nunca ficar obsoleto.
+  const oauthExistsHint = searchParams.get("reason") === "oauth_exists";
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -42,6 +49,22 @@ function LoginForm() {
         metadata: { error: parsed.message, rawError: errorParam, type: parsed.type },
       });
       setError(parsed.friendly);
+
+      // user_already_exists → pré-preenche o email para o utilizador só ter
+      // de introduzir a palavra-passe. Fontes por ordem de fiabilidade:
+      //   1) email vindo no erro (defensivo)  2) ?email= no URL (do registo)
+      //   3) último email conhecido no browser.
+      if (parsed.type === "user_already_exists") {
+        const emailFromUrl = searchParams.get("email");
+        const email = parsed.email || emailFromUrl || getLastKnownEmail();
+        if (email) {
+          setEmail(email);
+          // Foca o campo de password para o utilizador só ter de a introduzir.
+          requestAnimationFrame(() => {
+            passwordRef.current?.focus();
+          });
+        }
+      }
     }
   }, [searchParams]);
 
@@ -52,6 +75,8 @@ function LoginForm() {
       setError("Insira um email válido.");
       return;
     }
+    // Guarda o email para pré-preencher futuros fluxos OAuth user_already_exists.
+    rememberEmail(email);
     if (!password || password.length < 8) {
       setError("A palavra-passe deve ter pelo menos 8 caracteres.");
       return;
@@ -127,6 +152,7 @@ function LoginForm() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                   <input
                     id="password"
+                    ref={passwordRef}
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -176,6 +202,12 @@ function LoginForm() {
                   Esqueceu a palavra-passe?
                 </button>
               </div>
+
+              {oauthExistsHint && !error && (
+                <p className="text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
+                  Já tem uma conta neste serviço — introduza a sua palavra-passe para entrar.
+                </p>
+              )}
 
               {error && (
                 <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
