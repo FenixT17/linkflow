@@ -2,7 +2,7 @@ import Image from "next/image";
 import { ShoppingBag, Tag } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, TemplateFooter } from "./shared";
+import { TemplateAvatar, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -42,13 +42,14 @@ export function StoreTemplate({ profile, links, appearance, publicUrl }: Templat
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-full ring-1 ring-white/15">
               {appearance.showAvatar !== false ? (
-                <TemplateAvatar src={profile.avatar} name={profile.displayName} size={44} />
+                <TemplateAvatar src={profile.avatar} name={profile.displayName} size={44} badges={profile.badges} />
               ) : (
                 <ShoppingBag className="h-5 w-5" style={{ color: ACCENT }} />
               )}
             </div>
             <div>
-              <h1 className="text-base font-bold tracking-tight">{profile.displayName}</h1>
+              <h1 className="flex items-center gap-2 text-base font-bold tracking-tight">{profile.displayName}</h1>
+              <ProfileBadges badges={profile.badges} className="mt-1 justify-start" />
               <p className="text-xs" style={{ color: muted }}>
                 @{profile.username}
               </p>

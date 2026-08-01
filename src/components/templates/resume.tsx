@@ -1,7 +1,7 @@
 import { GraduationCap, Award, Download } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -35,6 +35,7 @@ export function ResumeTemplate({ profile, links, appearance, publicUrl }: Templa
                 src={profile.avatar}
                 name={profile.displayName}
                 size={72}
+                badges={profile.badges}
                 className="ring-2 ring-teal-400/40"
               />
             )}
@@ -42,7 +43,8 @@ export function ResumeTemplate({ profile, links, appearance, publicUrl }: Templa
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: ACCENT }}>
                 Curriculum Vitae
               </p>
-              <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+              <h1 className="mt-1 flex items-center gap-2 truncate text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+              <ProfileBadges badges={profile.badges} className="mt-1 justify-start" />
               <p className="mt-0.5 truncate text-sm" style={{ color: muted }}>
                 @{profile.username}
               </p>

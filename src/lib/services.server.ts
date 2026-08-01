@@ -38,6 +38,7 @@ export const getPublicPageByUsername = cache(
       banner: doc.bannerId ? getFileUrl(String(doc.bannerId)) : undefined,
       published: Boolean(doc.published),
       pageType: (doc.pageType as PageType) ?? "minimal",
+      badges: Array.isArray(doc.badges) ? (doc.badges as string[]) : [],
     } as PageProfile & { $id: string };
   }
 );

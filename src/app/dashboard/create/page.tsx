@@ -21,6 +21,9 @@ export default function CreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Bloqueia a dupla submissão (causa do 409 "already exists" no índice
+    // único do username — o createPage também já é idempotente).
+    if (saving) return;
     setError("");
     const cleanUsername = sanitizeUsername(username);
     const cleanDisplayName = sanitizeDisplayName(displayName);

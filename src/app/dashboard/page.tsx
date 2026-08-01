@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -17,7 +17,20 @@ import {
   Calendar,
   Activity,
   ArrowRight,
+  LogIn,
+  LogOut,
+  UserPlus,
+  FilePlus2,
+  FilePen,
+  Rocket,
+  EyeOff,
+  Trash2,
+  Palette,
+  ImageIcon,
+  Award,
+  ShieldCheck,
 } from "lucide-react";
+import type { ActivityAction } from "@/lib/types";
 import { StatCard } from "@/components/ui/stat-card";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -90,9 +103,49 @@ function ChartTooltip({
   );
 }
 
+const ACTIVITY_META: Record<ActivityAction, { label: string; icon: ComponentType<{ className?: string }> }> = {
+  login: { label: "Início de sessão", icon: LogIn },
+  logout: { label: "Terminou sessão", icon: LogOut },
+  register: { label: "Conta criada", icon: UserPlus },
+  page_created: { label: "Página criada", icon: FilePlus2 },
+  page_updated: { label: "Página atualizada", icon: FilePen },
+  page_published: { label: "Página publicada", icon: Rocket },
+  page_unpublished: { label: "Página despublicada", icon: EyeOff },
+  link_created: { label: "Link criado", icon: Link2 },
+  link_updated: { label: "Link atualizado", icon: FilePen },
+  link_deleted: { label: "Link eliminado", icon: Trash2 },
+  appearance_updated: { label: "Aparência atualizada", icon: Palette },
+  avatar_updated: { label: "Foto de perfil atualizada", icon: ImageIcon },
+  banner_updated: { label: "Banner atualizado", icon: ImageIcon },
+  badge_earned: { label: "Badge desbloqueada", icon: Award },
+  staff_applied: { label: "Candidatura ao staff", icon: ShieldCheck },
+};
+
+function parseActivityDetails(details?: string): string | undefined {
+  if (!details) return undefined;
+  try {
+    const parsed = JSON.parse(details) as Record<string, unknown>;
+    const title = typeof parsed.title === "string" ? parsed.title : undefined;
+    if (title) return title;
+    const username = typeof parsed.username === "string" ? parsed.username : undefined;
+    if (username) return `@${username}`;
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function maskIp(ip?: string): string | undefined {
+  if (!ip || ip === "unknown" || ip.includes("::")) return undefined;
+  const parts = ip.split(".");
+  if (parts.length !== 4) return ip;
+  // Privacidade: oculta o último octeto
+  return `${parts[0]}.${parts[1]}.${parts[2]}.x`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
-  const { page, analytics, links, account, refreshAnalytics } = useAuth();
+  const { page, analytics, links, account, refreshAnalytics, activities, refreshActivities } = useAuth();
 
   useEffect(() => {
     if (!page) {
@@ -100,18 +153,22 @@ export default function DashboardPage() {
     }
   }, [page, router]);
 
-  // Atualização automática das estatísticas (sem recarregar a página)
+  // Atualização automática das estatísticas e atividades (sem recarregar)
   useEffect(() => {
     const interval = setInterval(() => {
       void refreshAnalytics();
+      void refreshActivities();
     }, 30_000);
-    const onFocus = () => void refreshAnalytics();
+    const onFocus = () => {
+      void refreshAnalytics();
+      void refreshActivities();
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [refreshAnalytics]);
+  }, [refreshAnalytics, refreshActivities]);
 
   const chartData = useChartData();
 
@@ -327,7 +384,9 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {recentVisitors.map((visitor) => (
               <div
-                key={visitor.id}
+                // O mesmo visitante (visitorHash) pode voltar várias vezes — a
+                // chave tem de ser única por ACESSO (id + hora), não por visitante.
+                key={`${visitor.id}-${visitor.time}`}
                 className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/[0.06]">
@@ -388,10 +447,48 @@ export default function DashboardPage() {
             Ver tudo <ArrowRight className="h-4 w-4" />
           </GlassButton>
         </div>
-        <div className="mt-6 text-center py-8 text-white/40 text-sm">
-          <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>Nenhuma atividade recente.</p>
-        </div>
+        {activities.length > 0 ? (
+          <div className="mt-5 space-y-2.5">
+            {activities.slice(0, 8).map((activity) => {
+              const meta = ACTIVITY_META[activity.action] ?? { label: activity.action, icon: Activity };
+              const Icon = meta.icon;
+              const detail = parseActivityDetails(activity.details);
+              const maskedIp = maskIp(activity.ipAddress);
+              return (
+                <div
+                  key={activity.$id}
+                  className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/[0.06]">
+                    <Icon className="h-4 w-4 text-white/60" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-white/90 truncate">
+                      {meta.label}
+                      {detail && <span className="text-white/40 font-normal"> · {detail}</span>}
+                    </p>
+                    <p className="text-xs text-white/40 truncate">
+                      {maskedIp && <span className="tabular-nums">{maskedIp} · </span>}
+                      {formatVisitTime(activity.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
+                    <Clock className="h-3 w-3" />
+                    <span className="tabular-nums">{timeAgo(activity.createdAt)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mt-6 text-center py-8 text-white/40 text-sm">
+            <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>Nenhuma atividade recente.</p>
+            <p className="text-xs text-white/25 mt-1">
+              As suas ações (login, links, página) aparecerão aqui.
+            </p>
+          </div>
+        )}
       </PremiumCard>
     </div>
   );

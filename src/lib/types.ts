@@ -59,6 +59,8 @@ export interface PageProfile {
   banner?: string;
   published: boolean;
   pageType?: PageType;
+  /** Badges ativas da página (ex: ["verified", "supporter"]) */
+  badges?: string[];
   scheduledPublishAt?: string;
   scheduledUnpublishAt?: string;
 }
@@ -214,4 +216,57 @@ export interface SecurityLogInput {
   ipAddress?: string;
   userAgent?: string;
   metadata?: Record<string, unknown>;
+}
+
+// ---------- Activity Logs (Atividades recentes) ----------
+
+/** Ações de conta registadas no cartão "Atividades recentes". */
+export type ActivityAction =
+  | "login"
+  | "logout"
+  | "register"
+  | "page_created"
+  | "page_updated"
+  | "page_published"
+  | "page_unpublished"
+  | "link_created"
+  | "link_updated"
+  | "link_deleted"
+  | "appearance_updated"
+  | "avatar_updated"
+  | "banner_updated"
+  | "badge_earned"
+  | "staff_applied";
+
+// ---------- Badges ----------
+
+/** Identificadores de badges do LinkFlow. */
+export type BadgeId =
+  | "verified"
+  | "staff"
+  | "supporter"
+  | "early"
+  | "pro"
+  | "partner";
+
+/** Estado de uma candidatura ao staff. */
+export type StaffApplicationStatus = "pending" | "approved" | "rejected";
+
+/** Candidatura ao staff guardada na coleção staff_applications. */
+export interface StaffApplication {
+  $id: string;
+  userId: string;
+  message: string;
+  status: StaffApplicationStatus;
+  createdAt: string;
+}
+
+export interface ActivityEntry {
+  $id: string;
+  userId: string;
+  action: ActivityAction;
+  details?: string; // JSON string with extra info (ex: link title)
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
 }

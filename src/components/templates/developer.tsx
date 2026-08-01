@@ -1,7 +1,7 @@
 import { GitBranch, Star, Braces } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -52,11 +52,13 @@ export function DeveloperTemplate({ profile, links, appearance, publicUrl }: Tem
                 src={profile.avatar}
                 name={profile.displayName}
                 size={72}
+                badges={profile.badges}
                 className="rounded-2xl ring-2 ring-cyan-400/40"
               />
             )}
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold tracking-tight">{profile.displayName}</h1>
+              <h1 className="flex items-center gap-2 truncate text-xl font-bold tracking-tight">{profile.displayName}</h1>
+              <ProfileBadges badges={profile.badges} className="mt-1 justify-start" />
               <p className="truncate font-mono text-xs" style={{ color: muted }}>
                 @{profile.username}
               </p>

@@ -1,7 +1,7 @@
 import { Briefcase, Mail, MapPin } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -35,7 +35,7 @@ export function BusinessTemplate({ profile, links, appearance, publicUrl }: Temp
         <header className="flex items-center gap-4 border-b pb-6" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl ring-1 ring-white/15">
             {appearance.showAvatar !== false && profile.avatar ? (
-              <TemplateAvatar src={profile.avatar} name={profile.displayName} size={56} className="rounded-xl" />
+              <TemplateAvatar src={profile.avatar} name={profile.displayName} size={56} badges={profile.badges} className="rounded-xl" />
             ) : (
               <div className="flex h-full w-full items-center justify-center" style={{ backgroundColor: "rgba(96,165,250,0.2)" }}>
                 <Briefcase className="h-6 w-6" style={{ color: ACCENT }} />
@@ -43,7 +43,8 @@ export function BusinessTemplate({ profile, links, appearance, publicUrl }: Temp
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold tracking-tight">{profile.displayName}</h1>
+            <h1 className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight">{profile.displayName}</h1>
+            <ProfileBadges badges={profile.badges} className="mt-1 justify-start" />
             <p className="text-xs" style={{ color: muted }}>
               {profile.bio?.split("\n")[0] || `@${profile.username}`}
             </p>

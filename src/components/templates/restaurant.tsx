@@ -1,7 +1,7 @@
 import { CalendarCheck, MapPin, Bike } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -42,10 +42,12 @@ export function RestaurantTemplate({ profile, links, appearance, publicUrl }: Te
               src={profile.avatar}
               name={profile.displayName}
               size={88}
+              badges={profile.badges}
               className="ring-2 ring-orange-400/40"
             />
           )}
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-4 flex items-center gap-2 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           <p className="mt-1 text-xs" style={{ color: muted }}>
             @{profile.username}
           </p>

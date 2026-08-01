@@ -3,6 +3,8 @@ import { ID, Query, Models, OAuthProvider, Permission, Role } from "appwrite";
 import { account, databases, storage, databaseId, Collections, Buckets, endpoint, projectId } from "./appwrite";
 import { fetchWithCsrf } from "@/hooks/use-csrf";
 import {
+  ActivityAction,
+  ActivityEntry,
   Appearance,
   LinkItem,
   PageProfile,
@@ -12,8 +14,11 @@ import {
   TopDevice,
   SecurityLogEntry,
   SecurityLogInput,
+  StaffApplication,
+  StaffApplicationStatus,
 } from "./types";
 import { defaultAppearance, emptyAnalytics } from "./defaults";
+import { isBadgeId } from "./badges";
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
 
@@ -88,6 +93,27 @@ export async function registerUser(email: string, password: string, name: string
 }
 
 export async function loginUser(email: string, password: string) {
+  // O Appwrite recusa criar uma nova sessão enquanto existir uma sessão
+  // ativa no cliente (erro "Creation of a session is prohibited when a
+  // session is active"). Isto acontece, por exemplo, logo após o registo
+  // (que já cria sessão) ou quando o browser ainda tem uma sessão antiga.
+  //
+  // O SDK v26 guarda a sessão em localStorage["cookieFallback"] e envia-a
+  // via header X-Fallback-Cookies em todos os pedidos. Apagar apenas a
+  // sessão no servidor (deleteSession("current")) não garante a limpeza
+  // desse fallback local — o createEmailPasswordSession seguinte voltaria
+  // a enviar a sessão antiga e o Appwrite rejeitaria. Por isso: apagamos a
+  // sessão atual no servidor (não afeta sessões de outros dispositivos;
+  // ao contrário do logout que usa deleteSessions()) E limpamos o fallback
+  // local antes de autenticar.
+  try {
+    await account.deleteSession("current");
+  } catch {
+    // Sem sessão ativa — segue em frente normalmente.
+  }
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("cookieFallback");
+  }
   return account.createEmailPasswordSession(email, password);
 }
 
@@ -177,22 +203,82 @@ export async function getUserProfile(userId: string): Promise<UserAccount | null
 
 // ---------- Pages ----------
 
+/** True se o erro do Appwrite for um conflito de documento já existente (409). */
+function isAlreadyExistsError(error: unknown): boolean {
+  const status =
+    typeof error === "object" && error !== null &&
+    "status" in error && typeof (error as { status?: number }).status === "number"
+      ? (error as { status: number }).status
+      : undefined;
+  const message = error instanceof Error ? error.message : "";
+  return status === 409 || message.includes("already exists");
+}
+
+/**
+ * Traduz o 409 do Appwrite (índice único no username — "Document with the
+ * requested ID ... already exists") para uma mensagem amigável. Lança sempre.
+ */
+function throwPageConflict(error: unknown): never {
+  if (isAlreadyExistsError(error)) {
+    const friendly = new Error("Este nome de utilizador já está em uso. Escolha outro.");
+    (friendly as Error & { status?: number }).status = 409;
+    throw friendly;
+  }
+  throw error;
+}
+
 export async function createPage(profile: Omit<PageProfile, "published">) {
   const session = await getCurrentSession();
-  const doc = await databases.createDocument(databaseId, Collections.pages, ID.unique(), {
-    ...profile,
-    userId: session.$id,
-    published: false,
-    pageType: profile.pageType ?? "minimal",
-  }, [
-    Permission.read(Role.user(session.$id)),
-    Permission.update(Role.user(session.$id)),
-    Permission.delete(Role.user(session.$id)),
-  ]);
-  // Create default theme and empty analytics for the page
+
+  // Idempotente: se o utilizador JÁ tem uma página (ex: dupla submissão do
+  // botão ou tentativa anterior que ficou a meio), atualiza-a em vez de
+  // criar outra — o índice único no username rejeitaria a segunda com
+  // "Document with the requested ID ... already exists" (409).
+  const existing = await getPageByUserId(session.$id).catch(() => null);
+  if (existing) {
+    try {
+      // updatePage já regista a atividade (page_updated) e faz o owner check.
+      return await updatePage(existing.$id, {
+        username: profile.username,
+        displayName: profile.displayName,
+        bio: profile.bio ?? "",
+        pageType: profile.pageType ?? existing.pageType ?? "minimal",
+      });
+    } catch (error) {
+      // Username alterado para um já usado por OUTRO utilizador → 409 cru.
+      throwPageConflict(error);
+    }
+  }
+
+  let doc: AppwriteDocument;
+  try {
+    doc = await databases.createDocument(databaseId, Collections.pages, ID.unique(), {
+      ...profile,
+      userId: session.$id,
+      published: false,
+      pageType: profile.pageType ?? "minimal",
+    }, [
+      Permission.read(Role.user(session.$id)),
+      Permission.update(Role.user(session.$id)),
+      Permission.delete(Role.user(session.$id)),
+    ]);
+  } catch (error) {
+    // Só o createDocument da página traduz o 409 para "username em uso" — os
+    // 409 dos passos seguintes (theme/analytics) são outra coisa (ver abaixo).
+    throwPageConflict(error);
+  }
+  // Registo de atividade: página criada
+  void logActivity("page_created", { username: profile.username, displayName: profile.displayName });
+
+  // Create default theme and empty analytics for the page.
+  // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
+  // único de pageId), NÃO é um conflito de username — ignoramos e seguimos
+  // (getThemeByPageId/getAnalyticsByPageId têm fallbacks para dados ausentes).
   await createOwnedDocument(Collections.themes, {
     pageId: doc.$id,
     ...defaultAppearance(),
+  }).catch((error) => {
+    if (!isAlreadyExistsError(error)) throw error;
   });
   await createOwnedDocument(Collections.analytics, {
     pageId: doc.$id,
@@ -215,7 +301,10 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
       dailyVisitors: [],
       uniqueVisitors: 0,
     }),
+  }).catch((error) => {
+    if (!isAlreadyExistsError(error)) throw error;
   });
+
   return doc;
 }
 
@@ -240,7 +329,17 @@ export async function getPageByUserId(userId: string): Promise<(PageProfile & { 
 
 export async function updatePage(pageId: string, patch: Partial<PageProfile>) {
   await requireOwnerOfPage(pageId);
-  return databases.updateDocument(databaseId, Collections.pages, pageId, patch);
+  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, patch);
+  // Registo de atividade: página atualizada (inclui publicar/despublicar)
+  if (typeof patch.published === "boolean") {
+    void logActivity(
+      patch.published ? "page_published" : "page_unpublished",
+      { username: String(doc.username ?? "") }
+    );
+  } else {
+    void logActivity("page_updated", { username: String(doc.username ?? "") });
+  }
+  return doc;
 }
 
 function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
@@ -253,6 +352,7 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
     banner: doc.bannerId ? getFilePreviewUrl(Buckets.files, String(doc.bannerId)) : undefined,
     published: Boolean(doc.published),
     pageType: (doc.pageType as PageType) ?? "minimal",
+    badges: Array.isArray(doc.badges) ? (doc.badges as string[]) : [],
     scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
     scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,
   };
@@ -335,7 +435,7 @@ export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
     }
   }
 
-  return createOwnedDocument(Collections.links, {
+  const created = await createOwnedDocument(Collections.links, {
     pageId,
     type: link.type,
     title: link.title,
@@ -352,6 +452,9 @@ export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
     clicks: link.clicks,
     scheduledFor: link.scheduledFor,
   }, session);
+  // Registo de atividade: link criado
+  void logActivity("link_created", { title: link.title });
+  return created;
 }
 
 export async function updateLink(linkId: string, patch: Partial<Omit<LinkItem, "id">>) {
@@ -362,13 +465,22 @@ export async function updateLink(linkId: string, patch: Partial<Omit<LinkItem, "
     appwritePatch.imageId = appwritePatch.image;
     delete appwritePatch.image;
   }
-  return databases.updateDocument(databaseId, Collections.links, linkId, appwritePatch);
+  const doc = await databases.updateDocument(databaseId, Collections.links, linkId, appwritePatch);
+  // Registo de atividade: link atualizado — mas NÃO quando é apenas a ordem
+  // (o drag-reorder dispara um updateLink por link e inundaria o feed).
+  const meaningfulKeys = Object.keys(appwritePatch).filter((k) => k !== "order");
+  if (meaningfulKeys.length > 0) {
+    void logActivity("link_updated", { title: String(doc.title ?? "") });
+  }
+  return doc;
 }
 
 export async function deleteLink(linkId: string) {
   const linkDoc = await databases.getDocument(databaseId, Collections.links, linkId);
   await requireOwnerOfPage(String(linkDoc.pageId));
-  return databases.deleteDocument(databaseId, Collections.links, linkId);
+  await databases.deleteDocument(databaseId, Collections.links, linkId);
+  // Registo de atividade: link eliminado
+  void logActivity("link_deleted", { title: String(linkDoc.title ?? "") });
 }
 
 // ---------- Themes ----------
@@ -427,7 +539,10 @@ export async function updateTheme(themeId: string, appearance: Appearance) {
     }
   }
 
-  return databases.updateDocument(databaseId, Collections.themes, themeId, safePayload);
+  const doc = await databases.updateDocument(databaseId, Collections.themes, themeId, safePayload);
+  // Registo de atividade: aparência atualizada (throttled para sliders)
+  void logActivity("appearance_updated");
+  return doc;
 }
 
 // ---------- Security Logs ----------
@@ -528,6 +643,239 @@ export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsDat
   };
 }
 
+// ---------- Activity Logs (Atividades recentes) ----------
+
+/** IP real do utilizador, obtido uma vez do servidor (/api/activity/ip). */
+let cachedClientIp: string | null = null;
+
+async function getClientIpForActivity(): Promise<string | undefined> {
+  if (cachedClientIp) return cachedClientIp;
+  try {
+    const res = await fetch("/api/activity/ip", { credentials: "include" });
+    if (res.ok) {
+      const data = (await res.json()) as { ip?: string };
+      cachedClientIp = data.ip || null;
+    }
+  } catch {
+    // Sem IP — a atividade é registada na mesma (o IP é opcional).
+  }
+  return cachedClientIp ?? undefined;
+}
+
+/**
+ * Ações de alta frequência (sliders da aparência) — throttled para não
+ * inundar o cartão. Ações discretas (criar/apagar links, publicar, etc.)
+ * são SEMPRE registadas: o utilizador pediu que TODA a atividade apareça.
+ */
+const HIGH_FREQUENCY_ACTIONS = new Set<string>(["appearance_updated"]);
+const lastLoggedAt = new Map<string, number>();
+function shouldLogAction(action: string): boolean {
+  if (!HIGH_FREQUENCY_ACTIONS.has(action)) return true;
+  const now = Date.now();
+  const last = lastLoggedAt.get(action) ?? 0;
+  if (now - last < 3000) return false;
+  lastLoggedAt.set(action, now);
+  return true;
+}
+
+/**
+ * Regista uma atividade da conta no cartão "Atividades recentes".
+ *
+ * - Escrito pelo client SDK autenticado (sessão no localStorage) com
+ *   permissões por documento (Role.user) — só o dono lê o seu registo.
+ * - O IP vem do servidor (x-forwarded-for), nunca do body.
+ * - Nunca quebra a ação principal (erros são silenciosos).
+ */
+export async function logActivity(
+  action: ActivityAction,
+  details?: Record<string, unknown>
+): Promise<void> {
+  try {
+    if (!shouldLogAction(action)) return;
+    const session = await getCurrentSessionOrThrow();
+    const ip = await getClientIpForActivity();
+    await databases.createDocument(databaseId, Collections.activityLogs, ID.unique(), {
+      userId: session.$id,
+      action,
+      details: details ? JSON.stringify(details).slice(0, 2000) : "",
+      ipAddress: ip ?? "",
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : "",
+      createdAt: new Date().toISOString(),
+    }, [
+      Permission.read(Role.user(session.$id)),
+      Permission.update(Role.user(session.$id)),
+      Permission.delete(Role.user(session.$id)),
+    ]);
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[Activity] Failed to log:", error);
+    }
+  }
+}
+
+/** Últimas atividades da conta (mais recentes primeiro). */
+export async function getRecentActivities(limit = 15): Promise<ActivityEntry[]> {
+  try {
+    const session = await getCurrentSession();
+    const docs = await databases.listDocuments(databaseId, Collections.activityLogs, [
+      Query.equal("userId", session.$id),
+      Query.orderDesc("createdAt"),
+      Query.limit(Math.min(Math.max(limit, 1), 50)),
+    ]);
+    return docs.documents.map((doc) => ({
+      $id: doc.$id,
+      userId: String(doc.userId ?? ""),
+      action: doc.action as ActivityAction,
+      details: doc.details ? String(doc.details) : undefined,
+      ipAddress: doc.ipAddress ? String(doc.ipAddress) : undefined,
+      userAgent: doc.userAgent ? String(doc.userAgent) : undefined,
+      createdAt: String(doc.createdAt ?? ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ---------- Badges ----------
+
+/** Badges concedidas APENAS pela equipa (nunca self-service). */
+const TEAM_ONLY_BADGES = new Set<string>(["early", "partner"]);
+
+/**
+ * Concede uma badge à página do utilizador autenticado, respeitando as
+ * regras de desbloqueio:
+ * - verified / supporter: self-service (doação simulada — fluxo da aba Badges).
+ * - staff: SÓ depois de a candidatura estar aprovada (status "approved").
+ * - pro: SÓ se a conta tiver plano pago (registo em users).
+ * - early / partner: exclusivas da equipa — sempre negadas ao utilizador.
+ *
+ * O badgeId é validado contra o registo (isBadgeId) antes de qualquer escrita,
+ * e o userId é sempre derivado da sessão autenticada (nunca do body).
+ */
+export async function grantBadge(badgeId: string): Promise<boolean> {
+  if (!isBadgeId(badgeId)) {
+    throw new Error("Badge desconhecida.");
+  }
+  if (TEAM_ONLY_BADGES.has(badgeId)) {
+    throw new Error("Esta badge é concedida apenas pela equipa.");
+  }
+
+  const session = await getCurrentSession();
+
+  // Regra da badge staff: só após aprovação da candidatura
+  if (badgeId === "staff") {
+    const application = await getStaffApplicationStatus();
+    if (application?.status !== "approved") {
+      throw new Error("A badge Staff só é concedida após aprovação da candidatura.");
+    }
+  }
+
+  // Regra da badge pro: só com plano pago (origem real no registo users)
+  if (badgeId === "pro") {
+    const profile = await getUserProfile(session.$id);
+    if (!profile || profile.plan === "free") {
+      throw new Error("A badge Pro requer um plano pago.");
+    }
+  }
+
+  const page = await getPageByUserId(session.$id);
+  if (!page) {
+    throw new Error("Cria primeiro a tua página para desbloquear badges.");
+  }
+  await requireOwnerOfPage(page.$id);
+
+  // Nota: read-modify-write no array — a doação sequencial (verified depois
+  // supporter) evita corridas na prática. Não há append atómico no client SDK.
+  const badges = Array.isArray(page.badges) ? page.badges : [];
+  if (badges.includes(badgeId)) return false;
+  await databases.updateDocument(databaseId, Collections.pages, page.$id, {
+    badges: [...badges, badgeId],
+  });
+  void logActivity("badge_earned", { badge: badgeId });
+  return true;
+}
+
+/**
+ * Remove uma badge da página (usado para sincronizar a badge pro com o plano).
+ */
+export async function revokeBadge(badgeId: string): Promise<void> {
+  const session = await getCurrentSession();
+  const page = await getPageByUserId(session.$id);
+  if (!page) return;
+  await requireOwnerOfPage(page.$id);
+  const badges = Array.isArray(page.badges) ? page.badges : [];
+  if (!badges.includes(badgeId)) return;
+  await databases.updateDocument(databaseId, Collections.pages, page.$id, {
+    badges: badges.filter((b) => b !== badgeId),
+  });
+}
+
+/**
+ * Cria uma candidatura ao staff (coleção staff_applications).
+ * - Só permite uma candidatura pendente por utilizador.
+ * - A badge "staff" só é concedida quando a candidatura for aprovada
+ *   (revisão manual pela equipa — fora do âmbito do self-service).
+ */
+export async function applyForStaff(message: string): Promise<StaffApplication> {
+  const session = await getCurrentSession();
+  const trimmed = message.trim().slice(0, 4000);
+  if (trimmed.length < 20) {
+    throw new Error("Explica um pouco mais porque queres fazer parte do staff (mín. 20 caracteres).");
+  }
+
+  // Verifica se já existe candidatura pendente
+  const existing = await databases.listDocuments(databaseId, Collections.staffApplications, [
+    Query.equal("userId", session.$id),
+    Query.equal("status", "pending"),
+    Query.limit(1),
+  ]);
+  if (existing.documents.length > 0) {
+    throw new Error("Já tens uma candidatura ao staff em análise.");
+  }
+
+  const doc = await databases.createDocument(databaseId, Collections.staffApplications, ID.unique(), {
+    userId: session.$id,
+    message: trimmed,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  }, [
+    Permission.read(Role.user(session.$id)),
+    Permission.update(Role.user(session.$id)),
+    Permission.delete(Role.user(session.$id)),
+  ]);
+  void logActivity("staff_applied");
+  return {
+    $id: doc.$id,
+    userId: session.$id,
+    message: trimmed,
+    status: "pending",
+    createdAt: String(doc.createdAt ?? ""),
+  };
+}
+
+/** Última candidatura ao staff do utilizador (ou null se nunca se candidatou). */
+export async function getStaffApplicationStatus(): Promise<StaffApplication | null> {
+  try {
+    const session = await getCurrentSession();
+    const docs = await databases.listDocuments(databaseId, Collections.staffApplications, [
+      Query.equal("userId", session.$id),
+      Query.orderDesc("createdAt"),
+      Query.limit(1),
+    ]);
+    if (docs.documents.length === 0) return null;
+    const doc = docs.documents[0] as AppwriteDocument;
+    return {
+      $id: doc.$id,
+      userId: String(doc.userId ?? ""),
+      message: String(doc.message ?? ""),
+      status: (doc.status as StaffApplicationStatus) ?? "pending",
+      createdAt: String(doc.createdAt ?? ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---------- Storage ----------
 
 export function getFilePreviewUrl(bucketId: string, fileId: string) {
@@ -546,16 +894,20 @@ export async function deleteFile(bucketId: string, fileId: string) {
 
 export async function updatePageAvatar(pageId: string, fileId: string) {
   await requireOwnerOfPage(pageId);
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
+  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     avatarId: fileId,
   });
+  void logActivity("avatar_updated", { username: String(doc.username ?? "") });
+  return doc;
 }
 
 export async function updatePageBanner(pageId: string, fileId: string) {
   await requireOwnerOfPage(pageId);
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
+  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     bannerId: fileId,
   });
+  void logActivity("banner_updated", { username: String(doc.username ?? "") });
+  return doc;
 }
 
 export async function removePageAvatar(pageId: string) {

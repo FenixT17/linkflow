@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Play, Clapperboard } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -50,6 +50,7 @@ export function CreatorTemplate({ profile, links, appearance, publicUrl }: Templ
                 src={profile.avatar}
                 name={profile.displayName}
                 size={96}
+                badges={profile.badges}
                 className="ring-4 ring-[var(--background,#0a0a0a)]"
               />
             )}
@@ -60,7 +61,8 @@ export function CreatorTemplate({ profile, links, appearance, publicUrl }: Templ
           >
             <Clapperboard className="h-3 w-3" /> Criador
           </span>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-3 flex items-center gap-2 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           <p className="mt-1 text-sm opacity-60">@{profile.username}</p>
           {appearance.showBio !== false && profile.bio && (
             <p className="mt-3 max-w-sm text-sm leading-relaxed opacity-80">{profile.bio}</p>

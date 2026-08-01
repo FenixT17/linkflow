@@ -350,7 +350,9 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {recentVisitors.map((visitor) => (
               <div
-                key={visitor.id}
+                // O mesmo visitante (visitorHash) pode voltar várias vezes — a
+                // chave tem de ser única por ACESSO (id + hora), não por visitante.
+                key={`${visitor.id}-${visitor.time}`}
                 className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.05] ring-1 ring-white/[0.06]">

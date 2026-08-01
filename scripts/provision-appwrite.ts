@@ -95,6 +95,18 @@ async function createStringAttribute(
   );
 }
 
+async function createStringArrayAttribute(
+  collectionId: string,
+  key: string,
+  size: number,
+  required: boolean
+) {
+  return runWithIdempotency(
+    () => databases.createStringAttribute(databaseId, collectionId, key, size, required, undefined, true),
+    `String[] attribute ${collectionId}.${key}`
+  );
+}
+
 async function createBooleanAttribute(
   collectionId: string,
   key: string,
@@ -210,9 +222,10 @@ async function provision() {
   await createStringAttribute("pages", "bannerId", 255, false);
   await createBooleanAttribute("pages", "published", true, false);
   await createStringAttribute("pages", "pageType", 32, false, "minimal");
+  await createStringArrayAttribute("pages", "badges", 32, false);
   await createDatetimeAttribute("pages", "scheduledPublishAt", false);
   await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "scheduledPublishAt", "scheduledUnpublishAt"]);
+  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "badges", "scheduledPublishAt", "scheduledUnpublishAt"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 
@@ -491,6 +504,59 @@ async function provision() {
   await createIndex("security_logs", "idx_security_userId", "key", ["userId"]);
   await createIndex("security_logs", "idx_security_eventType", "key", ["eventType"]);
   await createIndex("security_logs", "idx_security_createdAt", "key", ["createdAt"]);
+
+  // 12b. Activity Logs collection (atividades recentes da conta)
+  // Registo real de cada ação do utilizador (login, logout, criar/editar/
+  // apagar links, criar/atualizar página, alterar aparência, avatar, banner)
+  // com IP + hora. Escrito pelo client SDK autenticado (permissões por
+  // documento Role.user) e lido apenas pelo dono da conta.
+  console.log("\n📝 Collection: activity_logs");
+  await createCollection(
+    "activity_logs",
+    "Activity Logs",
+    [
+      Permission.read(Role.users()),
+      Permission.create(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ],
+    true
+  );
+  await createStringAttribute("activity_logs", "userId", 255, true);
+  await createStringAttribute("activity_logs", "action", 64, true);
+  await createStringAttribute("activity_logs", "details", 2048, false);
+  await createStringAttribute("activity_logs", "ipAddress", 64, false);
+  await createStringAttribute("activity_logs", "userAgent", 512, false);
+  await createDatetimeAttribute("activity_logs", "createdAt", true);
+  await waitForAttributes("activity_logs", [
+    "userId", "action", "details", "ipAddress", "userAgent", "createdAt",
+  ]);
+  await createIndex("activity_logs", "idx_activity_userId", "key", ["userId"]);
+  await createIndex("activity_logs", "idx_activity_userId_createdAt", "key", ["userId", "createdAt"]);
+
+  // 12c. Staff applications collection (candidaturas ao staff)
+  // Cada utilizador pode candidatar-se ao staff. O status é revisto
+  // manualmente pela equipa (pending → approved/rejected). Quando aprovado,
+  // a badge "staff" é concedida à página do utilizador.
+  console.log("\n🛠️ Collection: staff_applications");
+  await createCollection(
+    "staff_applications",
+    "Staff Applications",
+    [
+      Permission.read(Role.users()),
+      Permission.create(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ],
+    true
+  );
+  await createStringAttribute("staff_applications", "userId", 255, true);
+  await createStringAttribute("staff_applications", "message", 4096, true);
+  await createStringAttribute("staff_applications", "status", 32, true, "pending");
+  await createDatetimeAttribute("staff_applications", "createdAt", true);
+  await waitForAttributes("staff_applications", ["userId", "message", "status", "createdAt"]);
+  await createIndex("staff_applications", "idx_staff_userId", "key", ["userId"]);
+  await createIndex("staff_applications", "idx_staff_userId_status", "key", ["userId", "status"]);
 
   // 13. Storage bucket (single bucket for all files to fit free plan)
   // Public read (Role.any()) so avatars/banners/images are visible on the

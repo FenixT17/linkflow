@@ -35,6 +35,8 @@ export const Collections = {
   teams: "teams",
   notifications: "notifications",
   securityLogs: "security_logs",
+  activityLogs: "activity_logs",
+  staffApplications: "staff_applications",
 } as const;
 
 export const Buckets = {

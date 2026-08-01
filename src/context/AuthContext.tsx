@@ -13,6 +13,7 @@ import {
 import { useRouter, usePathname } from "next/navigation";
 import { Models } from "appwrite";
 import {
+  ActivityEntry,
   PageProfile,
   UserAccount,
   LinkItem,
@@ -37,6 +38,8 @@ import {
   getLinksByPageId,
   getThemeByPageId,
   getAnalyticsByPageId,
+  getRecentActivities,
+  logActivity,
   createPage as createPageService,
   updatePage as updatePageService,
   updateTheme as updateThemeService,
@@ -55,6 +58,8 @@ interface AuthContextValue {
   appearance: Appearance;
   settings: UserSettings;
   analytics: AnalyticsData;
+  activities: ActivityEntry[];
+  refreshActivities: () => Promise<void>;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (
@@ -147,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<string | null>(null);
   const [settings, setSettingsState] = useState<UserSettings>(() => defaultSettings());
   const [analytics, setAnalytics] = useState<AnalyticsData>(() => emptyAnalytics());
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
 
@@ -249,6 +255,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await applyScheduledPublish(pageDoc);
         await loadPageData(id);
       }
+      // Atividades recentes da conta (independentes da página)
+      getRecentActivities(15).then(setActivities).catch(() => {});
     } catch (error) {
       console.error("[AuthContext] Failed to load user data:", error);
     }
@@ -303,6 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAppearance(defaultAppearance());
           setThemeId(null);
           setAnalytics(emptyAnalytics());
+          setActivities([]);
           clearAppStorage();
           if (pathname && isProtectedRoute(pathname)) {
             router.replace("/login");
@@ -326,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setAppearance(defaultAppearance());
           setThemeId(null);
           setAnalytics(emptyAnalytics());
+          setActivities([]);
           clearAppStorage();
           if (pathname && isProtectedRoute(pathname)) {
             router.replace("/login");
@@ -377,6 +387,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await loginUser(email, password);
       const session = await getCurrentSession();
+
+      // Registo de atividade: login bem-sucedido
+      void logActivity("login");
 
       // Mitigação de session fixation: renova o token CSRF após login
       refreshCsrfToken().catch(() => {});
@@ -444,6 +457,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const newAccount = await registerUser(email, password, name);
 
+      // Registo de atividade: conta criada
+      void logActivity("register", { displayName: name });
+
       // Mitigação de session fixation: renova o token CSRF após registo
       refreshCsrfToken().catch(() => {});
 
@@ -487,6 +503,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      // Registo de atividade ANTES de terminar as sessões (o client SDK
+      // precisa da sessão ativa para gravar). Fire-and-forget.
+      await logActivity("logout");
       if (accountData?.email) {
         createSecurityLog({
           userId: "anonymous",
@@ -508,6 +527,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAppearance(defaultAppearance());
       setThemeId(null);
       setAnalytics(emptyAnalytics());
+      setActivities([]);
       // Limpa qualquer cache/estado local sensível
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("linkflow_session_checked");
@@ -552,6 +572,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("[AuthContext] refreshAnalytics failed:", error);
     }
   }, [pageId]);
+
+  const refreshActivities = useCallback(async () => {
+    try {
+      const fetched = await getRecentActivities(15);
+      setActivities(fetched);
+    } catch {
+      // silencioso — o cartão fica com os dados anteriores
+    }
+  }, []);
 
   const setLinks = useCallback((value: LinkItem[] | ((prev: LinkItem[]) => LinkItem[])) => {
     setLinksState((prev) => (typeof value === "function" ? (value as (prev: LinkItem[]) => LinkItem[])(prev) : value));
@@ -638,6 +667,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       appearance,
       settings,
       analytics,
+      activities,
+      refreshActivities,
       isLoading,
       login,
       register,
@@ -662,6 +693,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       appearance,
       settings,
       analytics,
+      activities,
+      refreshActivities,
       isLoading,
       login,
       register,

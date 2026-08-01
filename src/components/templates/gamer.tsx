@@ -1,7 +1,7 @@
 import { Trophy, Gamepad2, Flame, Swords } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
@@ -55,6 +55,7 @@ export function GamerTemplate({ profile, links, appearance, publicUrl }: Templat
                 src={profile.avatar}
                 name={profile.displayName}
                 size={96}
+                badges={profile.badges}
                 className="ring-4 ring-[var(--background,#0a0a0a)]"
               />
             </div>
@@ -65,7 +66,8 @@ export function GamerTemplate({ profile, links, appearance, publicUrl }: Templat
           >
             <Swords className="h-3 w-3" /> Pro Player
           </span>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-3 flex items-center gap-2 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           <p className="mt-1 font-mono text-xs" style={{ color: muted }}>
             @{profile.username}
           </p>

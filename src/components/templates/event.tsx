@@ -1,7 +1,7 @@
 import { Ticket, MapPin, Clock, Sparkles } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, SectionLabel, TemplateFooter } from "./shared";
+import { TemplateAvatar, SectionLabel, TemplateFooter, ProfileBadges } from "./shared";
 import { Countdown } from "./countdown";
 import { ShareActions } from "@/components/public/share-actions";
 
@@ -40,6 +40,7 @@ export function EventTemplate({ profile, links, appearance, publicUrl }: Templat
               src={profile.avatar}
               name={profile.displayName}
               size={80}
+              badges={profile.badges}
               className="ring-2 ring-pink-400/40"
             />
           )}
@@ -49,7 +50,8 @@ export function EventTemplate({ profile, links, appearance, publicUrl }: Templat
           >
             <Sparkles className="h-3 w-3" /> Evento
           </span>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-3 flex items-center gap-2 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           {appearance.showBio !== false && profile.bio && (
             <p className="mt-2 max-w-sm text-sm leading-relaxed opacity-80">{profile.bio}</p>
           )}

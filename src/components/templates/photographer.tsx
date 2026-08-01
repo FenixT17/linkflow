@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Camera } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateFooter } from "./shared";
+import { TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 import { sanitizeUrl } from "@/lib/sanitize";
 
@@ -39,9 +39,10 @@ export function PhotographerTemplate({ profile, links, appearance, publicUrl }: 
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
           <div className="absolute inset-x-0 bottom-0 p-6">
-            <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-lg">
+            <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight text-white drop-shadow-lg">
               {profile.displayName}
             </h1>
+            <ProfileBadges badges={profile.badges} className="mt-1.5" />
             <p className="mt-1 text-sm text-white/80">@{profile.username}</p>
             <div className="mt-3 flex items-center gap-3">
               <ShareActions publicUrl={publicUrl} />
@@ -53,7 +54,8 @@ export function PhotographerTemplate({ profile, links, appearance, publicUrl }: 
           <div className="flex h-20 w-20 items-center justify-center rounded-full" style={{ backgroundColor: "rgba(251,191,36,0.15)" }}>
             <Camera className="h-9 w-9" style={{ color: ACCENT }} />
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-4 flex items-center gap-2 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           <p className="mt-1 text-sm opacity-60">@{profile.username}</p>
           <div className="mt-4">
             <ShareActions publicUrl={publicUrl} />

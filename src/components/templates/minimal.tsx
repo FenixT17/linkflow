@@ -1,7 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { TemplateProps } from "./types";
 import { TrackedLink } from "./tracked-link";
-import { TemplateAvatar, TemplateFooter } from "./shared";
+import { TemplateAvatar, TemplateFooter, ProfileBadges } from "./shared";
 import { ShareActions } from "@/components/public/share-actions";
 
 /**
@@ -29,10 +29,12 @@ export function MinimalTemplate({ profile, links, appearance, publicUrl }: Templ
               src={profile.avatar}
               name={profile.displayName}
               size={64}
+              badges={profile.badges}
               className="ring-1 ring-white/10"
             />
           )}
-          <h1 className="mt-5 text-lg font-medium tracking-tight">{profile.displayName}</h1>
+          <h1 className="mt-5 flex items-center gap-2 text-lg font-medium tracking-tight">{profile.displayName}</h1>
+          <ProfileBadges badges={profile.badges} className="mt-1.5" />
           <p className="mt-0.5 text-xs" style={{ color: muted }}>
             @{profile.username}
           </p>
