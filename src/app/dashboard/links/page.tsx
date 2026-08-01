@@ -10,8 +10,8 @@ import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlatformIcon } from "@/components/ui/platform-icon";
-import { getPlatform } from "@/lib/platforms";
-import { SocialLinksSection } from "@/components/dashboard/social-links-section";
+import { getPlatform, type Platform } from "@/lib/platforms";
+import { buildSocialUrl, getSocialPlatforms, searchSocialPlatforms } from "@/lib/social";
 import { useCsrfAction } from "@/components/ui/csrf-form";
 import { cn } from "@/lib/utils";
 import {
@@ -29,6 +29,7 @@ import {
   AlertCircle,
   QrCode,
   ArrowUpDown,
+  ArrowLeft,
 } from "lucide-react";
 
 const FREE_LINK_LIMIT = 3;
@@ -39,6 +40,8 @@ type SortBy = "manual" | "title" | "clicks" | "date";
 function buildUrl(raw: string, platformId?: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
+  // Bloquear protocolos inseguros (XSS / exfiltração) antes de mais nada.
+  if (/^(javascript:|data:|vbscript:|file:|blob:)/i.test(trimmed)) return "";
   if (/^(https?:|mailto:|tel:|sms:)/i.test(trimmed)) return trimmed;
   const platform = getPlatform(platformId || "");
   if (platform?.urlPrefix) return `${platform.urlPrefix}${trimmed}`;
@@ -366,6 +369,10 @@ export default function LinksPage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragOverPosition, setDragOverPosition] = useState<"top" | "bottom" | null>(null);
   const [qrLink, setQrLink] = useState<LinkItem | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
+  const [platformValue, setPlatformValue] = useState("");
+  const [customMode, setCustomMode] = useState(false);
   const { verifyCsrf } = useCsrfAction();
 
   const isFreePlan = !account || account.plan === "free";
@@ -444,6 +451,71 @@ export default function LinksPage() {
       setNewLink({ title: "", url: "", type: "link", active: true, visible: true, newTab: true, clicks: 0 });
       setIsAdding(false);
       showMessage("Link adicionado.");
+    } catch (err: unknown) {
+      showMessage(err instanceof Error ? err.message : "Erro ao adicionar link.", "error");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const openPicker = () => {
+    setPickerQuery("");
+    setSelectedPlatform(null);
+    setPlatformValue("");
+    setCustomMode(false);
+    setIsAdding(true);
+  };
+
+  const closeAdd = () => setIsAdding(false);
+
+  const backToPicker = () => {
+    setSelectedPlatform(null);
+    setCustomMode(false);
+    setPlatformValue("");
+    setPickerQuery("");
+  };
+
+  const availablePlatforms = useMemo(() => {
+    const queryTrimmed = pickerQuery.trim();
+    return queryTrimmed ? searchSocialPlatforms(queryTrimmed) : getSocialPlatforms();
+  }, [pickerQuery]);
+
+  const platformPreview = useMemo(() => {
+    if (!selectedPlatform) return { url: "", error: "" };
+    return buildSocialUrl(selectedPlatform.id, platformValue);
+  }, [selectedPlatform, platformValue]);
+
+  const handleAddPlatform = async () => {
+    if (!pageId || !selectedPlatform) return;
+    if (!canAddLink) {
+      showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
+      return;
+    }
+    const built = buildSocialUrl(selectedPlatform.id, platformValue);
+    if (!built.url) {
+      showMessage(built.error ?? "URL inválida.", "error");
+      return;
+    }
+    const csrfOk = await verifyCsrf();
+    if (!csrfOk) return;
+
+    setSavingId("add");
+    try {
+      const link: Omit<LinkItem, "id"> = {
+        type: "link",
+        title: selectedPlatform.name,
+        url: built.url,
+        icon: selectedPlatform.id,
+        active: true,
+        visible: true,
+        newTab: true,
+        order: Math.max(...links.map((l) => l.order), -1) + 1,
+        clicks: 0,
+      };
+      const doc = await createLink(pageId, link);
+      setLinks((prev) => [...prev, { ...link, id: doc.$id }]);
+      showMessage(`${selectedPlatform.name} adicionado.`);
+      closeAdd();
     } catch (err: unknown) {
       showMessage(err instanceof Error ? err.message : "Erro ao adicionar link.", "error");
     } finally {
@@ -616,11 +688,15 @@ export default function LinksPage() {
       >
         <GlassButton
           variant="primary"
-          size="sm"
-          onClick={() => setIsAdding(true)}
+          size="md"
+          onClick={openPicker}
           disabled={!canAddLink || isAdding}
+          className="group/btn relative !px-5 shadow-[0_0_24px_rgba(99,102,241,0.22)]"
         >
-          <Plus className="h-4 w-4" /> Novo link
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-white/15 ring-1 ring-white/20 transition-transform duration-300 group-hover/btn:rotate-90">
+            <Plus className="h-3.5 w-3.5" />
+          </span>
+          Novo link
         </GlassButton>
       </SectionHeader>
 
@@ -696,35 +772,168 @@ export default function LinksPage() {
       </div>
 
       {isAdding && (
-        <PremiumCard className="p-4 space-y-4" strong>
+        <PremiumCard className="p-5 space-y-4" strong>
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-white/90">Novo link</h3>
-            <button
-              onClick={() => setIsAdding(false)}
-              className="text-white/40 hover:text-white/80"
-            >
+            <div className="flex items-center gap-2">
+              {selectedPlatform || customMode ? (
+                <button
+                  onClick={backToPicker}
+                  aria-label="Voltar ao seletor de plataformas"
+                  className="p-1.5 -ml-1.5 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/80"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              ) : (
+                <div className="p-1.5 rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
+                  <Link2 className="h-4 w-4 text-white/70" />
+                </div>
+              )}
+              <h3 className="text-base font-semibold text-white/90">
+                {selectedPlatform
+                  ? `Adicionar ${selectedPlatform.name}`
+                  : customMode
+                    ? "Link personalizado"
+                    : "Novo link"}
+              </h3>
+            </div>
+            <button onClick={closeAdd} aria-label="Fechar" className="text-white/40 hover:text-white/80">
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
-              value={newLink.title || ""}
-              onChange={(e) => setNewLink((p) => ({ ...p, title: e.target.value }))}
-              placeholder="Título"
-              className="glass-input px-3 py-2 text-sm"
-            />
-            <input
-              value={newLink.url || ""}
-              onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
-              placeholder="URL"
-              className="glass-input px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="flex justify-end">
-            <GlassButton size="sm" onClick={handleAdd} disabled={savingId === "add"}>
-              {savingId === "add" ? "A adicionar..." : "Adicionar link"}
-            </GlassButton>
-          </div>
+
+          {selectedPlatform ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] ring-1 ring-white/[0.06]"
+                  style={{ color: selectedPlatform.color }}
+                >
+                  <PlatformIcon platformId={selectedPlatform.id} size={22} color={selectedPlatform.color} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/90">{selectedPlatform.name}</p>
+                  <p className="text-xs text-white/50">
+                    {selectedPlatform.urlPrefix
+                      ? "Só precisa do nome de utilizador — a URL é gerada automaticamente."
+                      : "Indique a URL completa (https://...)."}
+                  </p>
+                </div>
+              </div>
+              <input
+                value={platformValue}
+                onChange={(e) => setPlatformValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddPlatform();
+                }}
+                placeholder={
+                  selectedPlatform.urlPrefix
+                    ? "Nome de utilizador"
+                    : "URL completa (https://...)"
+                }
+                aria-label={`Nome de utilizador ou URL de ${selectedPlatform.name}`}
+                autoFocus
+                className="glass-input w-full px-3 py-2.5 text-sm"
+              />
+              {platformValue.trim() ? (
+                platformPreview.url ? (
+                  <p className="text-xs text-emerald-300/80 truncate" title={platformPreview.url}>
+                    {platformPreview.url}
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-300/80">{platformPreview.error ?? "URL inválida."}</p>
+                )
+              ) : null}
+              <div className="flex justify-end gap-2">
+                <GlassButton variant="ghost" size="sm" onClick={backToPicker} disabled={savingId === "add"}>
+                  Cancelar
+                </GlassButton>
+                <GlassButton
+                  variant="primary"
+                  size="sm"
+                  onClick={handleAddPlatform}
+                  disabled={!platformPreview.url || savingId === "add"}
+                >
+                  <Check className="h-4 w-4" />
+                  {savingId === "add" ? "A adicionar..." : `Adicionar ${selectedPlatform.name}`}
+                </GlassButton>
+              </div>
+            </div>
+          ) : customMode ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input
+                  value={newLink.title || ""}
+                  onChange={(e) => setNewLink((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Título"
+                  className="glass-input px-3 py-2 text-sm"
+                />
+                <input
+                  value={newLink.url || ""}
+                  onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
+                  placeholder="https://..."
+                  className="glass-input px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <GlassButton variant="ghost" size="sm" onClick={backToPicker} disabled={savingId === "add"}>
+                  Cancelar
+                </GlassButton>
+                <GlassButton size="sm" onClick={handleAdd} disabled={savingId === "add"}>
+                  {savingId === "add" ? "A adicionar..." : "Adicionar link"}
+                </GlassButton>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                  <input
+                    value={pickerQuery}
+                    onChange={(e) => setPickerQuery(e.target.value)}
+                    placeholder="Pesquisar plataforma..."
+                    aria-label="Pesquisar plataforma"
+                    autoFocus
+                    className="glass-input w-full pl-9 pr-3 py-2.5 text-sm"
+                  />
+                </div>
+                <GlassButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCustomMode(true)}
+                  className="h-[42px] shrink-0"
+                >
+                  <Link2 className="h-4 w-4" /> Link personalizado
+                </GlassButton>
+              </div>
+              {availablePlatforms.length === 0 ? (
+                <p className="text-xs text-white/40 py-6 text-center">
+                  Sem resultados. Tente outra pesquisa.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {availablePlatforms.map((platform) => (
+                    <button
+                      key={platform.id}
+                      onClick={() => {
+                        setSelectedPlatform(platform);
+                        setPlatformValue("");
+                      }}
+                      className="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.06] hover:border-white/[0.12] focus-visible:ring-2 focus-visible:ring-white/30 outline-none"
+                    >
+                      <span
+                        style={{ color: platform.color }}
+                        className="shrink-0 grid place-items-center h-8 w-8 rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]"
+                      >
+                        <PlatformIcon platformId={platform.id} size={16} color={platform.color} />
+                      </span>
+                      <span className="text-xs font-medium text-white/80 truncate">{platform.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </PremiumCard>
       )}
 
@@ -766,8 +975,6 @@ export default function LinksPage() {
           />
         ))}
       </div>
-
-      <SocialLinksSection className="mt-2" />
 
       {qrLink && <LinkQRModal link={qrLink} onClose={() => setQrLink(null)} />}
     </div>

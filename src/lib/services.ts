@@ -6,8 +6,6 @@ import {
   Appearance,
   LinkItem,
   PageProfile,
-  SocialLinks,
-  SocialLinkEntry,
   UserAccount,
   AnalyticsData,
   TopDevice,
@@ -15,8 +13,6 @@ import {
   SecurityLogInput,
 } from "./types";
 import { defaultAppearance, emptyAnalytics } from "./defaults";
-import { sanitizeSocialEntries } from "./social";
-import { sanitizeUrl } from "./sanitize";
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
 
@@ -232,37 +228,7 @@ export async function updatePage(pageId: string, patch: Partial<PageProfile>) {
   return databases.updateDocument(databaseId, Collections.pages, pageId, patch);
 }
 
-/**
- * Parse the socialJson field into either the legacy flat record or the new
- * structured list. Never trusts the raw payload — entries are normalized.
- */
-function parseSocialJson(raw: unknown): {
-  social?: SocialLinks;
-  socialList?: SocialLinkEntry[];
-} {
-  if (!raw || typeof raw !== "string") return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return { socialList: sanitizeSocialEntries(parsed) };
-    }
-    if (parsed && typeof parsed === "object") {
-      const legacy: SocialLinks = {};
-      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-        if (typeof value === "string") {
-          (legacy as Record<string, string | undefined>)[key] = sanitizeUrl(value);
-        }
-      }
-      return { social: legacy };
-    }
-  } catch {
-    // Invalid JSON — ignore
-  }
-  return {};
-}
-
 function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
-  const { social, socialList } = parseSocialJson(doc.socialJson);
   return {
     $id: doc.$id,
     username: String(doc.username),
@@ -273,8 +239,6 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
     published: Boolean(doc.published),
     scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
     scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,
-    social,
-    socialList,
   };
 }
 
@@ -396,7 +360,6 @@ export async function getThemeByPageId(pageId: string): Promise<Appearance & { $
     shadow: String(doc.shadow) as Appearance["shadow"],
     showAvatar: Boolean(doc.showAvatar),
     showBio: Boolean(doc.showBio),
-    showSocial: Boolean(doc.showSocial),
     spacing: Number(doc.spacing),
     glassOpacity: doc.glassOpacity !== undefined ? Number(doc.glassOpacity) : 35,
     glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
@@ -409,7 +372,7 @@ const THEME_SAFE_FIELDS = [
   "blur", "rounded", "linkOpacity",
   "backgroundColor", "cardColor", "textColor", "accentColor",
   "fontFamily", "fontSize", "buttonRadius", "buttonWidth", "buttonHeight", "buttonStyle", "shadow",
-  "showAvatar", "showBio", "showSocial", "spacing",
+  "showAvatar", "showBio", "spacing",
   "glassOpacity", "glassBlur", "glassStrength",
 ] as const;
 
@@ -464,22 +427,6 @@ export async function getRecentSecurityLogs(_userId: string, limit = 50): Promis
   } catch {
     return [];
   }
-}
-
-// ---------- Social Links ----------
-
-/**
- * Persist the structured social network list.
- * Entries are normalized server-side (platform whitelist, URL() validation,
- * unsafe protocol blocking, order/status coercion) before being stored — the
- * client is never trusted.
- */
-export async function updateSocialEntries(pageId: string, entries: SocialLinkEntry[]) {
-  await requireOwnerOfPage(pageId);
-  const safe = sanitizeSocialEntries(entries);
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
-    socialJson: JSON.stringify(safe),
-  });
 }
 
 // ---------- Analytics ----------

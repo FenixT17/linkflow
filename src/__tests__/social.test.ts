@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   buildSocialUrl,
-  normalizeSocialEntry,
-  sanitizeSocialEntries,
   searchSocialPlatforms,
   getSocialPlatforms,
 } from "@/lib/social";
@@ -122,82 +120,6 @@ describe("buildSocialUrl — full URL passthrough and validation", () => {
   it("rejects malformed WhatsApp phone numbers", () => {
     expect(buildSocialUrl("whatsapp", "tel:123").url).toBe("");
     expect(buildSocialUrl("whatsapp", "tel:abc").url).toBe("");
-  });
-});
-
-describe("normalizeSocialEntry", () => {
-  it("normalizes a valid entry", () => {
-    const entry = normalizeSocialEntry({
-      platform: "instagram",
-      username: "joao",
-      url: "https://instagram.com/joao",
-      order: 2,
-      active: true,
-    });
-    expect(entry).not.toBeNull();
-    expect(entry?.url).toBe("https://instagram.com/joao");
-    expect(entry?.order).toBe(2);
-    expect(entry?.active).toBe(true);
-  });
-
-  it("rejects unknown platforms", () => {
-    expect(normalizeSocialEntry({ platform: "nope", url: "https://x.com" })).toBeNull();
-  });
-
-  it("rejects entries with unsafe URLs", () => {
-    expect(
-      normalizeSocialEntry({ platform: "website", url: "javascript:alert(1)" })
-    ).toBeNull();
-  });
-
-  it("rejects non-object input", () => {
-    expect(normalizeSocialEntry(null)).toBeNull();
-    expect(normalizeSocialEntry("x")).toBeNull();
-  });
-
-  it("clamps negative/invalid order to 0", () => {
-    const entry = normalizeSocialEntry({
-      platform: "github",
-      url: "https://github.com/octocat",
-      order: -5,
-      active: true,
-    });
-    expect(entry?.order).toBe(0);
-  });
-
-  it("defaults active to true and coerces order safely", () => {
-    const entry = normalizeSocialEntry({
-      platform: "telegram",
-      url: "https://t.me/joao",
-    });
-    expect(entry?.active).toBe(true);
-    expect(entry?.order).toBe(0);
-  });
-});
-
-describe("sanitizeSocialEntries", () => {
-  it("deduplicates by platform and sorts by order", () => {
-    const result = sanitizeSocialEntries([
-      { platform: "github", url: "https://github.com/a", order: 1, active: true },
-      { platform: "instagram", url: "https://instagram.com/b", order: 0, active: true },
-      { platform: "github", url: "https://github.com/a", order: 1, active: true },
-    ]);
-    expect(result.map((e) => e.platform)).toEqual(["instagram", "github"]);
-  });
-
-  it("drops unsafe entries entirely", () => {
-    const result = sanitizeSocialEntries([
-      { platform: "website", url: "javascript:alert(1)", order: 0, active: true },
-      { platform: "telegram", url: "https://t.me/joao", order: 1, active: true },
-    ]);
-    expect(result).toHaveLength(1);
-    expect(result[0].platform).toBe("telegram");
-  });
-
-  it("returns empty array for non-array input", () => {
-    expect(sanitizeSocialEntries(null)).toEqual([]);
-    expect(sanitizeSocialEntries("nope")).toEqual([]);
-    expect(sanitizeSocialEntries({})).toEqual([]);
   });
 });
 

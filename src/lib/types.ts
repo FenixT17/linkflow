@@ -46,40 +46,6 @@ export interface PageProfile {
   published: boolean;
   scheduledPublishAt?: string;
   scheduledUnpublishAt?: string;
-  /** Legacy flat social record (backwards compatibility) */
-  social?: SocialLinks;
-  /** Structured social network list — platform, normalized URL, username, order, active */
-  socialList?: SocialLinkEntry[];
-}
-
-export interface SocialLinks {
-  instagram?: string;
-  twitter?: string;
-  tiktok?: string;
-  youtube?: string;
-  github?: string;
-  linkedin?: string;
-  discord?: string;
-  telegram?: string;
-  whatsapp?: string;
-  email?: string;
-}
-
-/**
- * Structured social network entry.
- * Only these fields are persisted — never HTML/SVG/scripts.
- */
-export interface SocialLinkEntry {
-  /** Platform id from PLATFORMS (e.g. "instagram") */
-  platform: string;
-  /** Final normalized URL (https://, mailto: for email, tel: for phone) */
-  url: string;
-  /** Raw username when derived from a username (optional) */
-  username?: string;
-  /** Position in the list */
-  order: number;
-  /** Active / inactive status */
-  active: boolean;
 }
 
 export interface UserAccount {
@@ -108,7 +74,6 @@ export interface Appearance {
   shadow?: "none" | "sm" | "md" | "lg";
   showAvatar: boolean;
   showBio: boolean;
-  showSocial: boolean;
   spacing: number;
   /** Glass-specific: cor da borda das barras (ex: "rgba(255,255,255,0.06)") */
   borderColor?: string;

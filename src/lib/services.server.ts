@@ -5,14 +5,10 @@ import {
   Appearance,
   LinkItem,
   PageProfile,
-  SocialLinks,
-  SocialLinkEntry,
   AnalyticsData,
 } from "./types";
 
 import { defaultAppearance, emptyAnalytics } from "./defaults";
-import { sanitizeSocialEntries } from "./social";
-import { sanitizeUrl } from "./sanitize";
 
 const Collections = {
   pages: "pages",
@@ -32,26 +28,6 @@ export const getPublicPageByUsername = cache(
       throw new Error("Page not found");
     }
     const doc = docs.documents[0] as unknown as Record<string, unknown> & { $id: string };
-    let social: SocialLinks | undefined = undefined;
-    let socialList: SocialLinkEntry[] | undefined = undefined;
-    if (doc.socialJson) {
-      try {
-        const parsed: unknown = JSON.parse(String(doc.socialJson));
-        if (Array.isArray(parsed)) {
-          socialList = sanitizeSocialEntries(parsed);
-        } else if (parsed && typeof parsed === "object") {
-          const legacy: SocialLinks = {};
-          for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-            if (typeof value === "string") {
-              (legacy as Record<string, string | undefined>)[key] = sanitizeUrl(value);
-            }
-          }
-          social = legacy;
-        }
-      } catch {
-        // Invalid JSON — ignore
-      }
-    }
     return {
       $id: doc.$id,
       username: String(doc.username),
@@ -60,8 +36,6 @@ export const getPublicPageByUsername = cache(
       avatar: doc.avatarId ? getFileUrl(String(doc.avatarId)) : undefined,
       banner: doc.bannerId ? getFileUrl(String(doc.bannerId)) : undefined,
       published: Boolean(doc.published),
-      social,
-      socialList,
     } as PageProfile & { $id: string };
   }
 );
@@ -133,7 +107,6 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
     shadow: String(doc.shadow) as Appearance["shadow"],
     showAvatar: Boolean(doc.showAvatar),
     showBio: Boolean(doc.showBio),
-    showSocial: Boolean(doc.showSocial),
     spacing: Number(doc.spacing),
   };
 }

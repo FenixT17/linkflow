@@ -239,11 +239,6 @@ export default function AppearancePage() {
                   checked={appearance.showBio}
                   onChange={(checked) => updateAppearance({ showBio: checked })}
                 />
-                <Toggle
-                  label="Mostrar redes sociais"
-                  checked={appearance.showSocial}
-                  onChange={(checked) => updateAppearance({ showSocial: checked })}
-                />
               </div>
             </div>
           </Section>

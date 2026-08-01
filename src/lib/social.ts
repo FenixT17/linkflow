@@ -1,17 +1,13 @@
 /**
- * Social networks — URL building, validation and sanitization.
+ * Social networks — URL building and validation.
  *
- * Shared by the dashboard UI (real-time preview) and the service layer
- * (server-side normalization before persisting). All validation uses the
- * URL() API and strict protocol allowlists — never innerHTML/eval.
- *
- * Only the following fields are ever persisted per entry:
- *   platform, url (normalized), username (optional), order, active
+ * Used by the dashboard "Novo link" picker (real-time preview). All
+ * validation uses the URL() API and strict protocol allowlists — never
+ * innerHTML/eval. Safe, normalized URLs are persisted as regular links.
  */
 
 import { getPlatform, PLATFORMS } from "./platforms";
 import { isValidEmail } from "./sanitize";
-import type { SocialLinkEntry } from "./types";
 
 /** Protocols that are NEVER allowed (XSS / data exfiltration vectors). */
 const UNSAFE_PROTOCOLS = ["javascript:", "data:", "vbscript:", "file:", "blob:"];
@@ -270,49 +266,4 @@ export function buildSocialUrl(platformId: string, raw: string): SocialUrlResult
   }
 }
 
-/**
- * Normalize one raw entry (from DB or client) into a safe SocialLinkEntry.
- * Returns null when the platform is unknown or the URL is invalid.
- */
-export function normalizeSocialEntry(raw: unknown): SocialLinkEntry | null {
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
 
-  const platform = typeof obj.platform === "string" ? obj.platform : "";
-  if (!getPlatform(platform)) return null;
-
-  const urlRaw = typeof obj.url === "string" ? obj.url : "";
-  const usernameRaw = typeof obj.username === "string" ? obj.username : "";
-  const built = buildSocialUrl(platform, urlRaw || usernameRaw);
-  if (!built.url) return null;
-
-  return {
-    platform,
-    url: built.url,
-    username: built.username,
-    order:
-      typeof obj.order === "number" && Number.isFinite(obj.order)
-        ? Math.max(0, Math.floor(obj.order))
-        : 0,
-    active: obj.active !== false,
-  };
-}
-
-/**
- * Sanitize an array of social entries (defense in depth, used by the
- * service layer before persisting). Deduplicates by platform and
- * re-sorts by order. Never persists HTML/SVG/scripts — only safe fields.
- */
-export function sanitizeSocialEntries(input: unknown): SocialLinkEntry[] {
-  if (!Array.isArray(input)) return [];
-  const seen = new Set<string>();
-  const result: SocialLinkEntry[] = [];
-  for (const raw of input) {
-    const entry = normalizeSocialEntry(raw);
-    if (!entry) continue;
-    if (seen.has(entry.platform)) continue;
-    seen.add(entry.platform);
-    result.push(entry);
-  }
-  return result.sort((a, b) => a.order - b.order);
-}

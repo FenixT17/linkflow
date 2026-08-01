@@ -211,8 +211,7 @@ async function provision() {
   await createBooleanAttribute("pages", "published", true, false);
   await createDatetimeAttribute("pages", "scheduledPublishAt", false);
   await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
-  await createStringAttribute("pages", "socialJson", 8192, false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "scheduledPublishAt", "scheduledUnpublishAt", "socialJson"]);
+  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "scheduledPublishAt", "scheduledUnpublishAt"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 
@@ -310,12 +309,11 @@ async function provision() {
   await createStringAttribute("themes", "shadow", 32, false, "md");
   await createBooleanAttribute("themes", "showAvatar", true, true);
   await createBooleanAttribute("themes", "showBio", true, true);
-  await createBooleanAttribute("themes", "showSocial", true, true);
   await createIntegerAttribute("themes", "spacing", true, 6);
   await waitForAttributes("themes", [
     "pageId", "theme", "blur", "rounded", "linkOpacity", "backgroundColor", "cardColor",
     "textColor", "accentColor", "fontFamily", "fontSize", "buttonRadius", "buttonWidth",
-    "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "showSocial", "spacing",
+    "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "spacing",
   ]);
   await createIndex("themes", "idx_themes_pageId", "unique", ["pageId"]);
 
