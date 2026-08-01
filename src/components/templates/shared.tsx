@@ -32,10 +32,10 @@ export function TemplateAvatar({
   const verified = Array.isArray(badges) && badges.includes("verified");
   return (
     <div
-      className={cn("relative shrink-0", className)}
+      className={cn("relative shrink-0 rounded-full", className)}
       style={{ width: size, height: size }}
     >
-      <div className="relative h-full w-full overflow-hidden rounded-full">
+      <div className="relative h-full w-full overflow-hidden rounded-[inherit]">
         {src ? (
           <Image
             src={sanitizeUrl(src)}
