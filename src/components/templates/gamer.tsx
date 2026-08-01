@@ -32,7 +32,7 @@ export function GamerTemplate({ profile, links, appearance, publicUrl }: Templat
 
   return (
     <div
-      className="relative min-h-screen overflow-hidden"
+      className="relative min-h-dvh overflow-hidden"
       style={{ backgroundColor: bg, color: text, fontFamily: font }}
     >
       <div

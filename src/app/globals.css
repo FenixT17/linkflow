@@ -103,12 +103,24 @@
     @apply scroll-smooth;
     touch-action: pan-x pan-y;
     overscroll-behavior: none;
+    /* Evita scroll horizontal acidental em ecrãs pequenos (conteúdo que
+       estoura a viewport a partir de elementos decorativos/animados). */
+    overflow-x: clip;
   }
   body {
     @apply bg-[var(--background)] text-[var(--foreground)] antialiased;
     font-family: var(--font-inter);
     -webkit-text-size-adjust: none;
     text-size-adjust: none;
+    overflow-x: clip;
+  }
+
+  /* Fallback para browsers sem suporte a dvh (Safari < 15.4):
+     min-h-dvh cai para 100vh, mantendo o layout correto. */
+  @supports not (min-height: 100dvh) {
+    .min-h-dvh {
+      min-height: 100vh;
+    }
   }
 
   /* Selection */

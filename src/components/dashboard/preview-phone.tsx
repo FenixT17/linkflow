@@ -17,7 +17,7 @@ export function PreviewPhone({
   links,
 }: PreviewPhoneProps) {
   return (
-    <div className="relative mx-auto w-[260px] rounded-[2.5rem] border border-white/[0.12] bg-[#0c0c0c] p-3 glass-shadow">
+    <div className="relative mx-auto w-full max-w-[260px] rounded-[2.5rem] border border-white/[0.12] bg-[#0c0c0c] p-3 glass-shadow">
       <div className="absolute inset-x-0 top-5 z-10 flex justify-center">
         <div className="h-5 w-24 rounded-full bg-black/80 border border-white/[0.08]" />
       </div>

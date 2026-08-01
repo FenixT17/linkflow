@@ -6,7 +6,7 @@ import { GlassButton } from "@/components/ui/glass-button";
 
 export default function NotFound() {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-4">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-4">
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />

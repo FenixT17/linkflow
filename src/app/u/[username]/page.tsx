@@ -89,7 +89,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
   ]);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)]">
+    <main className="relative min-h-dvh overflow-hidden bg-[var(--background)]">
       <script type="application/ld+json" dangerouslySetInnerHTML={renderJsonLd([pageWebPageJsonLd, profileJsonLd, breadcrumbJsonLd])} />
       <ViewTracker pageId={page.$id} />
       <div className="gradient-orb" aria-hidden="true">

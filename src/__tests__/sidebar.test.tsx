@@ -1,6 +1,6 @@
 /// <reference types="vitest/globals" />
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { DashboardSidebar, nav } from "@/components/dashboard/sidebar";
 import * as AuthContext from "@/context/AuthContext";
 import * as Navigation from "next/navigation";
@@ -93,11 +93,14 @@ describe("DashboardSidebar", () => {
     expect(screen.getByLabelText("Fechar menu")).toBeInTheDocument();
   });
 
-  it("closes mobile menu when close button is clicked", () => {
+  it("closes mobile menu when close button is clicked", async () => {
     render(<DashboardSidebar />);
     fireEvent.click(screen.getByLabelText("Abrir menu"));
     expect(screen.getByLabelText("Fechar menu")).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText("Fechar menu"));
-    expect(screen.queryByLabelText("Fechar menu")).not.toBeInTheDocument();
+    // O drawer sai com animação (AnimatePresence) — aguardar a remoção do DOM.
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Fechar menu")).not.toBeInTheDocument();
+    });
   });
 });

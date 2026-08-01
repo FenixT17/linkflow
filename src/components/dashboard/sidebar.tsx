@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   User,
@@ -61,6 +62,26 @@ export function DashboardSidebar() {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  // Bloqueia o scroll do body enquanto o drawer mobile está aberto
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  // Fecha o drawer com Escape
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -195,89 +216,113 @@ export function DashboardSidebar() {
       </aside>
 
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-4 border-b border-white/[0.06] bg-[#030303]/90 backdrop-blur-xl">
-        <div className="flex items-center gap-2.5">
-          <Logo size={26} className="brightness-150 contrast-125" />
-          <span className="text-base font-semibold text-white/90">LinkFlow</span>
+      <div
+        className="lg:hidden fixed top-0 left-0 right-0 z-40 border-b border-white/[0.06] bg-[#030303]/90 backdrop-blur-xl"
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className="flex items-center gap-2.5">
+            <Logo size={26} className="brightness-150 contrast-125" />
+            <span className="text-base font-semibold text-white/90">LinkFlow</span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.08]"
+            aria-label="Abrir menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-drawer"
+          >
+            <Menu className="h-5 w-5 text-white/70" />
+          </button>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.08]"
-          aria-label="Abrir menu"
-          aria-expanded={mobileOpen}
-          aria-controls="mobile-drawer"
-        >
-          <Menu className="h-5 w-5 text-white/70" />
-        </button>
       </div>
 
       {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <div id="mobile-drawer" className="absolute left-0 top-0 bottom-0 w-[280px] bg-[#030303] border-r border-white/[0.06] flex flex-col">
-            <div className="flex h-16 items-center justify-between px-5 border-b border-white/[0.06]">
-              <div className="flex items-center gap-2.5">
-                <Logo size={28} className="brightness-150 contrast-125" />
-                <span className="text-lg font-semibold text-white/90">LinkFlow</span>
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            key="mobile-drawer-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden fixed inset-0 z-50"
+          >
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setMobileOpen(false)}
+            />
+            <motion.div
+              id="mobile-drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 340, damping: 32 }}
+              className="absolute left-0 top-0 bottom-0 w-[280px] bg-[#030303] border-r border-white/[0.06] flex flex-col"
+            >
+              <div
+                className="flex items-center justify-between border-b border-white/[0.06]"
+                style={{ paddingTop: "env(safe-area-inset-top, 0px)", height: "calc(4rem + env(safe-area-inset-top, 0px))" }}
+              >
+                <div className="flex items-center gap-2.5 px-5">
+                  <Logo size={28} className="brightness-150 contrast-125" />
+                  <span className="text-lg font-semibold text-white/90">LinkFlow</span>
+                </div>
+                <button
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Fechar menu"
+                  className="p-2 text-white/60 hover:text-white mr-3"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setMobileOpen(false)}
-                aria-label="Fechar menu"
-                className="p-2 text-white/60 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <nav className="flex-1 overflow-auto py-4 px-3">
-              <ul className="space-y-1">
-                {navItems.map((item) => {
-                  const active = isActive(pathname, item.href);
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setMobileOpen(false)}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all",
-                          active
-                            ? "glass-item-active bg-white/[0.08] text-white"
-                            : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
-                        )}
-                      >
-                        <item.icon
+              <nav className="flex-1 overflow-auto py-4 px-3">
+                <ul className="space-y-1">
+                  {navItems.map((item) => {
+                    const active = isActive(pathname, item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={() => setMobileOpen(false)}
+                          aria-current={active ? "page" : undefined}
                           className={cn(
-                            "h-[18px] w-[18px]",
-                            active ? "text-white" : "text-white/40"
+                            "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all",
+                            active
+                              ? "glass-item-active bg-white/[0.08] text-white"
+                              : "text-white/50 hover:bg-white/[0.04] hover:text-white/80"
                           )}
-                        />
-                        <span className="flex-1">{item.label}</span>
-                        {active && <ChevronRight className="h-4 w-4 text-white/60" />}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
-            <div className="border-t border-white/[0.06] p-4">
-              <button
-                onClick={() => {
-                  setMobileOpen(false);
-                  void handleLogout();
-                }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/50 hover:bg-white/[0.04] hover:text-white/80"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                Sair
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                        >
+                          <item.icon
+                            className={cn(
+                              "h-[18px] w-[18px]",
+                              active ? "text-white" : "text-white/40"
+                            )}
+                          />
+                          <span className="flex-1">{item.label}</span>
+                          {active && <ChevronRight className="h-4 w-4 text-white/60" />}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+              <div className="border-t border-white/[0.06] p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+                <button
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void handleLogout();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-white/50 hover:bg-white/[0.04] hover:text-white/80"
+                >
+                  <LogOut className="h-[18px] w-[18px]" />
+                  Sair
+                </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </>
   );
 }

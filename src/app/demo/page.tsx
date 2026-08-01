@@ -10,7 +10,7 @@ export default function DemoPage() {
   const { page, links } = useAuth();
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-4 py-20">
+    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-4 py-20">
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />

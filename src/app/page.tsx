@@ -145,7 +145,7 @@ export default function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)]">
+    <main className="relative min-h-dvh bg-[var(--background)]">
       <SiteJsonLd />
       <Particles />
       <NoiseOverlay />

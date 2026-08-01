@@ -25,7 +25,7 @@ export function StoreTemplate({ profile, links, appearance, publicUrl }: Templat
 
   return (
     <div
-      className="relative min-h-screen"
+      className="relative min-h-dvh"
       style={{ backgroundColor: bg, color: text, fontFamily: font }}
     >
       {/* Faixa de promoção */}

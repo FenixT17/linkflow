@@ -89,7 +89,7 @@ function LoginForm() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030303] px-4">
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#030303] px-4">
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />
@@ -297,7 +297,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#030303]">
+        <main className="flex min-h-dvh items-center justify-center bg-[#030303]">
           <div className="flex items-center gap-3 text-white/50">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>A carregar...</span>

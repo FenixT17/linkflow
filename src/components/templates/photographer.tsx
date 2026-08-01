@@ -23,7 +23,7 @@ export function PhotographerTemplate({ profile, links, appearance, publicUrl }: 
 
   return (
     <div
-      className="relative min-h-screen"
+      className="relative min-h-dvh"
       style={{ backgroundColor: bg, color: text, fontFamily: font }}
     >
       {/* Hero de imagem em destaque */}

@@ -62,7 +62,7 @@ export function PublicProfileRenderer({
 
   return (
     <main
-      className="relative min-h-screen overflow-hidden bg-[var(--background)]"
+      className="relative min-h-dvh overflow-hidden bg-[var(--background)]"
       style={{
         backgroundColor: safeBackground,
         color: safeText,
@@ -78,7 +78,7 @@ export function PublicProfileRenderer({
         <div className="gradient-orb-3" />
         <div className="gradient-orb-radial" />
       </div>
-      <div className="mx-auto flex min-h-screen max-w-md flex-col items-center px-4 sm:px-6 py-10 sm:py-20">
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col items-center px-4 sm:px-6 py-10 sm:py-20">
         <div
           className={`w-full overflow-hidden ${theme.cardClass}`}
           style={{ borderRadius, backdropFilter: backdropBlur }}

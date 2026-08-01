@@ -18,10 +18,10 @@ export function MinimalTemplate({ profile, links, appearance, publicUrl }: Templ
 
   return (
     <div
-      className="relative min-h-screen"
+      className="relative min-h-dvh"
       style={{ backgroundColor: bg, color: text, fontFamily: font }}
     >
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-6 py-16">
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 py-16">
         {/* Header minimal */}
         <header className="flex flex-col items-center text-center">
           {appearance.showAvatar !== false && (

@@ -26,7 +26,7 @@ export function PortfolioTemplate({ profile, links, appearance, publicUrl }: Tem
 
   return (
     <div
-      className="relative min-h-screen"
+      className="relative min-h-dvh"
       style={{ backgroundColor: bg, color: text, fontFamily: font }}
     >
       <div className="mx-auto w-full max-w-lg px-5 py-12">
