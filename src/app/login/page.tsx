@@ -8,6 +8,7 @@ import { isValidEmail } from "@/lib/sanitize";
 import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/context/AuthContext";
 import { createSecurityLog } from "@/lib/services";
+import { parseOAuthError } from "@/lib/oauth-errors";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 
 function LoginForm() {
@@ -30,36 +31,17 @@ function LoginForm() {
       return;
     }
 
-    if (errorParam) {
-      let pretty = "Falha na autenticação.";
-      if (errorDesc) {
-        try {
-          pretty = decodeURIComponent(errorDesc);
-        } catch {
-          pretty = errorDesc;
-        }
-      }
+    // O Appwrite Cloud devolve o erro como JSON no ?error= (o error_description
+    // vem vazio) — o parseOAuthError normaliza e traduz para português.
+    const parsed = parseOAuthError(errorParam, errorDesc);
+    if (parsed) {
       createSecurityLog({
         userId: "anonymous",
         eventType: "oauth_failure",
         userAgent: navigator.userAgent,
-        metadata: { error: pretty, rawError: errorParam },
+        metadata: { error: parsed.message, rawError: errorParam, type: parsed.type },
       });
-
-      const lower = pretty.toLowerCase();
-      if (
-        lower.includes("user_already_exists") ||
-        lower.includes("already exists")
-      ) {
-        setError("Já existe uma conta com este email. Use email e palavra-passe.");
-      } else if (
-        lower.includes("provider_disabled") ||
-        lower.includes("disabled")
-      ) {
-        setError("O provedor de login está desativado no Appwrite.");
-      } else {
-        setError(`OAuth falhou: ${pretty}`);
-      }
+      setError(parsed.friendly);
     }
   }, [searchParams]);
 

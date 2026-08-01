@@ -8,6 +8,8 @@ import { GlassButton } from "@/components/ui/glass-button";
 import { isValidEmail, isValidPassword } from "@/lib/sanitize";
 import { Logo } from "@/components/ui/logo";
 import { useAuth } from "@/context/AuthContext";
+import { createSecurityLog } from "@/lib/services";
+import { parseOAuthError } from "@/lib/oauth-errors";
 import { Check, X } from "lucide-react";
 
 function RegisterForm() {
@@ -45,16 +47,18 @@ function RegisterForm() {
       return;
     }
 
-    if (errorParam) {
-      let pretty = "Falha na autenticação com o provedor externo.";
-      if (errorDesc) {
-        try {
-          pretty = decodeURIComponent(errorDesc);
-        } catch {
-          pretty = errorDesc;
-        }
-      }
-      setError(`OAuth falhou: ${pretty}`);
+    // O Appwrite Cloud devolve o erro como JSON no ?error= (o error_description
+    // vem vazio) — o parseOAuthError normaliza e traduz para português.
+    const parsed = parseOAuthError(errorParam, errorDesc);
+    if (parsed) {
+      // Regista para diagnóstico (mesmo tratamento do login).
+      createSecurityLog({
+        userId: "anonymous",
+        eventType: "oauth_failure",
+        userAgent: navigator.userAgent,
+        metadata: { error: parsed.message, rawError: errorParam, type: parsed.type },
+      });
+      setError(parsed.friendly);
     }
   }, [searchParams]);
 
