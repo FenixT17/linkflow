@@ -159,7 +159,7 @@ export default function BillingPage() {
               const period = plan.id === "free" ? "" : annual ? "/ano" : "/mês";
 
               return (
-                <div key={plan.id} className={`glass-card p-6 flex flex-col transition-all ${plan.popular ? "ring-1 ring-white/20" : ""}`}>
+                <div key={plan.id} className={`relative glass-card p-6 flex flex-col transition-all ${plan.popular ? "pt-12 ring-1 ring-white/20" : ""}`}>
                   {plan.popular && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent z-10" />}
                   {plan.popular && (
                     <div className="absolute right-4 top-4 z-10">

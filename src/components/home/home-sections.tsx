@@ -26,6 +26,7 @@ function PricingCard({
           ? "glass-strong glass-card"
           : "glass-card glass-card-hover",
         "hover:-translate-y-1",
+        popular ? "pt-12 md:pt-14" : "",
       ].join(" ")}
     >
       {popular && (
