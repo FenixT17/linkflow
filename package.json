@@ -57,5 +57,11 @@
     "tsx": "^4.23.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "sharp": "^0.35.3",
+    "postcss": "^8.5.25",
+    "@hono/node-server": "^2.0.12",
+    "brace-expansion": "^1.1.17"
   }
 }

@@ -1580,3 +1580,40 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ⚠️ **AÇÃO MANUAL NECESSÁRIA (deploy):** re-reescrever `npm run provision` (e `npm run fix:bucket`) no ambiente para aplicar as permissões às coleções/bucket/ficheiros já existentes — o código sozinho só afeta setups novos.
 - ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
 
+---
+
+### Sessão 37 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Auditoria de dependências (npm audit) + overrides de segurança
+
+**Pedido:** auditar as dependências do package.json com `npm audit` e corrigir as críticas.
+
+**Resultado da auditoria inicial:** 10 vulnerabilidades (2 moderadas, 8 altas).
+
+**Análise da cadeia (todas transitivas/indiretas, nenhuma dependência direta vulnerável):**
+- `next@15.5.22` (runtime) → pina `postcss@8.4.31` (3 CVEs: XSS `</style>`, file disclosure via sourceMappingURL) + `sharp@0.34.5` via `^0.34.3` (4 CVEs libvips: CVE-2026-33327/33328/35590/35591). O "fix" sugerido pelo npm era `next@9.3.3` — **downgrade absurdo** (9.x), rejeitado.
+- `netlify-cli@27.0.1` (dev, já a versão mais recente) → `@netlify/dev` → `@netlify/images@1.3.11` → `ipx@3.1.1` → `sharp@0.34.5`. Fix sugerido: `netlify-cli@23.13.5` (downgrade major) — rejeitado.
+- `shadcn@4.15.0` (dev) → `@modelcontextprotocol/sdk@1.29.0` → `@hono/node-server` <2.0.5 (path traversal Windows `%5C`).
+- `brace-expansion@1.1.16` (high, DoS) via `minimatch@3.1.5` do `@eslint/eslintrc`.
+- `npm audit fix` não resolveu nada (todas as correções exigiam breaking changes).
+
+**Correção aplicada — `overrides` no package.json (sem tocar em versões principais):**
+```json
+"overrides": {
+  "sharp": "^0.35.3",
+  "postcss": "^8.5.25",
+  "@hono/node-server": "^2.0.12",
+  "brace-expansion": "^1.1.17"
+}
+```
+- Compatibilidade validada: `next@16.2.12` (mais recente) também usa `sharp ^0.34.5` — a API 0.35.x é compatível com o Next 15.5.22 (a app usa `next/image` com remotePatterns; sharp é usado em runtime/build).
+- `npm install` resolveu tudo: `sharp@0.35.3` (deduped, incluindo ipx), `postcss@8.5.25`, `@hono/node-server@2.0.12` (via upgrade do `@modelcontextprotocol/sdk` para 1.30.0), `brace-expansion@1.1.18`.
+
+**Resultado final: `npm audit` → 0 vulnerabilidades.**
+
+**Validação:** typecheck `tsc --noEmit` ✅ · ESLint ✅ · **156/156 testes** ✅ · `next build` de produção ✅ (compilou sem erros com sharp/postcss corrigidos).
+
+**Estado final:**
+- ✅ 0 vulnerabilidades no `npm audit` (era 10)
+- ✅ Overrides em `package.json` + `package-lock.json` atualizado
+- ✅ Build de produção validado localmente
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
+
