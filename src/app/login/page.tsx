@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
 import { getLastKnownEmail, rememberEmail } from "@/lib/email-hint";
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -105,6 +105,17 @@ function LoginForm() {
       </div>
 
       <div className="w-full max-w-[420px] relative z-10">
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="group inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/60 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/90 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)]"
+            aria-label="Voltar à página inicial"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
+            <span>Voltar ao início</span>
+          </Link>
+        </div>
+
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size={48} className="mb-4 brightness-150 contrast-125" />
           <h1 className="text-2xl font-semibold tracking-tight text-white/90">

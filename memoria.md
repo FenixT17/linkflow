@@ -1639,3 +1639,20 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Botão de copiar funcional com feedback
 - ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
 
+---
+
+### Sessão 39 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Botão "Voltar ao início" na página de login
+
+**Pedido:** adicionar um botão na página de login para voltar à página inicial.
+
+**Fix (frontend/src/app/login/page.tsx):**
+- Adicionado link **"Voltar ao início"** no topo da página (antes do logo), com ícone `ArrowLeft` e micro-interação de hover (fundo + deslize da seta).
+- Estilo glass consistente com o projeto: `rounded-lg`, `hover:bg-white/[0.06]`, `focus-visible` ring.
+- `aria-label="Voltar à página inicial"` para acessibilidade.
+
+**Validação:** typecheck `tsc --noEmit` ✅ · ESLint ✅ · **156/156 testes** ✅.
+
+**Estado final:**
+- ✅ Botão "Voltar ao início" na página de login (link para `/`)
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
+
