@@ -88,6 +88,14 @@ async function createStringAttribute(
   required: boolean,
   defaultValue?: string
 ) {
+  // NOTA: o default é passado mesmo para atributos obrigatórios — o Appwrite
+  // suporta defaults em atributos required (ex: themes.theme = "glass").
+  // Antes, `required ? undefined : defaultValue` descartava o default, o que
+  // fazia o createDocument sem o campo falhar com "Missing required attribute".
+  // NOTA: o Appwrite NÃO permite default em atributos obrigatórios
+  // ("Cannot set default value for required attribute"). Por isso o default
+  // só é passado quando required=false — para required, os documentos têm de
+  // enviar o valor explicitamente (ex: createPage envia theme: "glass").
   return runWithIdempotency(
     () =>
       databases.createStringAttribute(databaseId, collectionId, key, size, required, required ? undefined : defaultValue),
@@ -143,6 +151,49 @@ async function createDatetimeAttribute(
       databases.createDatetimeAttribute(databaseId, collectionId, key, required),
     `Datetime attribute ${collectionId}.${key}`
   );
+}
+
+/**
+ * Backfill: garante que um atributo string JÁ EXISTENTE tem o default
+ * pretendido. Necessário porque versões antigas do createStringAttribute
+ * descartavam o default em atributos obrigatórios (required ? undefined :
+ * defaultValue) — ex: themes.theme ficou com default:null, o que fazia o
+ * createDocument sem o campo falhar com "Missing required attribute".
+ */
+async function ensureStringAttributeDefault(
+  collectionId: string,
+  key: string,
+  required: boolean,
+  defaultValue: string
+) {
+  try {
+    const { attributes } = await databases.listAttributes(databaseId, collectionId);
+    const attr = (attributes as unknown as Array<{ key: string; required?: boolean; default?: unknown }>).find(
+      (a) => a.key === key
+    );
+    if (!attr) {
+      console.log(`   ↳ ${collectionId}.${key} not found, skipping backfill.`);
+      return;
+    }
+    const currentDefault = attr.default as unknown;
+    if (currentDefault === defaultValue) {
+      console.log(`   ↳ ${collectionId}.${key} default already "${defaultValue}", skipping.`);
+      return;
+    }
+    // O `required` pretendido é o que o chamador passa (o default só é
+    // permitido em atributos não-obrigatórios no Appwrite).
+    await databases.updateStringAttribute(
+      databaseId,
+      collectionId,
+      key,
+      required,
+      defaultValue
+    );
+    console.log(`   ↳ ${collectionId}.${key} updated (required=${required}, default="${defaultValue}").`);
+  } catch (error: unknown) {
+    // Falha não bloqueante — o provision continua; apenas avisa.
+    console.warn(`   ↳ Could not backfill default for ${collectionId}.${key}: ${(error as Error).message}`);
+  }
 }
 
 type IndexType = "key" | "unique" | "fulltext" | "spatial";
@@ -375,7 +426,12 @@ async function provision() {
     true
   );
   await createStringAttribute("themes", "pageId", 255, true);
-  await createStringAttribute("themes", "theme", 64, true, "glass");
+  // theme: OBRIGATÓRIO + default é impossível no Appwrite ("Cannot set
+  // default value for required attribute"). Como o campo é legado (Liquid
+  // Glass only), tornamos OPcional com default "glass": documentos criados
+  // sem theme obtêm automaticamente "glass" e o createPage envia-o sempre
+  // explicitamente (Sessão 30) — defesa em profundidade.
+  await createStringAttribute("themes", "theme", 64, false, "glass");
   await createIntegerAttribute("themes", "blur", true, 25);
   await createIntegerAttribute("themes", "rounded", true, 16);
   await createIntegerAttribute("themes", "linkOpacity", true, 100);
@@ -398,6 +454,10 @@ async function provision() {
     "textColor", "accentColor", "fontFamily", "fontSize", "buttonRadius", "buttonWidth",
     "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "spacing",
   ]);
+  // Backfill: contas existentes têm themes.theme com default:null. Garante
+  // required=false + default="glass" para o createDocument sem theme não
+  // falhar com "Missing required attribute theme".
+  await ensureStringAttributeDefault("themes", "theme", false, "glass");
   await createIndex("themes", "idx_themes_pageId", "unique", ["pageId"]);
 
   // 7. QR Codes collection
