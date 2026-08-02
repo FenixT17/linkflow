@@ -1473,3 +1473,36 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - Typecheck: `npm run typecheck` 👉 **0 erros de TypeScript** (Route types gerados com sucesso).
 - Testes: `npm test -- --run` 👉 **142/142 testes passados** (13 ficheiros de teste a passar).
 
+---
+
+## Sessão 34 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Análise completa + commit/push da Sessão 33
+
+**Objetivo:** análise completa do projeto (memoria.md + todo o código) e finalização da Sessão 33 (commit + push para `origin/main`).
+
+### 1. Análise completa do projeto
+- **`memoria.md` lido na íntegra** (1475 linhas, Sessões 1–33) — confirmado que o `frontend/memoria.md` é byte-idêntico ao da raiz.
+- **Código analisado:** todos os `lib/` (services, services.server, analytics, geo, csrf, rate-limit, sanitize, seo, types, appwrite), `AuthContext`, layout raiz, página pública `/u/[username]`, rotas API (`view`, `click`, `csrf`, `oauth/sync`), templates, dashboard.
+- **Estado validado na altura:** typecheck 0 erros · **142/142 testes** · 1 erro de lint (`Crown` órfão em `domains/page.tsx` — resquício da Sessão 33) · dev server a correr em localhost:3000.
+
+### 2. Descobertas da análise (dívida técnica documentada)
+- **`hashIp()` NÃO é SHA-256** — `geo.ts` usa um hash JS de 32 bits (djb2-like salgado) mas comentários e a Sessão 33 afirmam "hash salgado SHA-256 não reversível". Risco de colisão (~65k visitantes → 50% de colisão), subestimando `uniqueVisitors`. **Fix futuro recomendado:** `crypto.subtle.digest("SHA-256")` no servidor.
+- **hCaptcha e Stripe nas env vars mas não integrados** — `.env.example` tem keys de ambos; o código não usa hCaptcha (0 referências) e Stripe está marcado "Pagamentos em breve".
+- **`PlanType` inclui "enterprise"** mas só existem free/pro/business.
+- **Rate limiting in-memory** não escala em multi-instância (limitação documentada no código).
+- **Auth server-side limitado** (limitação arquitetural conhecida da Sessão 19): com Appwrite cross-origin, a sessão vive só no browser.
+
+### 3. Commit + push da Sessão 33 — commit `dd79f27`
+- **Correção pré-commit:** import órfão `Crown` removido de `src/app/dashboard/domains/page.tsx` (o bloco que o usava foi removido na Sessão 33) → ESLint limpo.
+- **Commit `dd79f27`** "Session 33: security fixes (click validation, RGPD IP hashing), marketing alignment, billing/domains status" — **9 ficheiros, +1571/−38**: `api/click/route.ts` (validação cruzada linkId↔pageId + link ativo/visível), `lib/analytics.ts` (IP anonimizado na coleção `visits`), `page.tsx` + `home-sections.tsx` (remoção de falsas promessas/IA), `billing/page.tsx` ("Pagamentos em breve"), `domains/page.tsx` (aviso "Em breve"), `dashboard/page.tsx` (botão "Copiar Link Público"), `click-validation.test.ts` (novo, 3 testes) e **`memoria.md` passou a ser versionado** (deixou de estar untracked).
+- **Validação pré-push:** typecheck ✅ · ESLint ✅ (após fix do Crown) · **142/142 testes** ✅ · scan de segredos no diff ✅ (0 matches) · `.env.local`/`.env.netlify` confirmados gitignored ✅.
+- **Push:** `71cdae6..dd79f27 main -> main` ✅ — deploy CI Netlify disparado automaticamente.
+
+### 4. Atualização deste ficheiro (esta entrada)
+- Adicionada esta entrada (Sessão 34) ao `memoria.md` da raiz e ao `frontend/memoria.md` (mantidos idênticos), seguindo a regra 2 do ficheiro.
+
+**Estado final:**
+- ✅ Sessão 33 commitada e pushed (commit `dd79f27`) — working tree limpo, `main` sincronizado com `origin/main`
+- ✅ Memoria atualizado com esta entrada
+- ✅ Typecheck, ESLint e 142/142 testes a passar
+- ⚠️ Pendentes de sessões futuras: `hashIp` → SHA-256 real, decidir hCaptcha/Stripe, limpar `PlanType.enterprise`, registo de segurança do commit desta entrada
+
