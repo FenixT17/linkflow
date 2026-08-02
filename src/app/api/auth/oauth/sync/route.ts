@@ -5,7 +5,7 @@ import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
-import { ID, Query } from "node-appwrite";
+import { ID, Permission, Query, Role } from "node-appwrite";
 
 const COLLECTION_USERS = "users";
 
@@ -67,6 +67,10 @@ export async function POST(request: NextRequest) {
 
     if (existing.documents.length === 0) {
       // 4. Criar novo documento de utilizador — dados 100% derivados da sessão
+      // Sessão 36: como a coleção users já NÃO tem read/update/delete: users()
+      // (least-privilege), o documento criado via server SDK precisa das
+      // permissões por documento do dono — senão o client SDK do utilizador
+      // (dashboard) não conseguia ler o próprio documento de perfil.
       await databases.createDocument(
         databaseId,
         COLLECTION_USERS,
@@ -80,7 +84,12 @@ export async function POST(request: NextRequest) {
           countryCode,
           currency,
           createdAt: user.$createdAt || new Date().toISOString(),
-        }
+        },
+        [
+          Permission.read(Role.user(userId.trim())),
+          Permission.update(Role.user(userId.trim())),
+          Permission.delete(Role.user(userId.trim())),
+        ]
       );
     } else {
       // 4b. Conta já existia — garante o país/moeda preenchidos (contas antigas)

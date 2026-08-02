@@ -1546,3 +1546,37 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Testes novos (geo + utils) a passar
 - ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
 
+---
+
+### Sessão 36 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Least-privilege no Appwrite: permissões de coleções, bucket e ficheiros
+
+**Pedido:** revisar as configurações de CORS/permissões do Appwrite (buckets, coleções) e o script de provision para garantir least-privilege.
+
+**Diagnóstico (IDOR massivo — alta severidade):**
+- Todas as coleções user-owned tinham `read/update/delete: Role.users()` ao nível da COLEÇÃO. No Appwrite com `documentSecurity=true`, as permissões de coleção são **aditivas** às permissões por documento — ou seja, as permissões por documento `Role.user(owner)` que o código define NÃO restringiam: qualquer utilizador autenticado lia/alterava/apagava TODOS os documentos (emails, páginas, links, analytics, activity_logs com IPs, security_logs com emails+IPs).
+- Appwrite não valida chaves estrangeiras (`pageId`/`userId`) — com `create: users()` qualquer autenticado podia criar docs com o `pageId` de outrem (a ownership real é validada no código por `requireOwnerOfPage`, que se mantém).
+- Bucket `files` tinha `update/delete: users()` → qualquer utilizador apagava/substituía ficheiros de terceiros (os ficheiros herdam as permissões do bucket).
+
+**Correções (princípio do menor privilégio):**
+1. `scripts/provision-appwrite.ts` — todas as coleções user-owned (`users`, `pages`, `links`, `analytics`, `themes`, `qr_codes`, `subscriptions`, `teams`, `notifications`, `activity_logs`, `staff_applications`) passam a **apenas `create: users()`** ao nível da coleção; `security_logs` passa a `[]` (server-only, como `visits`/`collected_ips`). O acesso passa a ser exclusivamente por permissões por documento (`Role.user(owner)`), que o client SDK já define em todos os `createDocument`.
+2. `createCollection` do provision passou a **corrigir coleções JÁ EXISTENTES** (antes idempotente: ignorava-as, mantendo as permissões permissivas): se a coleção existe, chama `databases.updateCollection(databaseId, collectionId, name, permissions, documentSecurity)` que substitui o array de permissões completo. **Re-reescrever o provision para aplicar.**
+3. `scripts/lib/public-bucket.ts` — `BUCKET_PERMS` = só `read(any)+create(users)` (SEM update/delete users()); novo `filePermsForOwner(ownerId)` (read any + update/delete `Role.user(owner)`); novo backfill `applyOwnerPermsToExistingFiles` que deriva o dono dos ficheiros das coleções `pages` (avatarId/bannerId) **e dos links (imageId → dono da página dona do link)** e re-scopeia os ficheiros existentes (órfãos ficam só com read público — sem update/delete para ninguém).
+4. `scripts/fix-bucket-public.ts` — passou a passar `databases` + `databaseId` ao `ensureBucketWithPublicRead` para aplicar o backfill de ficheiros existentes.
+5. `src/lib/services.ts` — `uploadFile` define permissões por ficheiro para o dono no `createFile` (sem isto, o ficheiro herdava apenas read(any) do bucket e o dono não conseguia apagá-lo/substituí-lo).
+6. `src/app/api/auth/oauth/sync/route.ts` — `createDocument` de users passou a definir permissões por documento do dono (a coleção já não tem read/update/delete users() — sem perms explícitas o dashboard do utilizador não lia o próprio perfil).
+
+**Confirmado sem regressões:**
+- Página pública `/u/[username]` lê via `services.server.ts` (server SDK/API key — imune a permissões).
+- Todos os reads do client SDK são auto-referenciais (dono → permissões por documento bastam): `getPageByUserId`, `getLinksByPageId`, `getThemeByPageId`, `getAnalyticsByPageId`, activity_logs, staff_applications.
+- `qr_codes`, `subscriptions`, `teams`, `notifications` não têm leituras no client SDK.
+- `security_logs`/`visits`/`collected_ips` são 100% server-side (API key).
+- `registerUser`/`syncUserGeo`/`grantBadge` já definiam ou usavam permissões por documento (sem alteração necessária).
+
+**Validação:** typecheck `tsc --noEmit` ✅ (scripts incluídos no tsconfig) · ESLint ✅ · **156/156 testes** ✅ · code-review ✅ (melhorias aplicadas: backfill passou a cobrir `links.imageId`; provision passou a avisar que ficheiros existentes requerem `npm run fix:bucket`).
+
+**Estado final:**
+- ✅ Provision corrigido para least-privilege (coleções + bucket) com correção de coleções/ficheiros existentes
+- ✅ `uploadFile` e `oauth/sync` com permissões por dono
+- ⚠️ **AÇÃO MANUAL NECESSÁRIA (deploy):** re-reescrever `npm run provision` (e `npm run fix:bucket`) no ambiente para aplicar as permissões às coleções/bucket/ficheiros já existentes — o código sozinho só afeta setups novos.
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
+

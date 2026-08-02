@@ -73,11 +73,29 @@ async function waitForAttributes(collectionId: string, attributeNames: string[])
   }
 }
 
+/**
+ * Cria a coleção ou, se já existir, ATUALIZA as permissões para as novas
+ * (least-privilege). Sem isto, o script era idempotente e as coleções já
+ * existentes mantinham permissões permissivas (read/update/delete: users())
+ * que, sendo ADITIVAS às permissões por documento, expunham todos os dados
+ * a qualquer utilizador autenticado.
+ */
 async function createCollection(collectionId: string, name: string, permissions: string[], documentSecurity = true) {
-  return runWithIdempotency(
+  const created = await runWithIdempotency(
     () =>
       databases.createCollection(databaseId, collectionId, name, permissions, documentSecurity),
     `Collection ${collectionId}`
+  );
+  if (created) return created;
+  // Já existe — re-aplica as permissões pretendidas (updateCollection
+  // substitui o array de permissões completo). documentSecurity mantém-se.
+  console.log(`   ↳ Collection ${collectionId} exists — updating permissions (least-privilege)...`);
+  return databases.updateCollection(
+    databaseId,
+    collectionId,
+    name,
+    permissions,
+    documentSecurity
   );
 }
 
@@ -230,15 +248,17 @@ async function provision() {
   }
 
   // 2. Users collection (custom profile data)
-  // Each user document is private and scoped to its owner. Server-side APIs
-  // may access any document using the server SDK, but clients only access
-  // their own documents through Role.user(userId) document permissions.
+  // Sessão 36 (least-privilege): NENHUMA permissão de leitura/escrita ao nível
+  // da coleção — só create (o utilizador autenticado cria o SEU documento).
+  // Leitura/atualização/remoção são concedidas APENAS por permissões por
+  // documento (Role.user(owner)), que o client SDK define em todos os
+  // createDocument. Sem isto, as permissões de coleção seriam aditivas às de
+  // documento e QUALQUER utilizador autenticado leria/alteraria/apagaria os
+  // documentos de todos (IDOR massivo). Server-side continua a poder aceder a
+  // tudo via API key (server SDK).
   console.log("\n👤 Collection: users");
   await createCollection("users", "Users", [
-    Permission.read(Role.users()),
     Permission.create(Role.users()),
-    Permission.update(Role.users()),
-    Permission.delete(Role.users()),
   ], true);
   await createStringAttribute("users", "userId", 255, true);
   await createStringAttribute("users", "email", 255, true);
@@ -253,18 +273,15 @@ async function provision() {
   await createIndex("users", "idx_users_email", "unique", ["email"]);
 
   // 3. Pages collection
-  // Public read access is NOT granted at collection level. Public pages are
-  // served through server-side API routes using the server SDK, which validates
-  // that the page is published before returning any data.
+  // Sessão 36: só create ao nível da coleção; o acesso é por documento
+  // (Role.user(owner)). Páginas públicas são servidas por rotas server-side
+  // (server SDK/API key) que validam published antes de devolver dados.
   console.log("\n📄 Collection: pages");
   await createCollection(
     "pages",
     "Pages",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -285,18 +302,15 @@ async function provision() {
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 
   // 4. Links collection
-  // Public read access is NOT granted at collection level. Only the owner can
-  // read their own links from the client SDK. Public links are served through
-  // server-side API routes after verifying the page is published.
+  // Sessão 36: só create ao nível da coleção. O dono lê/edita/apaga os SEUS
+  // links via permissões por documento. Links públicos são servidos por rotas
+  // server-side após verificar que a página está publicada.
   console.log("\n🔗 Collection: links");
   await createCollection(
     "links",
     "Links",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -323,17 +337,14 @@ async function provision() {
   await createIndex("links", "idx_links_pageId_order", "key", ["pageId", "order"]);
 
   // 5. Analytics collection
-  // Analytics are private. They are read/updated through server-side API routes
-  // that use the server SDK and do not expose raw analytics to the public.
+  // Sessão 36: só create. Analytics são privadas — só o dono lê as suas via
+  // permissões por documento; as atualizações de contagem são server-side.
   console.log("\n📊 Collection: analytics");
   await createCollection(
     "analytics",
     "Analytics",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -412,17 +423,13 @@ async function provision() {
   await createIndex("collected_ips", "idx_collected_ips_visitorHash", "unique", ["visitorHash"]);
 
   // 6. Themes collection
-  // Public read access is NOT granted at collection level. Public themes are
-  // served through server-side API routes after verifying the page is published.
+  // Sessão 36: só create ao nível da coleção; acesso por documento (dono).
   console.log("\n🎨 Collection: themes");
   await createCollection(
     "themes",
     "Themes",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -462,15 +469,13 @@ async function provision() {
   await createIndex("themes", "idx_themes_pageId", "unique", ["pageId"]);
 
   // 7. QR Codes collection
+  // Sessão 36: só create; acesso por documento (dono).
   console.log("\n🔳 Collection: qr_codes");
   await createCollection(
     "qr_codes",
     "QR Codes",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -483,15 +488,13 @@ async function provision() {
   await createIndex("qr_codes", "idx_qr_codes_pageId", "unique", ["pageId"]);
 
   // 9. Subscriptions collection
+  // Sessão 36: só create; escrita/leitura feita server-side (Stripe webhooks).
   console.log("\n💳 Collection: subscriptions");
   await createCollection(
     "subscriptions",
     "Subscriptions",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -504,15 +507,13 @@ async function provision() {
   await createIndex("subscriptions", "idx_subscriptions_userId", "key", ["userId"]);
 
   // 10. Teams collection
+  // Sessão 36: só create; acesso por documento (dono).
   console.log("\n👥 Collection: teams");
   await createCollection(
     "teams",
     "Teams",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -522,15 +523,13 @@ async function provision() {
   await createIndex("teams", "idx_teams_ownerId", "key", ["ownerId"]);
 
   // 11. Notifications collection
+  // Sessão 36: só create; acesso por documento (dono).
   console.log("\n🔔 Collection: notifications");
   await createCollection(
     "notifications",
     "Notifications",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -544,17 +543,16 @@ async function provision() {
   await createIndex("notifications", "idx_notifications_userId_read", "key", ["userId", "read"]);
 
   // 12. Security Logs collection
-  // Security logs are private and scoped to the owner. They are read through a
-  // server-side API route that enforces ownership.
+  // Sessão 36 (least-privilege): SEM permissões ao nível da coleção — server
+  // only. A escrita e a leitura são feitas exclusivamente por rotas API
+  // server-side (server SDK/API key) que derivam o userId da sessão e
+  // validam a propriedade. Antes tinha read/update: users() — qualquer
+  // utilizador autenticado lia/alterava os logs (emails + IPs) de todos.
   console.log("\n📋 Collection: security_logs");
   await createCollection(
     "security_logs",
     "Security Logs",
-    [
-      Permission.read(Role.users()),
-      Permission.create(Role.users()),
-      Permission.update(Role.users()),
-    ],
+    [],
     true
   );
   await createStringAttribute("security_logs", "userId", 255, true);
@@ -570,19 +568,14 @@ async function provision() {
   await createIndex("security_logs", "idx_security_createdAt", "key", ["createdAt"]);
 
   // 12b. Activity Logs collection (atividades recentes da conta)
-  // Registo real de cada ação do utilizador (login, logout, criar/editar/
-  // apagar links, criar/atualizar página, alterar aparência, avatar, banner)
-  // com IP + hora. Escrito pelo client SDK autenticado (permissões por
-  // documento Role.user) e lido apenas pelo dono da conta.
+  // Sessão 36: só create; o client SDK grava com permissões por documento
+  // (Role.user) e só o dono lê o seu registo.
   console.log("\n📝 Collection: activity_logs");
   await createCollection(
     "activity_logs",
     "Activity Logs",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -599,18 +592,13 @@ async function provision() {
   await createIndex("activity_logs", "idx_activity_userId_createdAt", "key", ["userId", "createdAt"]);
 
   // 12c. Staff applications collection (candidaturas ao staff)
-  // Cada utilizador pode candidatar-se ao staff. O status é revisto
-  // manualmente pela equipa (pending → approved/rejected). Quando aprovado,
-  // a badge "staff" é concedida à página do utilizador.
+  // Sessão 36: só create; acesso por documento (dono da candidatura).
   console.log("\n🛠️ Collection: staff_applications");
   await createCollection(
     "staff_applications",
     "Staff Applications",
     [
-      Permission.read(Role.users()),
       Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
     ],
     true
   );
@@ -624,9 +612,16 @@ async function provision() {
 
   // 13. Storage bucket (single bucket for all files to fit free plan)
   // Public read (Role.any()) so avatars/banners/images are visible on the
-  // public page without authentication. create/update/delete stay private.
+  // public page without authentication. Sessão 36: o bucket só tem
+  // read(any)+create(users) — SEM update/delete users() (qualquer utilizador
+  // podia apagar/substituir ficheiros de terceiros). O update/delete é
+  // concedido por ficheiro (Role.user(owner)), definido no uploadFile do
+  // client SDK.
   console.log("\n🗂️  Buckets");
   await ensureBucketWithPublicRead(storage, "files", "Files");
+  console.log(
+    "   ↳ NOTA: ficheiros já existentes no bucket só são re-scoped para permissões por dono com `npm run fix:bucket` (este script não tem acesso às databases para derivar os donos)."
+  );
 
   console.log("\n✅ LinkFlow backend provisioned successfully!");
 }

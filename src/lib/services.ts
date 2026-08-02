@@ -977,7 +977,17 @@ export function getFilePreviewUrl(bucketId: string, fileId: string) {
 }
 
 export async function uploadFile(bucketId: string, file: File) {
-  return storage.createFile(bucketId, ID.unique(), file);
+  // Sessão 36 (least-privilege): o bucket NÃO tem update/delete: users() —
+  // define permissões POR FICHEIRO para o dono. Sem isto, o ficheiro herdaria
+  // apenas read(any) do bucket e o dono não conseguiria apagá-lo/substituí-lo;
+  // antes (bucket com update/delete users()) qualquer utilizador podia apagar
+  // ficheiros de terceiros.
+  const session = await getCurrentSession();
+  return storage.createFile(bucketId, ID.unique(), file, [
+    Permission.read(Role.any()),
+    Permission.update(Role.user(session.$id)),
+    Permission.delete(Role.user(session.$id)),
+  ]);
 }
 
 export async function deleteFile(bucketId: string, fileId: string) {

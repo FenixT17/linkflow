@@ -15,7 +15,7 @@
  *   npm run fix:bucket
  */
 
-import { Client, Storage } from "node-appwrite";
+import { Client, Databases, Storage } from "node-appwrite";
 import dotenv from "dotenv";
 import { ensureBucketWithPublicRead } from "./lib/public-bucket";
 
@@ -35,6 +35,10 @@ const bucketId =
   process.env.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID ??
   process.env.APPWRITE_FILES_BUCKET_ID ??
   "files";
+const databaseId =
+  process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ??
+  process.env.APPWRITE_DATABASE_ID ??
+  "linkflow";
 
 if (!projectId || !apiKey) {
   console.error(
@@ -43,9 +47,9 @@ if (!projectId || !apiKey) {
   process.exit(1);
 }
 
-const storage = new Storage(
-  new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey)
-);
+const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
+const storage = new Storage(client);
+const databases = new Databases(client);
 
 async function main() {
   console.log("🔧 Fixing storage bucket permissions...\n");
@@ -65,10 +69,13 @@ async function main() {
     console.log(`   ↳ Bucket ${bucketId} does not exist yet — will be created.`);
   }
 
-  await ensureBucketWithPublicRead(storage, bucketId, bucketName);
+  // Passa as databases para o backfill: os ficheiros existentes são
+  // re-scoped para permissões por dono (read público + update/delete do
+  // owner), removendo o update/delete: users() que herdavam do bucket.
+  await ensureBucketWithPublicRead(storage, bucketId, bucketName, databases, databaseId);
 
-  console.log("\n✅ Done. Bucket and files now allow public (anonymous) read.");
-  console.log("   Avatars/banners now visible to anonymous visitors.");
+  console.log("\n✅ Done. Bucket: public read only (no update/delete for users).");
+  console.log("   Avatars/banners visible to anonymous visitors; files scoped to owners.");
 }
 
 main().catch((error: unknown) => {
