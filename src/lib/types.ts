@@ -51,6 +51,13 @@ export type PageType =
   | "gamer"
   | "developer";
 
+/**
+ * Template de layout escolhido pelo utilizador na aba "Páginas".
+ * Cada valor corresponde a um componente de layout completamente diferente.
+ * O default para novos utilizadores é "template1".
+ */
+export type PageTemplateId = "template1" | "template2";
+
 export interface PageProfile {
   username: string;
   displayName: string;
@@ -59,6 +66,8 @@ export interface PageProfile {
   banner?: string;
   published: boolean;
   pageType?: PageType;
+  /** Template de layout escolhido na aba Páginas — controla o render público */
+  pageTemplate?: PageTemplateId;
   /** Badges ativas da página (ex: ["verified", "supporter"]) */
   badges?: string[];
   scheduledPublishAt?: string;

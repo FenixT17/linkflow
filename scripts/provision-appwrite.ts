@@ -276,10 +276,11 @@ async function provision() {
   await createStringAttribute("pages", "bannerId", 255, false);
   await createBooleanAttribute("pages", "published", true, false);
   await createStringAttribute("pages", "pageType", 32, false, "minimal");
+  await createStringAttribute("pages", "pageTemplate", 32, false, "template1");
   await createStringArrayAttribute("pages", "badges", 32, false);
   await createDatetimeAttribute("pages", "scheduledPublishAt", false);
   await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "badges", "scheduledPublishAt", "scheduledUnpublishAt"]);
+  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "pageTemplate", "badges", "scheduledPublishAt", "scheduledUnpublishAt"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 

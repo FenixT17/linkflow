@@ -9,7 +9,7 @@ import { ViewTracker } from "@/components/public/view-tracker";
 import { PageTemplate } from "@/components/templates";
 import { LinkItem } from "@/lib/types";
 import { siteUrl, profilePageJsonLd, renderJsonLd, webPageJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
-import { isPageType } from "@/lib/page-templates";
+import { isPageTemplate, DEFAULT_PAGE_TEMPLATE } from "@/lib/page-templates";
 
 interface PublicProfilePageProps {
   params: Promise<{ username: string }>;
@@ -69,7 +69,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
 
   const visibleLinks = links.filter((link: LinkItem) => link.visible && link.active);
   const publicUrl = `${siteUrl}/u/${page.username}`;
-  const pageType = isPageType(page.pageType) ? page.pageType : "minimal";
+  const pageTemplate = isPageTemplate(page.pageTemplate) ? page.pageTemplate : DEFAULT_PAGE_TEMPLATE;
 
   const profileJsonLd = profilePageJsonLd(
     page.username,
@@ -99,7 +99,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
         <div className="gradient-orb-radial" />
       </div>
       <PageTemplate
-        pageType={pageType}
+        pageTemplate={pageTemplate}
         profile={page}
         links={visibleLinks}
         appearance={appearance}

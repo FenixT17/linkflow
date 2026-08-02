@@ -9,6 +9,7 @@ import {
   LinkItem,
   PageProfile,
   PageType,
+  PageTemplateId,
   UserAccount,
   AnalyticsData,
   TopDevice,
@@ -281,6 +282,7 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
         displayName: profile.displayName,
         bio: profile.bio ?? "",
         pageType: profile.pageType ?? existing.pageType ?? "minimal",
+        pageTemplate: profile.pageTemplate ?? existing.pageTemplate ?? "template1",
       });
     } catch (error) {
       // Username alterado para um já usado por OUTRO utilizador → 409 cru.
@@ -295,6 +297,7 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
       userId: session.$id,
       published: false,
       pageType: profile.pageType ?? "minimal",
+      pageTemplate: profile.pageTemplate ?? "template1",
     }, [
       Permission.read(Role.user(session.$id)),
       Permission.update(Role.user(session.$id)),
@@ -396,6 +399,7 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
     banner: doc.bannerId ? getFilePreviewUrl(Buckets.files, String(doc.bannerId)) : undefined,
     published: Boolean(doc.published),
     pageType: (doc.pageType as PageType) ?? "minimal",
+    pageTemplate: (doc.pageTemplate as PageTemplateId) ?? "template1",
     badges: Array.isArray(doc.badges) ? (doc.badges as string[]) : [],
     scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
     scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,

@@ -1,10 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, ShieldCheck, HeartHandshake, Sparkles, Crown, Handshake } from "lucide-react";
+import { BadgeCheck, ShieldCheck, HeartHandshake, Sparkles, Crown, Handshake, ChevronDown } from "lucide-react";
 import { sanitizeUrl } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
 import { BADGE_BY_ID, isBadgeId } from "@/lib/badges";
+import { TrackedLink } from "./tracked-link";
+import { PlatformIcon } from "@/components/ui/platform-icon";
+import type { LinkItem } from "@/lib/types";
 
 const BADGE_ICONS: Record<string, typeof BadgeCheck> = {
   verified: BadgeCheck,
@@ -112,6 +115,63 @@ export function SectionLabel({
         {children}
       </span>
     </div>
+  );
+}
+
+/**
+ * Botão em pílula de link — estrutura partilhada entre templates.
+ * Cada template controla cores/bordas via props (sem duplicar lógica).
+ * Ícone circular à esquerda, título centrado, chevron à direita.
+ */
+export function TemplateLinkPill({
+  link,
+  pageId,
+  iconColor,
+  textColor,
+  iconBg = "rgba(255,255,255,0.06)",
+  chevronColor,
+  className,
+}: {
+  link: LinkItem;
+  pageId: string;
+  iconColor: string;
+  textColor?: string;
+  iconBg?: string;
+  chevronColor?: string;
+  className?: string;
+}) {
+  return (
+    <TrackedLink
+      link={link}
+      pageId={pageId}
+      className={cn(
+        "group flex w-full items-center gap-3 rounded-full px-4 py-3 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
+        className
+      )}
+    >
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+        style={{ backgroundColor: iconBg }}
+        aria-hidden="true"
+      >
+        <PlatformIcon
+          platformId={link.icon ?? "link"}
+          size={16}
+          color={iconColor}
+        />
+      </span>
+      <span
+        className="flex-1 truncate text-center text-sm font-medium"
+        style={{ color: textColor ?? iconColor }}
+      >
+        {link.title || "Link"}
+      </span>
+      <ChevronDown
+        className="h-4 w-4 shrink-0 opacity-60 transition-transform duration-200 group-hover:translate-y-0.5"
+        style={{ color: chevronColor ?? iconColor }}
+        aria-hidden="true"
+      />
+    </TrackedLink>
   );
 }
 

@@ -1,44 +1,26 @@
 import type { ReactNode } from "react";
-import type { PageType } from "@/lib/types";
+import type { PageTemplateId } from "@/lib/types";
 import type { TemplateProps } from "./types";
-import { MinimalTemplate } from "./minimal";
-import { CreatorTemplate } from "./creator";
-import { BusinessTemplate } from "./business";
-import { StoreTemplate } from "./store";
-import { PortfolioTemplate } from "./portfolio";
-import { PhotographerTemplate } from "./photographer";
-import { MusicTemplate } from "./music";
-import { RestaurantTemplate } from "./restaurant";
-import { EventTemplate } from "./event";
-import { ResumeTemplate } from "./resume";
-import { GamerTemplate } from "./gamer";
-import { DeveloperTemplate } from "./developer";
+import { TemplateOne } from "./template-one";
+import { TemplateTwo } from "./template-two";
 
-const TEMPLATES: Record<PageType, (props: TemplateProps) => ReactNode> = {
-  minimal: MinimalTemplate,
-  creator: CreatorTemplate,
-  business: BusinessTemplate,
-  store: StoreTemplate,
-  portfolio: PortfolioTemplate,
-  photographer: PhotographerTemplate,
-  music: MusicTemplate,
-  restaurant: RestaurantTemplate,
-  event: EventTemplate,
-  resume: ResumeTemplate,
-  gamer: GamerTemplate,
-  developer: DeveloperTemplate,
+const TEMPLATES: Record<PageTemplateId, (props: TemplateProps) => ReactNode> = {
+  template1: TemplateOne,
+  template2: TemplateTwo,
 };
 
 /**
- * Renderizador de página pública — escolhe o template pelo pageType.
- * Para adicionar um novo tipo de página no futuro: criar o componente
- * em components/templates/, registá-lo em lib/page-templates.ts e
+ * Renderizador de página pública — escolhe o template pelo pageTemplate.
+ *
+ * Para adicionar um novo template no futuro: criar o componente em
+ * components/templates/ (ex: template-three.tsx), adicionar o id a
+ * PageTemplateId em lib/types.ts, registá-lo em lib/page-templates.ts e
  * mapeá-lo aqui. Nada mais precisa de mudar.
  */
 export function PageTemplate({
-  pageType = "minimal",
+  pageTemplate = "template1",
   ...props
-}: TemplateProps & { pageType?: PageType }) {
-  const Template = TEMPLATES[pageType] ?? MinimalTemplate;
+}: TemplateProps & { pageTemplate?: PageTemplateId }) {
+  const Template = TEMPLATES[pageTemplate] ?? TemplateOne;
   return <Template {...props} />;
 }
