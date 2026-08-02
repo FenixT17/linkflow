@@ -312,8 +312,14 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
   // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
   // único de pageId), NÃO é um conflito de username — ignoramos e seguimos
   // (getThemeByPageId/getAnalyticsByPageId têm fallbacks para dados ausentes).
+  //
+  // NOTA: o schema Appwrite da coleção themes tem o atributo `theme` como
+  // OBRIGATÓRIO (required=true, default "glass") — mesmo com o sistema atual
+  // a usar apenas Liquid Glass, sem o campo o createDocument falha com
+  // "Invalid document structure: Missing required attribute \"theme\"".
   await createOwnedDocument(Collections.themes, {
     pageId: doc.$id,
+    theme: "glass",
     ...defaultAppearance(),
   }).catch((error) => {
     if (!isAlreadyExistsError(error)) throw error;
