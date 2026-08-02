@@ -15,6 +15,14 @@ import {
 } from "@/lib/services";
 import { Buckets } from "@/lib/appwrite";
 
+// Validação de upload — idêntica à página Perfil: apenas imagens raster
+// (JPG/PNG/WEBP) até 5MB. O bucket `files` tem LEITURA PÚBLICA (avatares/
+// banners são servidos a visitantes anónimos), por isso nunca aceitamos
+// HTML/SVG/ficheiros arbitrários — um ficheiro malicioso servido do domínio
+// Appwrite executaria em qualquer browser que o abrisse (stored XSS).
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const VALID_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 function Section({
   icon: Icon,
   title,
@@ -74,6 +82,7 @@ export default function AppearancePage() {
   const { page, pageId, appearance, updateAppearance, refreshPage } = useAuth();
 
   const [uploadTarget, setUploadTarget] = useState<"avatar" | "banner" | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +96,16 @@ export default function AppearancePage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, target: "avatar" | "banner") => {
     const file = e.target.files?.[0];
     if (!file || !pageId) return;
+    setUploadError(null);
+    // Validação de segurança: tipo e tamanho antes de tocar no storage.
+    if (!VALID_TYPES.includes(file.type)) {
+      setUploadError("Formato não suportado. Use JPG, PNG ou WEBP.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError("Ficheiro demasiado grande. Máximo 5MB.");
+      return;
+    }
     setUploadTarget(target);
     try {
       const uploaded = await uploadFile(Buckets.files, file);
@@ -127,6 +146,12 @@ export default function AppearancePage() {
           <p className="mt-1 text-sm text-white/50">Personalize o visual da sua página.</p>
         </div>
       </div>
+
+      {uploadError && (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {uploadError}
+        </div>
+      )}
 
       <div className="space-y-5">
           <Section icon={User} title="Foto e banner">

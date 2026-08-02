@@ -32,7 +32,7 @@ import {
   UserRound,
   Clock,
 } from "lucide-react";
-import { countryFlag, timeAgo, formatVisitTime } from "@/lib/utils";
+import { countryFlag, timeAgo, formatVisitTime, escapeCsv } from "@/lib/utils";
 
 function formatNumber(num: number) {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
@@ -44,14 +44,6 @@ function useMounted() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   return mounted;
-}
-
-function escapeCsv(value: string | number) {
-  const str = String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
 }
 
 function exportAnalyticsCSV(analytics: ReturnType<typeof useAuth>["analytics"]) {

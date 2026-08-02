@@ -118,6 +118,33 @@ export function formatVisitTime(iso: string): string {
   return date.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
 }
 
+// ---------- CSV export ----------
+
+/**
+ * Escapa um campo para CSV e neutraliza injeção de fórmulas (OWASP).
+ *
+ * Células que começam com `=`, `+`, `-` ou `@` são interpretadas pelo
+ * Excel/Google Sheets como fórmulas (ex: `=HYPERLINK(...)` pode executar
+ * código ao abrir o ficheiro). Prefixar com uma aspa simples `'` torna o
+ * valor texto puro. Campos com vírgula/aspas/linha nova são citados.
+ */
+export function escapeCsv(value: string | number): string {
+  let str = String(value);
+  // O Excel/Sheets faz trim de whitespace ao parsear CSV, por isso uma célula
+  // com espaço/tab antes de `=` seria lida como fórmula. Fazemos trimStart
+  // antes do teste de neutralização para nunca ser contornável.
+  str = str.trimStart();
+  // Neutraliza injeção de fórmulas (OWASP) — prefixa o valor com ' (texto
+  // literal) quando começa por = + - @ tab ou CR.
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 // ---------- Link tracking ----------
 
 /**

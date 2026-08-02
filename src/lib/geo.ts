@@ -13,6 +13,9 @@
  * 3. IPs privados/locais (dev) → sem lookup, devolvem vazio.
  */
 
+import { createHash } from "node:crypto";
+
+
 export interface GeoInfo {
   country?: string;
   countryCode?: string;
@@ -103,14 +106,20 @@ export async function resolveGeo(ip: string, request?: Request): Promise<GeoInfo
   return info;
 }
 
-/** Hash determinístico e não reversível do IP (para visitorHash). */
+/**
+ * Hash determinístico e não reversível do IP (para visitorHash).
+ *
+ * SHA-256 real (RFC 6234) com salt fixo — não reversível na prática para
+ * um atacante com acesso à BD (a força bruta sobre o espaço IPv4 exigiria
+ * ~2^32 tentativas de SHA-256, e o salt impede rainbow tables pré-computadas).
+ *
+ * Devolve os primeiros 16 hex chars (64 bits): espaço suficiente para
+ * deduplicar visitantes sem colisões práticas (birthday bound ~2^32) e
+ * compacto o suficiente para caber nos limites de memória do metricsJson
+ * (1MB — visitorSet 2000, dailyVisitors 14×1000).
+ */
 export function hashIp(ip: string): string {
-  // sha256 curto — suficiente para deduplicar visitantes sem expor o IP.
-  let hash = 0;
   const salt = "linkflow-visitor-v1";
   const input = `${salt}:${ip}`;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 31 + input.charCodeAt(i)) | 0;
-  }
-  return `v${(hash >>> 0).toString(36)}`;
+  return createHash("sha256").update(input).digest("hex").slice(0, 16);
 }

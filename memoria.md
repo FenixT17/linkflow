@@ -1506,3 +1506,43 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Typecheck, ESLint e 142/142 testes a passar
 - ⚠️ Pendentes de sessões futuras: `hashIp` → SHA-256 real, decidir hCaptcha/Stripe, limpar `PlanType.enterprise`, registo de segurança do commit desta entrada
 
+---
+
+## Sessão 35 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Auditoria de segurança completa + 3 vulnerabilidades corrigidas
+
+**Objetivo:** auditoria de segurança de TODO o código do SaaS (rotas API, libs, componentes, páginas) e correção das vulnerabilidades encontradas, com commit + push.
+
+### 1. Auditoria completa (superfície de ataque revisada)
+- **Rotas API (12):** `view`, `click`, `csrf`, `csrf/verify`, `security/log`, `log-anonymous`, `logs`, `oauth/sync`, `rate-check`, `geo/lookup`, `activity/ip`, `sitemap.xml.gz` — todas revistas: CSRF, rate limit, sanitização, privacy by design.
+- **Libs:** `services`, `services.server`, `analytics`, `geo`, `csrf`, `rate-limit`, `sanitize`, `seo`, `theme-security`, `social`, `platforms`, `currencies`, `oauth-errors`, `utils`.
+- **Componentes que renderizam input do utilizador:** `profile-renderer`, `trackable-link`, `tracked-link`, `shared`, `template-one/two`, `platform-icon` (todos usam `sanitizeUrl`); `dangerouslySetInnerHTML` auditados (só JSON-LD via `renderJsonLd` + script do tema).
+- **Páginas de auth e dashboard:** login, register, links, profile, appearance, badges, settings, create, analytics, domains, billing.
+- **Confirmações de segurança existentes:** CSP/HSTS/X-Frame-Options/COOP, scan de `eval`/`innerHTML`/`document.write` (zero na app), zero segredos em `NEXT_PUBLIC_*` (só IDs/endpoints públicos), `.env` gitignored.
+
+### 2. Vulnerabilidades corrigidas (3)
+1. **`hashIp()` fraco e reversível (CRÍTICA/MÉDIA) — `src/lib/geo.ts`:**
+   - O código usava um hash JS de 32 bits (djb2-like com salt fixo) mas os comentários e a Sessão 33 afirmavam "hash salgado SHA-256 não reversível". Um atacante com acesso à BD de analytics (visitorHash/collected_ips) conseguiria reverter o IP em força bruta trivial (espaço de 32 bits).
+   - **Fix:** `hashIp` agora usa **SHA-256 real** (`node:crypto` `createHash`) com salt fixo, truncado a 16 hex chars (64 bits — espaço de colisão adequado: birthday bound ~2^32; cabe nos limites do `metricsJson` 1MB).
+   - **Impacto:** os hashes antigos (formato `v<base36>`) deixam de coincidir — `uniqueVisitors`/`visitorSet`/`dailyVisitors`/`collected_ips` reiniciam a contagem após o deploy (comportamento esperado de uma correção de hash).
+2. **Injeção de fórmulas CSV (OWASP) — export de analytics (`escapeCsv`):**
+   - O export CSV (`dashboard/analytics`) não neutralizava células que começam com `=`, `+`, `-`, `@` — um título de link malicioso (`=HYPERLINK(...)`) executaria como fórmula no Excel/Google Sheets ao abrir o ficheiro.
+   - **Fix:** `escapeCsv` movido para `src/lib/utils.ts` (partilhado/testável) e agora prefixa com `'` qualquer valor que comece por `= + - @ tab CR` (padrão OWASP), além de citar vírgula/aspas/linha nova.
+3. **Upload de ficheiros sem validação na aba Aparência — `dashboard/appearance/page.tsx`:**
+   - A página Perfil validava tipo (JPG/PNG/WEBP) e tamanho (5MB), mas a Aparência aceitava qualquer ficheiro (`accept="image/*"` é só UI hint) para o bucket `files` **com leitura pública** — um utilizador autenticado podia carregar HTML/SVG malicioso servido do domínio Appwrite a visitantes anónimos (stored XSS hospedado em domínio de confiança).
+   - **Fix:** validação idêntica à do Perfil (`VALID_TYPES` + `MAX_FILE_SIZE` 5MB) com mensagem de erro visível na UI.
+
+### 3. Testes novos
+- `src/__tests__/geo.test.ts` (novo, 8 testes): determinismo, unicidade, não-reversibilidade, formato 16-hex, salt aplicado (comparação com SHA-256 puro); `isPrivateIp` (públicos/privados/vazios).
+- `src/__tests__/utils.test.ts` (+6): `escapeCsv` neutraliza `= + - @` (+ espaço inicial — Excel faz trim ao parsear), cita vírgula/aspas/linha nova, caso combinado.
+
+### 4. O que foi auditar e NÃO precisou de mudar (confirmado seguro)
+- XSS via `localStorage["theme"]` já fechado (Sessão 15); stored XSS JSON-LD já escapado; `javascript:`/`data:` bloqueados em `buildUrl`/`buildSocialUrl`/`sanitizeUrl`; rate limits por IP; hash de email nos security logs; IP anonimizado em `visits`/`collected_ips`; `rel="noopener noreferrer"` nos links públicos; reescrita `/@:username` → `/u/:username` sem open redirect.
+- **Nota:** o `escapeCsv` antigo (local à página analytics) foi eliminado — a versão nova vive em `utils.ts`.
+
+**Validação:** typecheck `tsc --noEmit` ✅ · **156/156 testes** ✅ (era 142; +8 geo +6 utils) · ESLint ✅ · code-review ✅ (segurança: hash criptográfico real, OWASP CSV, upload restrito; sem regressões nos callers de `hashIp`/`escapeCsv`).
+
+**Estado final:**
+- ✅ 3 vulnerabilidades corrigidas (hashIp SHA-256, CSV formula injection, upload aparência)
+- ✅ Testes novos (geo + utils) a passar
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
+
