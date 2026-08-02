@@ -28,6 +28,16 @@ function getSessionCookieFromRequest(request: NextRequest): SessionCookie | null
   return cookie;
 }
 
+function getJwtFromRequest(request: NextRequest): string | null {
+  // node-appwrite Client.setJWT() sends the token through X-Appwrite-JWT.
+  // Accept Bearer as a compatibility path for other API clients.
+  const appwriteJwt = request.headers.get("x-appwrite-jwt")?.trim();
+  if (appwriteJwt) return appwriteJwt;
+  const authorization = request.headers.get("authorization") ?? "";
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 async function getSessionCookieFromStore(): Promise<SessionCookie | null> {
   // Next.js 15 cookies() is async in Server Components/Actions
   const cookieStore = await (cookies() as unknown as Promise<ReturnType<typeof cookies>>);
@@ -39,18 +49,24 @@ async function getSessionCookieFromStore(): Promise<SessionCookie | null> {
  * Returns null if no session cookie is present.
  */
 export async function createSessionClient(request?: NextRequest) {
+  const jwt = request ? getJwtFromRequest(request) : null;
   const sessionCookie = request
     ? getSessionCookieFromRequest(request)
     : await getSessionCookieFromStore();
 
-  if (!sessionCookie) return null;
+  if (!jwt && !sessionCookie) return null;
 
   const client = new Client().setEndpoint(endpoint).setProject(projectId);
 
-  // Authenticate as the user by forwarding the Appwrite session cookie.
-  // We deliberately do NOT set the API key here; this client is meant
-  // to act on behalf of the logged-in user, not as an admin.
-  client.addHeader("Cookie", `${sessionCookie.name}=${sessionCookie.value}`);
+  // Prefer a short-lived Appwrite JWT when supplied by the browser. A
+  // Netlify request cannot normally forward cookies whose domain is the
+  // Appwrite host, while the JWT is sent in X-Appwrite-JWT by the SDK.
+  // We deliberately do NOT set the server API key here.
+  if (jwt) {
+    client.setJWT(jwt);
+  } else if (sessionCookie) {
+    client.addHeader("Cookie", `${sessionCookie.name}=${sessionCookie.value}`);
+  }
 
   return {
     client,

@@ -248,18 +248,11 @@ async function provision() {
   }
 
   // 2. Users collection (custom profile data)
-  // Sessão 36 (least-privilege): NENHUMA permissão de leitura/escrita ao nível
-  // da coleção — só create (o utilizador autenticado cria o SEU documento).
-  // Leitura/atualização/remoção são concedidas APENAS por permissões por
-  // documento (Role.user(owner)), que o client SDK define em todos os
-  // createDocument. Sem isto, as permissões de coleção seriam aditivas às de
-  // documento e QUALQUER utilizador autenticado leria/alteraria/apagaria os
-  // documentos de todos (IDOR massivo). Server-side continua a poder aceder a
-  // tudo via API key (server SDK).
+  // Server-only: nenhum create/update/delete/read ao nível da coleção.
+  // O perfil é criado/atualizado via API routes com API key; o browser recebe
+  // apenas Permission.read(Role.user(owner)) no próprio documento.
   console.log("\n👤 Collection: users");
-  await createCollection("users", "Users", [
-    Permission.create(Role.users()),
-  ], true);
+  await createCollection("users", "Users", [], true);
   await createStringAttribute("users", "userId", 255, true);
   await createStringAttribute("users", "email", 255, true);
   await createStringAttribute("users", "displayName", 255, true);
@@ -593,21 +586,25 @@ async function provision() {
   await createIndex("activity_logs", "idx_activity_userId_createdAt", "key", ["userId", "createdAt"]);
 
   // 12c. Staff applications collection (candidaturas ao staff)
-  // Sessão 36: só create; acesso por documento (dono da candidatura).
+  // Segurança: nenhuma permissão client-side. A candidatura é criada e
+  // aprovada exclusivamente por rotas/server SDK com dados derivados da
+  // sessão e com status controlado pelo servidor. O utilizador só recebe
+  // Permission.read por documento na rota POST /api/staff/apply.
   console.log("\n🛠️ Collection: staff_applications");
   await createCollection(
     "staff_applications",
     "Staff Applications",
-    [
-      Permission.create(Role.users()),
-    ],
+    [],
     true
   );
   await createStringAttribute("staff_applications", "userId", 255, true);
   await createStringAttribute("staff_applications", "message", 4096, true);
   await createStringAttribute("staff_applications", "status", 32, true, "pending");
+  // Identifica a revisão confiável da equipa. Uma candidatura só pode
+  // desbloquear a badge staff quando status=approved E reviewedBy preenchido.
+  await createStringAttribute("staff_applications", "reviewedBy", 255, false, "");
   await createDatetimeAttribute("staff_applications", "createdAt", true);
-  await waitForAttributes("staff_applications", ["userId", "message", "status", "createdAt"]);
+  await waitForAttributes("staff_applications", ["userId", "message", "status", "reviewedBy", "createdAt"]);
   await createIndex("staff_applications", "idx_staff_userId", "key", ["userId"]);
   await createIndex("staff_applications", "idx_staff_userId_status", "key", ["userId", "status"]);
 

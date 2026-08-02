@@ -275,6 +275,8 @@ export interface StaffApplication {
   userId: string;
   message: string;
   status: StaffApplicationStatus;
+  /** Identificador da revisão confiável feita pela equipa/server. */
+  reviewedBy?: string;
   createdAt: string;
 }
 

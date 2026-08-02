@@ -16,19 +16,22 @@ export default function BadgesPage() {
   const { page, pageId, account, refreshPage } = useAuth();
   const { showToast } = useToast();
 
-  // Badges ativas = badges guardadas na página + "pro" (derivada do plano)
-  const earned = useMemo(() => {
-    const set = new Set<string>(page?.badges ?? []);
-    if (account?.plan && account.plan !== "free") set.add("pro");
-    return set;
-  }, [page, account]);
-
   const [donateOpen, setDonateOpen] = useState(false);
   const [donating, setDonating] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [staffMessage, setStaffMessage] = useState("");
   const [staffStatus, setStaffStatus] = useState<"pending" | "approved" | "rejected" | null>(null);
+  const staffApproved = staffStatus === "approved";
+
+  // Badges ativas = badges guardadas na página + "pro" (derivada do plano)
+  // e staff derivada da aprovação server-side.
+  const earned = useMemo(() => {
+    const set = new Set<string>((page?.badges ?? []).filter((badge) => badge !== "staff"));
+    if (account?.plan && account.plan !== "free") set.add("pro");
+    if (staffApproved) set.add("staff");
+    return set;
+  }, [page, account, staffApproved]);
 
   // Estado da candidatura ao staff (reavaliado quando a página muda)
   useEffect(() => {
@@ -170,13 +173,13 @@ export default function BadgesPage() {
           const Icon = badge.icon;
           const active = has(badge.id);
           const staffPending = badge.id === "staff" && staffStatus === "pending";
-          const staffApproved = badge.id === "staff" && staffStatus === "approved";
+          const staffBadgeApproved = badge.id === "staff" && staffStatus === "approved";
           const staffRejected = badge.id === "staff" && staffStatus === "rejected";
 
           let stateLabel: string | null = null;
           if (active) stateLabel = "Ativa";
           else if (staffPending) stateLabel = "Em análise";
-          else if (staffApproved) stateLabel = "Aprovada";
+          else if (staffBadgeApproved) stateLabel = "Aprovada";
           else if (staffRejected) stateLabel = "Não aprovada";
 
           return (
@@ -236,7 +239,7 @@ export default function BadgesPage() {
                     <Gift className="h-4 w-4" /> Doar {VERIFIED_DONATION_PRICE}€ e desbloquear
                   </GlassButton>
                 )}
-                {badge.id === "staff" && !active && !staffPending && !staffApproved && (
+                {badge.id === "staff" && !active && !staffPending && !staffBadgeApproved && (
                   <GlassButton
                     variant="outline"
                     size="sm"

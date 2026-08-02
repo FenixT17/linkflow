@@ -14,6 +14,8 @@
     "provision": "tsx scripts/provision-appwrite.ts",
     "fix:bucket": "tsx scripts/fix-bucket-public.ts",
     "provision:security-logs": "tsx scripts/create-security-logs.ts",
+    "migrate:staff-applications": "tsx scripts/migrate-staff-applications.ts",
+    "migrate:users-permissions": "tsx scripts/migrate-users-permissions.ts",
     "seo:audit": "tsx scripts/seo-audit.ts",
     "check:links": "tsx scripts/check-links.ts",
     "typegen": "next typegen",

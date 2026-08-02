@@ -16,10 +16,10 @@ import {
   SecurityLogEntry,
   SecurityLogInput,
   StaffApplication,
-  StaffApplicationStatus,
 } from "./types";
 import { defaultAppearance, emptyAnalytics } from "./defaults";
 import { isBadgeId } from "./badges";
+import { isStaffApplicationApproved, normalizeStaffApplicationMessage } from "./staff-security";
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
 
@@ -94,37 +94,23 @@ export async function registerUser(email: string, password: string, name: string
   const newAccount = await account.create(ID.unique(), email, password, name);
   await account.createEmailPasswordSession(email, password);
 
-  // Recolhe o país do utilizador para definir a moeda do plano.
-  const geo = await fetchUserGeo();
-  const currency = geo.currency || "EUR";
-
-  const existing = await databases.listDocuments(databaseId, Collections.users, [
-    Query.equal("userId", newAccount.$id),
-  ]);
-  if (existing.documents.length === 0) {
-    await databases.createDocument(databaseId, Collections.users, ID.unique(), {
-      userId: newAccount.$id,
-      email,
-      displayName: name,
-      plan: "free",
-      country: geo.country ?? "",
-      countryCode: geo.countryCode ?? "",
-      currency,
-      createdAt: new Date().toISOString(),
-    }, [
-      Permission.read(Role.user(newAccount.$id)),
-      Permission.update(Role.user(newAccount.$id)),
-      Permission.delete(Role.user(newAccount.$id)),
-    ]);
-  } else {
-    // Conta já existia (ex: re-registo) — garante a moeda preenchida.
-    const doc = existing.documents[0];
-    await databases.updateDocument(databaseId, Collections.users, doc.$id, {
-      country: geo.country ?? String(doc.country ?? ""),
-      countryCode: geo.countryCode ?? String(doc.countryCode ?? ""),
-      currency: currency || String(doc.currency ?? "EUR"),
-    });
+  // O perfil é criado pelo servidor: userId, email, plano e permissões não
+  // podem ser adulterados pelo payload do browser.
+  const res = await fetchWithAppwriteAuth("/api/users/provision", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    throw new Error("Não foi possível preparar o perfil da conta.");
   }
+  const data = await res.json() as { profile?: UserAccount };
+  const geo = data.profile
+    ? {
+        country: data.profile.country,
+        countryCode: data.profile.countryCode,
+        currency: data.profile.currency,
+      }
+    : {};
   return { account: newAccount, geo };
 }
 
@@ -196,12 +182,19 @@ export function loginWithGitHub() {
   createOAuthSession(OAuthProvider.Github);
 }
 
+async function fetchWithAppwriteAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const jwt = await account.createJWT();
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", `Bearer ${jwt.jwt}`);
+  return fetchWithCsrf(url, { ...options, headers });
+}
+
 export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences>) {
   try {
     // M3: usa fetchWithCsrf (com header X-CSRF-Token) — o endpoint agora
     // valida CSRF. Usa o server SDK via API route para criar/verificar o
     // documento, evitando problemas de permissão do client SDK.
-    const res = await fetchWithCsrf("/api/auth/oauth/sync", {
+    const res = await fetchWithAppwriteAuth("/api/auth/oauth/sync", {
       method: "POST",
       body: JSON.stringify({
         userId: user.$id,
@@ -233,7 +226,9 @@ export async function getUserProfile(userId: string): Promise<UserAccount | null
     email: String(doc.email),
     displayName: String(doc.displayName),
     createdAt: String(doc.createdAt),
-    plan: doc.plan as UserAccount["plan"],
+    plan: ["free", "pro", "business", "enterprise"].includes(String(doc.plan))
+      ? (String(doc.plan) as UserAccount["plan"])
+      : "free",
     country: doc.country ? String(doc.country) : undefined,
     countryCode: doc.countryCode ? String(doc.countryCode) : undefined,
     currency: doc.currency ? String(doc.currency) : undefined,
@@ -400,7 +395,9 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
     published: Boolean(doc.published),
     pageType: (doc.pageType as PageType) ?? "minimal",
     pageTemplate: (doc.pageTemplate as PageTemplateId) ?? "template1",
-    badges: Array.isArray(doc.badges) ? (doc.badges as string[]) : [],
+    badges: Array.isArray(doc.badges)
+      ? (doc.badges as string[]).filter((badge) => badge !== "staff")
+      : [],
     scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
     scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,
   };
@@ -814,7 +811,7 @@ export async function grantBadge(badgeId: string): Promise<boolean> {
   // Regra da badge staff: só após aprovação da candidatura
   if (badgeId === "staff") {
     const application = await getStaffApplicationStatus();
-    if (application?.status !== "approved") {
+    if (!application || !isStaffApplicationApproved(application)) {
       throw new Error("A badge Staff só é concedida após aprovação da candidatura.");
     }
   }
@@ -835,7 +832,12 @@ export async function grantBadge(badgeId: string): Promise<boolean> {
 
   // Nota: read-modify-write no array — a doação sequencial (verified depois
   // supporter) evita corridas na prática. Não há append atómico no client SDK.
-  const badges = Array.isArray(page.badges) ? page.badges : [];
+  const badges = Array.isArray(page.badges) ? page.badges.filter((badge) => badge !== "staff") : [];
+  if (badgeId === "staff") {
+    // A staff approval is authoritative server data; this client function no
+    // longer writes the staff marker into the user-editable pages document.
+    return false;
+  }
   if (badges.includes(badgeId)) return false;
   await databases.updateDocument(databaseId, Collections.pages, page.$id, {
     badges: [...badges, badgeId],
@@ -852,7 +854,7 @@ export async function revokeBadge(badgeId: string): Promise<void> {
   const page = await getPageByUserId(session.$id);
   if (!page) return;
   await requireOwnerOfPage(page.$id);
-  const badges = Array.isArray(page.badges) ? page.badges : [];
+  const badges = Array.isArray(page.badges) ? page.badges.filter((badge) => badge !== "staff") : [];
   if (!badges.includes(badgeId)) return;
   await databases.updateDocument(databaseId, Collections.pages, page.$id, {
     badges: badges.filter((b) => b !== badgeId),
@@ -866,40 +868,22 @@ export async function revokeBadge(badgeId: string): Promise<void> {
  *   (revisão manual pela equipa — fora do âmbito do self-service).
  */
 export async function applyForStaff(message: string): Promise<StaffApplication> {
-  const session = await getCurrentSession();
-  const trimmed = message.trim().slice(0, 4000);
-  if (trimmed.length < 20) {
-    throw new Error("Explica um pouco mais porque queres fazer parte do staff (mín. 20 caracteres).");
-  }
-
-  // Verifica se já existe candidatura pendente
-  const existing = await databases.listDocuments(databaseId, Collections.staffApplications, [
-    Query.equal("userId", session.$id),
-    Query.equal("status", "pending"),
-    Query.limit(1),
-  ]);
-  if (existing.documents.length > 0) {
-    throw new Error("Já tens uma candidatura ao staff em análise.");
-  }
-
-  const doc = await databases.createDocument(databaseId, Collections.staffApplications, ID.unique(), {
-    userId: session.$id,
-    message: trimmed,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  }, [
-    Permission.read(Role.user(session.$id)),
-    Permission.update(Role.user(session.$id)),
-    Permission.delete(Role.user(session.$id)),
-  ]);
-  void logActivity("staff_applied");
-  return {
-    $id: doc.$id,
-    userId: session.$id,
-    message: trimmed,
-    status: "pending",
-    createdAt: String(doc.createdAt ?? ""),
+  // A candidatura é criada server-side: o cliente nunca escolhe userId,
+  // status, reviewedBy ou permissões do documento.
+  const trimmed = normalizeStaffApplicationMessage(message);
+  const res = await fetchWithAppwriteAuth("/api/staff/apply", {
+      method: "POST",
+      body: JSON.stringify({ message: trimmed }),
+    });
+  const data = await res.json().catch(() => ({})) as {
+    application?: StaffApplication;
+    error?: string;
   };
+  if (!res.ok || !data.application) {
+    throw new Error(data.error || "Não foi possível enviar a candidatura.");
+  }
+  void logActivity("staff_applied");
+  return data.application;
 }
 
 /**
@@ -935,13 +919,13 @@ export async function syncUserGeo(force = false): Promise<{
     // Guard só pelo countryCode: a rota devolve sempre currency como
     // fallback ("EUR") mesmo quando o país não resolve — sem countryCode
     // não há nada útil para persistir (evita writes vazios por sessão).
-    const geo = await fetchUserGeo();
-    if (!geo.countryCode) return null;
-    await databases.updateDocument(databaseId, Collections.users, doc.$id, {
-      country: geo.country ?? "",
-      countryCode: geo.countryCode ?? "",
-      currency: geo.currency || "EUR",
+    const res = await fetchWithAppwriteAuth("/api/users/geo", {
+      method: "POST",
+      body: JSON.stringify({ force }),
     });
+    if (!res.ok) return null;
+    const geo = await res.json() as { country?: string; countryCode?: string; currency?: string };
+    if (!geo.countryCode) return null;
     return geo;
   } catch {
     return null;
@@ -950,22 +934,16 @@ export async function syncUserGeo(force = false): Promise<{
 
 /** Última candidatura ao staff do utilizador (ou null se nunca se candidatou). */
 export async function getStaffApplicationStatus(): Promise<StaffApplication | null> {
+  // A coleção staff_applications não é acessível pelo client SDK. A leitura
+  // passa pela rota server-side, que deriva userId da sessão e só devolve o
+  // documento do utilizador autenticado.
   try {
-    const session = await getCurrentSession();
-    const docs = await databases.listDocuments(databaseId, Collections.staffApplications, [
-      Query.equal("userId", session.$id),
-      Query.orderDesc("createdAt"),
-      Query.limit(1),
-    ]);
-    if (docs.documents.length === 0) return null;
-    const doc = docs.documents[0] as AppwriteDocument;
-    return {
-      $id: doc.$id,
-      userId: String(doc.userId ?? ""),
-      message: String(doc.message ?? ""),
-      status: (doc.status as StaffApplicationStatus) ?? "pending",
-      createdAt: String(doc.createdAt ?? ""),
-    };
+    const res = await fetchWithAppwriteAuth("/api/staff/status", {
+      method: "GET",
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { application?: StaffApplication | null };
+    return data.application ?? null;
   } catch {
     return null;
   }

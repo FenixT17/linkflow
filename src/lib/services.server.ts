@@ -40,7 +40,9 @@ export const getPublicPageByUsername = cache(
       published: Boolean(doc.published),
       pageType: (doc.pageType as PageType) ?? "minimal",
       pageTemplate: (doc.pageTemplate as PageTemplateId) ?? "template1",
-      badges: Array.isArray(doc.badges) ? (doc.badges as string[]) : [],
+      // `pages.badges` is user-editable, so staff is never trusted from it.
+      // The staff badge is derived only from a server-side approved application.
+      badges: await getPublicBadges(String(doc.userId), doc.badges),
     } as PageProfile & { $id: string };
   }
 );
@@ -112,6 +114,7 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
     shadow: String(doc.shadow) as Appearance["shadow"],
     showAvatar: Boolean(doc.showAvatar),
     showBio: Boolean(doc.showBio),
+    showSocial: doc.showSocial !== undefined ? Boolean(doc.showSocial) : true,
     spacing: Number(doc.spacing),
   };
 }
@@ -122,6 +125,20 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
  */
 export async function getPublicAnalyticsByPageId(_pageId: string): Promise<AnalyticsData> {
   return emptyAnalytics();
+}
+
+async function getPublicBadges(userId: string, rawBadges: unknown): Promise<string[]> {
+  const badges = Array.isArray(rawBadges)
+    ? rawBadges.filter((badge): badge is string => typeof badge === "string" && badge !== "staff")
+    : [];
+  const { databases } = createServerClient();
+  const approved = await databases.listDocuments(databaseId, "staff_applications", [
+    Query.equal("userId", userId),
+    Query.equal("status", "approved"),
+    Query.limit(1),
+  ]);
+  const hasTrustedApproval = approved.documents.some((doc) => Boolean(String(doc.reviewedBy ?? "").trim()));
+  return hasTrustedApproval ? [...badges, "staff"] : badges;
 }
 
 function getFileUrl(fileId: string) {

@@ -87,8 +87,6 @@ export async function POST(request: NextRequest) {
         },
         [
           Permission.read(Role.user(userId.trim())),
-          Permission.update(Role.user(userId.trim())),
-          Permission.delete(Role.user(userId.trim())),
         ]
       );
     } else {
@@ -97,11 +95,23 @@ export async function POST(request: NextRequest) {
       const needsGeo =
         !String(doc.countryCode ?? "") && (countryCode || currency !== "EUR");
       if (needsGeo) {
-        await databases.updateDocument(databaseId, COLLECTION_USERS, doc.$id, {
-          country,
-          countryCode,
-          currency,
-        });
+        await databases.updateDocument(
+          databaseId,
+          COLLECTION_USERS,
+          doc.$id,
+          {
+            userId,
+            email: user.email || String(doc.email ?? ""),
+            displayName: String(doc.displayName ?? user.name ?? "Utilizador"),
+            plan: ["free", "pro", "business", "enterprise"].includes(String(doc.plan))
+              ? String(doc.plan)
+              : "free",
+            country,
+            countryCode,
+            currency,
+          },
+          [Permission.read(Role.user(userId))]
+        );
       }
     }
 
