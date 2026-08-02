@@ -3,6 +3,7 @@
 import { useMemo, useEffect, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import {
   Eye,
   MousePointer,
@@ -146,6 +147,7 @@ function maskIp(ip?: string): string | undefined {
 export default function DashboardPage() {
   const router = useRouter();
   const { page, analytics, links, account, refreshAnalytics, activities, refreshActivities } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!page) {
@@ -227,10 +229,32 @@ export default function DashboardPage() {
             <GlassButton
               variant="outline"
               size="sm"
-              onClick={() => {
+              onClick={async () => {
                 const url = `${window.location.origin}/u/${page.username}`;
-                navigator.clipboard.writeText(url);
-                alert("URL copiado para a área de transferência!");
+                try {
+                  if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
+                  await navigator.clipboard.writeText(url);
+                  showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência.");
+                } catch {
+                  try {
+                    const textarea = document.createElement("textarea");
+                    textarea.value = url;
+                    textarea.setAttribute("readonly", "");
+                    textarea.style.position = "fixed";
+                    textarea.style.opacity = "0";
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    const copied = document.execCommand("copy");
+                    document.body.removeChild(textarea);
+                    if (copied) {
+                      showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência.");
+                      return;
+                    }
+                  } catch {
+                    // Clipboard indisponível — mostra o aviso abaixo.
+                  }
+                  showToast("Não foi possível copiar o link.", "error");
+                }
               }}
             >
               <Link2 className="h-4 w-4" /> Copiar Link Público

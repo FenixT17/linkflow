@@ -3,6 +3,7 @@ import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/AuthContext";
+import { ToastProvider } from "@/context/ToastContext";
 import { ZoomBlocker } from "@/components/zoom-blocker";
 import { organizationJsonLd, websiteJsonLd, softwareApplicationJsonLd, renderJsonLd, siteUrl, siteName, siteTagline, defaultDescription } from "@/lib/seo";
 import { THEME_SANITIZER_SCRIPT } from "@/lib/theme-security";
@@ -118,10 +119,12 @@ export default function RootLayout({
         className={`${inter.variable} ${geist.variable}`}
       >
         <ThemeProvider defaultTheme="dark" enableSystem>
-          <AuthProvider>
-            <ZoomBlocker />
-            {children}
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <ZoomBlocker />
+              {children}
+            </AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

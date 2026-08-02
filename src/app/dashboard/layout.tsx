@@ -2,7 +2,6 @@
 
 import { ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { ToastProvider } from "@/context/ToastContext";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { Loader2 } from "lucide-react";
 
@@ -21,15 +20,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ToastProvider>
-      <div className="min-h-dvh bg-[#030303] text-white/90">
+    <div className="min-h-dvh bg-[#030303] text-white/90">
         <DashboardSidebar />
         <div className="min-h-dvh lg:pl-[var(--sidebar-width,15rem)] transition-all duration-300">
           <main className="min-h-dvh pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-0 pb-24 lg:pb-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto py-6 lg:py-8">{children}</div>
           </main>
         </div>
-      </div>
-    </ToastProvider>
+    </div>
   );
 }

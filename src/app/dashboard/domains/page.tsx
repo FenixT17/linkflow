@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { GlassButton } from "@/components/ui/glass-button";
+import { useToast } from "@/context/ToastContext";
 import { Globe, Plus, Check, Copy, Info } from "lucide-react";
 import { siteUrl } from "@/lib/seo";
 
 export default function DomainsPage() {
   const [domain, setDomain] = useState("");
+  const { showToast } = useToast();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPro = false;
@@ -43,6 +45,7 @@ export default function DomainsPage() {
     try {
       await navigator.clipboard.writeText(value);
       flashCopied(index);
+      showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência.");
     } catch {
       // Fallback para browsers sem permissão de clipboard
       const textarea = document.createElement("textarea");
@@ -54,9 +57,14 @@ export default function DomainsPage() {
       try {
         textarea.select();
         const ok = document.execCommand("copy");
-        if (ok) flashCopied(index);
+        if (ok) {
+          flashCopied(index);
+          showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência.");
+        } else {
+          showToast("Não foi possível copiar o link.", "error");
+        }
       } catch {
-        // Clipboard indisponível — ignora silenciosamente
+        showToast("Não foi possível copiar o link.", "error");
       } finally {
         document.body.removeChild(textarea);
       }

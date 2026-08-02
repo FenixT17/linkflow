@@ -8,6 +8,7 @@ import { ExternalLink, Share2 } from "lucide-react";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
 import { sanitizeUrl } from "@/lib/sanitize";
+import { useToast } from "@/context/ToastContext";
 import { toHexColor, hexToRgba } from "@/lib/utils";
 
 interface PublicProfileRendererProps {
@@ -28,6 +29,7 @@ export function PublicProfileRenderer({
   previewUrl,
 }: PublicProfileRendererProps) {
   const theme = getLiquidGlassClasses();
+  const { showToast } = useToast();
   const publicUrl = previewUrl || (typeof window !== "undefined" ? window.location.href : "#");
 
   const borderRadius = `${appearance.rounded}px`;
@@ -102,7 +104,16 @@ export function PublicProfileRenderer({
             {showActions && (
               <div className="mt-5 flex gap-3 relative z-[1]">
                 <button
-                  onClick={() => navigator.clipboard?.writeText(publicUrl)}
+                  onClick={() => {
+                    if (!navigator.clipboard) {
+                      showToast("Não foi possível copiar o link.", "error");
+                      return;
+                    }
+                    navigator.clipboard
+                      .writeText(publicUrl)
+                      .then(() => showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência."))
+                      .catch(() => showToast("Não foi possível copiar o link.", "error"));
+                  }}
                   className={theme.buttonClass}
                   aria-label="Partilhar"
                 >

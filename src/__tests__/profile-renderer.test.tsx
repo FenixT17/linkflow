@@ -5,6 +5,10 @@ import { PublicProfileRenderer } from "@/components/public/profile-renderer";
 import { defaultAppearance } from "@/lib/defaults";
 import type { PageProfile, LinkItem } from "@/lib/types";
 
+vi.mock("@/context/ToastContext", () => ({
+  useToast: () => ({ showToast: vi.fn() }),
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: { children?: React.ReactNode; href?: string }) => (
     <a href={props.href}>{children}</a>

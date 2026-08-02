@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { LinkItem } from "@/lib/types";
 import { createLink, updateLink, deleteLink as deleteLinkService } from "@/lib/services";
 import { GlassButton } from "@/components/ui/glass-button";
@@ -373,6 +374,7 @@ function LinkCard({
 
 export default function LinksPage() {
   const { links, setLinks, account, pageId } = useAuth();
+  const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("manual");
@@ -589,9 +591,9 @@ export default function LinksPage() {
   const handleCopy = async (link: LinkItem) => {
     try {
       await navigator.clipboard.writeText(link.url);
-      showMessage("Link copiado para a área de transferência.");
+      showToast("Link copiado!", "success", 2500, "O URL foi copiado para a área de transferência.");
     } catch {
-      showMessage("Não foi possível copiar o link.", "error");
+      showToast("Não foi possível copiar o link.", "error");
     }
   };
 
