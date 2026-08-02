@@ -1617,3 +1617,25 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Build de produção validado localmente
 - ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
 
+---
+
+### Sessão 38 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Fix do cartão de Configuração DNS no telemóvel
+
+**Pedido:** o cartão de configuração DNS (CNAME `@` / `www` → linkflow-web.netlify.app) estava bugado no telemóvel.
+
+**Bug:** cada registo era uma linha `flex items-center gap-3` com `font-mono` e **sem** `min-w-0`/`break-all`/`flex-wrap` — o valor longo (`linkflow-web.netlify.app`) estourava a largura do ecrã e partia o layout em viewports pequenos. Além disso, o botão com ícone `Check` era **decorativo** (não copiava nada).
+
+**Fix (frontend/src/app/dashboard/domains/page.tsx):**
+- Cada registo DNS passou a ser um cartão individual com `flex-wrap` + `min-w-0` + `break-all` no valor (quebra corretamente no telemóvel) e botão `shrink-0`.
+- Novo botão **Copiar** funcional: `navigator.clipboard.writeText` com fallback `execCommand("copy")` (textare temporária, verificando o retorno boolean) e feedback visual "Copiado" (verde) durante 1.6s.
+- `flashCopied()` extraído (DRY) + cleanup do timer no unmount (`useRef` + `useEffect`).
+- Nota introdutória com o alvo DNS e dica por registo + aviso sobre CNAME flattening no registo raiz ("@").
+- Acessibilidade: `aria-label` dinâmico (Copiar/Copiado), `aria-live="polite"`, `aria-hidden` na seta.
+
+**Validação:** typecheck `tsc --noEmit` ✅ · ESLint ✅ · **156/156 testes** ✅ · code review ✅ (3 melhorias aplicadas: DRY do flash, verificação do retorno do execCommand + cleanup da textarea, aria-live/label dinâmico).
+
+**Estado final:**
+- ✅ Cartão DNS responsivo no telemóvel (valor quebra em vez de estourar)
+- ✅ Botão de copiar funcional com feedback
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
+
