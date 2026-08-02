@@ -1656,3 +1656,28 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Botão "Voltar ao início" na página de login (link para `/`)
 - ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push desta sessão
 
+---
+
+### Sessão 40 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Auditoria XSS refletido (teste de payload em produção)
+
+**Pedido:** o utilizador testou `https://linkflow-web.netlify.app//%3Cscript%3Ealert('XSS')%3C/script%3E` (reflected XSS no caminho) e perguntou se é seguro.
+
+**Resultado: SEGURO — nenhuma vulnerabilidade encontrada.** O payload não é refletido em nenhuma rota; o HTML devolvido é apenas a página 404 estática (`not-found.tsx`), que não usa nem ecoa o caminho.
+
+**Testes efetuados contra o deploy de produção (curl):**
+| Rota | HTTP | Payload refletido? |
+|---|---|---|
+| `//%3Cscript%3Ealert('XSS')%3C/script%3E` | 404 | ❌ Não |
+| `/?q=%3Cscript%3Ealert(1)%3C/script%3E` | 200 | ❌ Não |
+| `/u/%3Cscript%3Ealert(1)%3C/script%3E` | 404 | ❌ Não |
+| `/%253Cscript%253E...` (double-encode) | 404 | ❌ Não |
+
+**Security headers confirmados em produção:** CSP (`object-src 'none'`, `frame-ancestors 'none'`, `form-action 'self'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, HSTS `preload`, `Referrer-Policy: strict-origin-when-cross-origin`, COOP `same-origin-allow-popups`, `Permissions-Policy` (camera/mic/geo/interest-cohort desativados).
+
+**Nota:** o `dangerouslySetInnerHTML` no layout é apenas o script de sanitização do tema (Sessão 15) + JSON-LD escapado via `renderJsonLd` (Sessão 16) — ambos seguros. Nenhuma alteração de código necessária; documentado para registo.
+
+**Estado final:**
+- ✅ Auditado: Reflected XSS não é possível nas rotas testadas
+- ✅ Headers de segurança completos em produção
+- ✅ Nenhuma correção necessária
+
