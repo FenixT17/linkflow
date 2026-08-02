@@ -428,7 +428,7 @@ export async function recordAnalyticsEvent(
     await databases.createDocument(databaseId, "visits", ID.unique(), {
       pageId: input.pageId,
       visitorHash: hashIp(input.ip),
-      ip: input.ip.slice(0, 64),
+      ip: hashIp(input.ip), // FASE 2: Nunca guarda IP em texto limpo — usa apenas o hash salgado não reversível
       country: input.geo?.country ?? "",
       countryCode: input.geo?.countryCode ?? "",
       city: input.geo?.city ?? "",

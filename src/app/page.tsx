@@ -44,14 +44,14 @@ const HomeSections = dynamic(() => import("@/components/home/home-sections"), {
 });
 
 const features = [
-  { icon: Link2, title: "Links ilimitados", desc: "Adicione quantos links quiser. Organize-os com arrasto intuitivo." },
-  { icon: BarChart3, title: "Analytics completos", desc: "Visualizações, cliques, países, dispositivos — tudo em tempo real." },
-  { icon: Palette, title: "Temas premium", desc: "6 temas profissionais com personalização total de cores e estilo." },
-  { icon: Globe, title: "Domínio próprio", desc: "Use o seu domínio para uma experiência de marca completa." },
+  { icon: Link2, title: "Links ilimitados", desc: "Adicione quantos links quiser. Organize-os com drag & drop intuitivo." },
+  { icon: BarChart3, title: "Analytics completos", desc: "Visualizações, cliques, países, dispositivos — dados reais em tempo real." },
+  { icon: Palette, title: "Liquid Glass", desc: "Sistema de design premium inspirado no Apple visionOS com customização total." },
+  { icon: Globe, title: "Domínio próprio (Em breve)", desc: "Suporte em desenvolvimento para utilizar o seu próprio domínio." },
   { icon: QrCode, title: "Código QR", desc: "Gere códigos QR elegantes instantaneamente para partilhar." },
-  { icon: Share2, title: "Integrações sociais", desc: "YouTube, Spotify, TikTok, Instagram e muito mais." },
-  { icon: Sparkles, title: "Sugestões com IA", desc: "Recomendações inteligentes para otimizar a sua página." },
-  { icon: Search, title: "SEO otimizado", desc: "Meta tags e imagens OG prontas para partilha profissional." },
+  { icon: Share2, title: "44+ Redes sociais", desc: "YouTube, Spotify, TikTok, Instagram, GitHub, Twitch e muito mais." },
+  { icon: Search, title: "SEO otimizado", desc: "Meta tags e imagens OpenGraph prontas para partilha profissional." },
+  { icon: Sparkles, title: "Páginas & Templates", desc: "12 estruturas visuais prontas para criadores, empresas e portfólios." },
 ];
 
 function HeroPhoneMockup() {
@@ -172,7 +172,7 @@ export default function Home() {
                 className="inline-flex items-center gap-2 glass-badge-success !px-4 !py-1.5 mb-6 !rounded-full"
               >
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <span className="text-xs font-medium">Novo — IA integrada para sugestões</span>
+                <span className="text-xs font-medium">Liquid Glass — Design System inspirado no visionOS</span>
               </motion.div>
 
               <motion.h1

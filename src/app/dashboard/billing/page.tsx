@@ -188,8 +188,8 @@ export default function BillingPage() {
                     {isCurrent ? (
                       <button disabled className="glass-btn w-full justify-center opacity-50 cursor-not-allowed text-sm font-medium h-11 px-5">Plano atual</button>
                     ) : (
-                      <GlassButton className="w-full" variant={plan.popular ? "primary" : "secondary"} onClick={() => handleUpgrade(plan)}>
-                        {plan.id === "free" ? "Plano atual" : "Atualizar"}
+                      <GlassButton className="w-full opacity-80" variant="secondary" onClick={() => handleUpgrade(plan)}>
+                        Pagamentos em breve
                       </GlassButton>
                     )}
                   </div>

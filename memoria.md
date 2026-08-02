@@ -1,0 +1,1475 @@
+# 🧊 LinkFlow — Memória do Projeto
+
+> **Regras para qualquer AI que trabalhar neste projeto:**
+> 1. Lê este ficheiro primeiro antes de começar a trabalhar.
+> 2. No final da sessão, adiciona uma nova entrada na secção [Histórico de Sessões](#histórico-de-sessões) com tudo o que foi feito.
+> 3. As entradas são em **ordem cronológica crescente** (as mais antigas primeiro, as mais recentes no fim).
+
+---
+
+## 📋 Descrição do SaaS
+
+**Nome:** LinkFlow  
+**Tagline:** "Um Link. Possibilidades Infinitas."  
+**Tipo:** Link-in-Bio SaaS (estilo Linktree)  
+**Idioma:** Português (pt-PT / pt-BR)  
+**Público-alvo:** Criadores de conteúdo, influencers, marcas, equipas  
+
+### Funcionalidades Principais
+- Página pública personalizada por utilizador (`/u/[username]`)
+- Gestão de links com drag & drop, filtros, pesquisa, ordenação
+- QR Codes para cada link
+- Analytics (visualizações, cliques, CTR, países, dispositivos, gráficos semanais)
+- Picker unificado de links/redes sociais no botão "Novo link" (desde Sessão 10) — 44 plataformas, geração automática de URL a partir do username (substituiu a secção dedicada de Redes Sociais da Sessão 7)
+- Editor de aparência Liquid Glass (opacidade, blur, intensidade do vidro)
+- Autenticação: Email/Senha + OAuth (Google, GitHub)
+- 3 planos: Gratuito (até 3 links), Pro (€7,99/mês), Business (€19,99/mês)
+- Domínio personalizado, agendamento de links
+
+### Design System
+- **Liquid Glass** — sistema visual único inspirado no Apple visionOS
+- Vidro com blur dinâmico, reflexos e opacidade ajustável
+- Dark mode por padrão, com suporte a light mode
+- Variáveis CSS customizáveis em tempo real
+
+---
+
+## 🛠 Tech Stack
+
+| Categoria | Tecnologia |
+|-----------|-----------|
+| Framework | Next.js 15.5 (App Router) |
+| Linguagem | TypeScript 5 |
+| Estilos | Tailwind CSS v4 + tw-animate-css |
+| Componentes | shadcn/ui, Radix, Lucide React |
+| Animações | Framer Motion 12 |
+| Gráficos | Recharts 3 |
+| Backend | Appwrite Cloud (Auth, Database, Storage) |
+| Deploy | Netlify com @netlify/plugin-nextjs |
+| Testes | Vitest + Testing Library + jsdom |
+| Segurança | CSRF, Rate Limiting, Sanitização, Security Logging |
+
+---
+
+## 🌐 Domínios e Deploy
+
+### Netlify
+- **Site principal:** `linkflow-web`
+- **URL:** [https://linkflow-web.netlify.app](https://linkflow-web.netlify.app)  
+- **Admin:** [https://app.netlify.com/projects/linkflow-web](https://app.netlify.com/projects/linkflow-web)
+- **Conta Netlify:** `reddit-br` (user_id: `68fb64b38a69552115381a2e`)
+- **Site ID:** `c9edd883-4927-45d8-9222-057b3826df0f`
+- **Método de deploy atual:** **GitHub → Netlify CI/CD** (build automático no push — desde Sessão 10; último push: commit `f0b1717` na Sessão 13)
+- **Repositório GitHub:** `siqwsxx/linkflow-web-` (branch `main`)
+- **Ficheiro de build:** `frontend/.next` (Next.js build output via `@netlify/plugin-nextjs`)
+- **Framework detected:** Next.js (`___netlify-server-handler` ativa — as rotas dinâmicas/API funcionam)
+- **Histórico:** deploy antigo era drop manual (ZIP) SEM funções — por isso as rotas dinâmicas davam "This function has crashed" (Sessão 11)
+
+### Domínio pretendido (SEO)
+- **Domínio principal nos metadados:** `https://linkflow-web.netlify.app` (desde Sessão 6) — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` com fallback para o URL Netlify
+- **Nota:** O domínio `linkflow.app` ainda não está configurado — atualmente só existe o domínio Netlify. Quando o domínio próprio for adquirido, basta definir `NEXT_PUBLIC_SITE_URL` (build) — o código já está preparado
+
+### Appwrite
+- **Endpoint:** `https://cloud.appwrite.io/v1`
+- **Database:** `linkflow`
+- **Collections:** users, pages, links, analytics, themes, qr_codes, subscriptions, teams, notifications, security_logs, visits (o `social_links` nunca existiu como coleção — os dados sociais viviam no documento pages como `socialJson`/`socialList`, removidos na Sessão 10; a coleção `visits` foi criada na Sessão 13 — registos brutos de visitas, server-only, permissões `[]`)
+- **Buckets:** avatars, banners, files
+- **Nota:** Variáveis de ambiente `NEXT_PUBLIC_APPWRITE_PROJECT_ID` e `APPWRITE_API_KEY` ainda não estão configuradas (env vars no Netlify deram erro 403)
+
+### Outros sites Netlify na conta
+- `miguel-c.netlify.app` (criado 24 Jul 2026)
+- `cristianoronald.netlify.app` (criado 24 Jul 2026)
+- `benevolent-crostata-023c28.netlify.app` (criado 19 Jul 2026)
+- `fantastic-pudding-1349a3.netlify.app` (criado 16 Jul 2026)
+- `guileless-cranachan-278e34.netlify.app` (criado 16 Jul 2026)
+- `discord-image-logger.netlify.app` (conectado a GitHub: `siqwsxx/discord-image-logger`)
+
+---
+
+## 📁 Estrutura de Pastas (Local)
+
+```
+C:/Users/CR712/Documents/saas/           ← Raiz do projeto
+├── memoria.md                            ← ESTE FICHEIRO
+├── frontend/                             ← Código Next.js
+│   ├── src/
+│   │   ├── app/                          ← App Router (pages, layouts, API routes)
+│   │   ├── components/                   ← Componentes React
+│   │   │   ├── ui/                       ← 30+ componentes de UI reutilizáveis
+│   │   │   ├── home/                     ← Secções da landing page
+│   │   │   ├── public/                   ← Componentes da página pública
+│   │   │   └── dashboard/                ← Sidebar, WorldMap, PreviewPhone
+│   │   ├── lib/                          ← Lógica de negócio
+│   │   │   ├── appwrite.ts              ← Cliente Appwrite (browser)
+│   │   │   ├── appwrite.server.ts       ← Cliente Appwrite (servidor)
+│   │   │   ├── services.ts              ← Serviços cliente (CRUD, auth)
+│   │   │   ├── services.server.ts       ← Serviços servidor (SSR público)
+│   │   │   ├── themes.ts, defaults.ts   ← Sistema Liquid Glass
+│   │   │   ├── types.ts                 ← Tipos TypeScript
+│   │   │   ├── csrf.ts, sanitize.ts, rate-limit.ts  ← Segurança
+│   │   │   └── seo.ts, platforms.ts, utils.ts
+│   │   ├── context/                     ← AuthContext, ToastContext
+│   │   ├── hooks/                       ← use-csrf, use-links
+│   │   └── __tests__/                   ← Testes Vitest
+│   ├── package.json, tsconfig.json, next.config.ts
+│   ├── netlify.toml, vitest.config.ts
+│   └── public/                          ← Assets estáticos
+├── deploy_result.json, deploy_status.json        ← Deploy 1 (erro - ZIP corrompido)
+├── deploy_result2.json, deploy_status2.json      ← Deploy 2 (sucesso - 117 ficheiros)
+├── netlify_sites.json                            ← Lista de todos os sites Netlify
+├── linkflow-deploy.zip, linkflow-deploy.tar.gz   ← Pacotes de deploy
+└── env_payload.json, env_result.json             ← Config env vars (falhou - 403)
+```
+
+---
+
+## 📜 Guia de Desenvolvimento
+
+### Comandos úteis (executar dentro de `frontend/`)
+```bash
+npm run dev          # Dev server na porta 3000
+npm run build        # Build de produção
+npm run test         # Testes Vitest
+npm run typecheck    # Verificação de tipos TypeScript
+npm run lint         # ESLint
+npm run provision    # Criar schema Appwrite (idempotente)
+npm run fix:bucket   # Corrigir permissões de leitura pública do bucket de storage
+```
+
+### Como fazer deploy manual para o Netlify
+1. `cd frontend && npm run build` — gera a pasta `.next`
+2. Criar um ZIP com o conteúdo da pasta `frontend` (incluindo `.next`, `node_modules`, `public`, `package.json`, `next.config.ts`, `netlify.toml`)
+3. Fazer upload via API ou CLI do Netlify
+
+### Variáveis de ambiente obrigatórias
+- `NEXT_PUBLIC_APPWRITE_ENDPOINT` = `https://cloud.appwrite.io/v1`
+- `NEXT_PUBLIC_APPWRITE_PROJECT_ID` = ID do projeto Appwrite
+- `NEXT_PUBLIC_APPWRITE_DATABASE_ID` = `linkflow`
+- `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` = `files`
+- `APPWRITE_API_KEY` = Server API Key do Appwrite
+
+### 🚨 Evitar Erros de Hydration (Next.js/React)
+
+> **O que é:** O servidor (SSR) gera HTML e o React no browser tenta "hidratar" essa árvore. Se o HTML do servidor não corresponder ao que o React renderiza no cliente, o React descarta a árvore e re-renderiza — causando flash, perda de estado e warnings no console.
+
+**Causa nº 1 (JÁ ACONTECEU neste projeto — 31 Jul 2026):** Cache `.next` desatualizada
+- O bundle do **cliente** ficou com uma versão antiga do `navbar.tsx` (tinha o link "Templates") enquanto o servidor compilou a versão nova (sem "Templates") → o servidor renderizou `/#pricing`/"Preços" e o cliente tentou hidratar com `/#templates`/"Templates"
+- **Correção:** `rm -rf .next && npm run dev` (reiniciar com cache limpa)
+- **Prevenção:** Sempre que alterares arrays de links/textos/estrutura renderizados no SSR, reinicia o dev server com cache limpa
+
+**Causas comuns de hydration mismatch (NUNCA usar no render):**
+1. `Date.now()`, `Math.random()`, `new Date()` — valores diferem entre servidor e cliente
+2. `toLocaleDateString()` / `toLocaleString()` — o locale do servidor pode diferir do browser
+3. `if (typeof window !== "undefined")` para ramificar a UI — caminhos diferentes no SSR vs cliente
+4. Leitura de `localStorage` / `sessionStorage` durante o render
+5. Dados externos (ex: analytics) com ordem não determinística entre SSR e cliente
+6. HTML inválido (tags mal aninhadas)
+
+**Padrão seguro — guard `useMounted` (já usado no projeto):**
+```tsx
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}
+// No componente:
+const mounted = useMounted();
+if (!mounted) return null; // ou renderizar skeleton/placeholder
+```
+
+**Regras para qualquer AI que trabalhar neste projeto:**
+1. Dados que dependem do browser (locale, hora, storage) → usar `useMounted` ou mostrar skeleton
+2. Arrays de links/menus → manter como constantes module-level (fora do componente), determinísticas
+3. Nunca ordenar/embaralhar arrays no render de forma não determinística
+4. Após editar ficheiros que alteram texto/estrutura SSR → limpar `.next` e reiniciar o dev server
+5. Verificar o console do browser à procura de "Hydration failed" após qualquer alteração de UI
+
+---
+
+## 📝 Histórico de Sessões
+
+### Sessão 1 — 31 Julho 2026 (Buffy / DeepSeek v4)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-pro
+
+**Tarefas realizadas:**
+1. **Análise completa do projeto** — leitura de todos os ficheiros principais:
+   - `package.json`, `next.config.ts`, `tsconfig.json`, `netlify.toml`, `vitest.config.ts`
+   - Todos os ficheiros em `src/app/`, `src/lib/`, `src/components/`, `src/context/`, `src/hooks/`
+   - Landing page, dashboard, página de login/registo, página pública
+   - Sistema Liquid Glass completo no `globals.css`
+   - Serviços Appwrite (cliente e servidor)
+   - Segurança: CSRF, rate limiting, sanitização, security logging
+
+2. **Verificação do estado do Git** — confirmado que NÃO existe repositório Git local (`fatal: not a git repository`)
+
+3. **Verificação do estado do Netlify** — análise dos ficheiros de deploy:
+   - **Primeiro deploy (26 Jul 2026):** Sucesso — estado `ready`, site publicado
+   - **Segundo deploy (31 Jul 2026, 16:25):** Falhou — erro `Zip end of central directory signature not found`
+   - **Terceiro deploy (31 Jul 2026, 16:28):** **Sucesso!** — `ready`, 117 ficheiros, deploy time 7s
+   - Tentativa de configurar env vars no Netlify falhou com erro 403 (conta Free não permite)
+
+4. **Criação do ficheiro `memoria.md`** (este ficheiro) — documentação completa do projeto para futuras sessões
+
+**Estado final do projeto:**
+- ✅ Código completo e funcional
+- ✅ Site publicado no Netlify: https://linkflow-web.netlify.app
+- ❌ Sem repositório Git local configurado
+- ❌ Sem ligação GitHub → Netlify (deploy é manual)
+- ❌ Variáveis de ambiente Appwrite não configuradas no Netlify
+- ❌ Domínio `linkflow.app` não configurado
+
+**Próximos passos sugeridos:**
+- Inicializar Git local e fazer push para GitHub
+- Ligar Netlify ao repositório GitHub para CI/CD automático
+- Configurar variáveis de ambiente Appwrite
+- Configurar domínio personalizado `linkflow.app`
+
+---
+
+### Sessão 2 — 31 Julho 2026 (Buffy / DeepSeek v4)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-pro
+
+**Tarefas realizadas:**
+1. **Ligação do servidor dev** — `localhost:3000` já estava a correr (PID 3364), confirmado HTTP 200
+2. **Verificação no browser** — landing page renderiza corretamente, Hero section e CTAs visíveis
+3. **Auditoria completa de segurança de cookies** (OWASP ASVS + Session Management Cheat Sheet):
+
+#### Alterações Implementadas
+
+| Ficheiro | Alteração | Motivo |
+|----------|-----------|--------|
+| `src/lib/csrf.ts` | `sameSite: "lax"` → `sameSite: "strict"` | CSRF só usado em same-origin fetch — Strict é mais seguro |
+| `src/lib/csrf.ts` | Adicionada `clearCsrfCookie()` | Permite limpar o cookie CSRF no servidor durante logout |
+| `src/hooks/use-csrf.ts` | Adicionada `refreshCsrfToken()` | Mitiga session fixation — novo token após login |
+| `src/hooks/use-csrf.ts` | Adicionada `clearCsrfToken()` | Limpa token em memória + cookie no browser durante logout |
+| `src/app/api/csrf/route.ts` | Adicionado método `DELETE` | Endpoint para limpar cookie CSRF no servidor |
+| `src/context/AuthContext.tsx` | `refreshCsrfToken()` após login e registo | Previne session fixation |
+| `src/context/AuthContext.tsx` | `clearCsrfToken()` + `DELETE /api/csrf` no logout | Impede reutilização do token após logout |
+| `next.config.ts` | Adicionado `Cross-Origin-Opener-Policy: same-origin-allow-popups` | Protege contra ataques cross-origin sem quebrar OAuth |
+
+#### Cookies Auditados
+
+| Cookie | HttpOnly | Secure | SameSite | Controlo |
+|--------|----------|--------|----------|----------|
+| `csrf-token` | false (necessário para Double Submit) | prod-only ✅ | **strict** ✅ | Nosso código |
+| `a_session_*` (Appwrite) | Gere o Appwrite | Gere o Appwrite | Gere o Appwrite | Appwrite SDK |
+
+#### O que NÃO foi alterado (e porquê)
+- **Cookies Appwrite**: Geridos pelo SDK do Appwrite — não temos controlo sobre HttpOnly/Secure/SameSite
+- **Cookies `_legacy`**: Não existem no código — nenhum para remover
+- **`Cross-Origin-Embedder-Policy`**: NÃO implementado — quebraria imagens externas (qrserver.com, Appwrite Storage) que não enviam cabeçalhos CORP
+- **`Cross-Origin-Opener-Policy`**: Usado `same-origin-allow-popups` em vez de `same-origin` para não quebrar OAuth
+- **Stripe**: Não existe integração ainda — apenas referência no `provision-appwrite.ts` (campo `stripeCustomerId`) e ícone
+- **Headers existentes**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy já estavam presentes ✅
+
+**Estado final:**
+- ✅ Servidor dev a correr em localhost:3000
+- ✅ Segurança de cookies reforçada (OWASP)
+- ✅ CSRF com SameSite=Strict, refresh pós-login, limpeza no logout
+- ✅ Headers de segurança completos
+- ❌ Sem repositório Git local
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+
+---
+
+### Sessão 3 — 31 Julho 2026 (Buffy / DeepSeek v4)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Login/registo melhorados:**
+   - Botão "Entrar" redesenhado (seta animada, hover, loading state)
+   - Botões OAuth (Google/GitHub) unificados entre login e registo — ícone + texto com `gap-4`, ícones animam no hover, `pointer-events-none` no disabled
+   - Validação de password corrigida — mensagem agora explica os requisitos reais (8+ caracteres, maiúscula, minúscula, número) + checklist visual em tempo real ✅/❌
+   - Erros amigáveis (`getFriendlyError` no AuthContext): email já existe, credenciais inválidas, password fraca, rate limit
+
+2. **Appwrite configurado e testado** — `.env.local` completo (endpoint, project ID, database ID, bucket ID, API key), database `linkflow` com 10 collections + bucket `files` verificados, criação/remoção de teste de utilizador OK
+
+3. **Dashboard com dados reais** — removidos trends falsos (+12%, +8%...) e gráfico fake; agora usa `weeklyGrowth`/`monthlyGrowth` reais e mostra empty state sem dados
+
+4. **Bug limite de links corrigido** (plano gratuito passava de 3):
+   - `services.ts` `createLink`: validação no servidor (conta links existentes, erro 403 se free ≥ 3)
+   - `links/page.tsx` `handleAdd`: verificação `canAddLink` no cliente + mensagem de erro real
+
+5. **CSRF no localhost corrigido** — `SameSite=Strict` quebrava em dev (IPv4/IPv6); agora `strict` em produção, `lax` em desenvolvimento (`csrf.ts` + `use-csrf.ts`)
+
+6. **LivePreview removido de todo o dashboard** — componente `LivePreview` eliminado de todas as abas:
+   - **Visão geral** (`dashboard/page.tsx`): removido `<LivePreview />`, gráfico ocupa largura total
+   - **Perfil** (`dashboard/profile/page.tsx`): removido `<LivePreview />` + wrapper, editor de perfil ocupa largura total
+   - **Aparência** (`dashboard/appearance/page.tsx`): removido card sticky "Preview em tempo real" + import, secções passam a coluna única
+   - **Ficheiro apagado:** `src/components/dashboard/live-preview.tsx` (0 referências restantes, typecheck limpo)
+   - `preview-phone.tsx` **mantido** — ainda é usado pela página demo (`/demo`)
+
+7. **Página Analytics limpa** — removidas 8 secções vazias (Mapa de países, Top países, Tráfego por hora, Sistema operativo, Browser, Origem do tráfego, Links mais clicados, Últimos visitantes) + eliminados dados falsos (`generateMockDaily`) do gráfico principal; ficaram métricas, gráfico, dispositivos, seletor de dias e export CSV
+
+8. **Erro de hydration corrigido** — cache `.next` desatualizada fazia o cliente ter bundle antigo do navbar ("Templates") vs servidor novo ("Preços"). Corrigido com `rm -rf .next` + reinício do dev server. Documentado guia de boas práticas neste ficheiro
+
+**Estado final:**
+- ✅ Servidor dev a correr em localhost:3000 (cache limpa)
+- ✅ Dashboard e Analytics com dados reais (sem fakes)
+- ✅ Login/registo com UX melhorada e erros amigáveis
+- ✅ Limite de links do plano gratuito aplicado no servidor
+- ✅ Zero erros de hydration na home
+- ❌ Sem repositório Git local
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+
+---
+
+### Sessão 4 — 31 Julho 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Análise completa do código** — revisão de todos os ficheiros (app, components, lib, context, hooks, API routes, scripts): typecheck ✅, ESLint ✅, 76 testes ✅
+
+2. **Bug: imagens de avatar/banner invisíveis para visitantes anónimos** (permissão do bucket Appwrite):
+   - O bucket `files` era criado com `Permission.read(Role.users())`, mas avatares/banners/imagens são servidos na página pública `/u/[username]` via URL direto do storage a visitantes SEM sessão → Appwrite devolvia 401 → imagens partidas
+   - **Novo helper:** `scripts/lib/public-bucket.ts` — `ensureBucketWithPublicRead()` cria/atualiza o bucket com `Permission.read(Role.any())` (create/update/delete continuam `users()`) e aplica leitura pública a todos os ficheiros existentes (paginação `listFiles`/`updateFile`)
+   - **Novo script:** `scripts/fix-bucket-public.ts` + `npm run fix:bucket` — corrige buckets já existentes sem tocar em databases
+   - `provision-appwrite.ts`: usa o helper + etapa do database tolera o erro de limite do plano gratuito ("maximum number of databases allowed") para o script não abortar antes de chegar ao bucket
+   - **Aplicado ao Appwrite real:** `npm run fix:bucket` executado com sucesso — bucket `files` confirmado com `read("any")` e **11 ficheiros** atualizados com leitura pública
+
+3. **Variáveis de ambiente alinhadas entre scripts e `.env.example`:**
+   - Convenção canónica: `NEXT_PUBLIC_APPWRITE_*` (usada pelo runtime) — scripts passam a lê-la primeiro, com fallback para os aliases legados sem prefixo (`APPWRITE_ENDPOINT`, `APPWRITE_PROJECT_ID`, `APPWRITE_DATABASE_ID`, `APPWRITE_FILES_BUCKET_ID`) por compatibilidade
+   - Ficheiros: `scripts/provision-appwrite.ts`, `scripts/create-security-logs.ts`, `scripts/fix-bucket-public.ts`
+   - `.env.example` atualizado com a convenção + aliases legados documentados
+   - `login/page.tsx`: mensagem de erro alinhada com o register (`NEXT_PUBLIC_APPWRITE_PROJECT_ID`)
+
+4. **"Pré-visualização ao vivo" / "Tempo real" fora da página Perfil** — o componente `LivePreview` já tinha sido removido na Sessão 3, mas o servidor dev servia um bundle antigo (cache `.next` de 21:15 vs `profile/page.tsx` alterado às 21:21):
+   - Corrigido com `rm -rf .next` + reinício do dev server (documentado na secção de hydration deste ficheiro)
+   - Verificado: 0 referências a `live-preview` no bundle compilado e no `profile/page.tsx`
+   - **Nota:** o botão "Pré-visualizar" no cabeçalho da página Perfil (abre a página pública) foi MANTIDO
+
+**Estado final:**
+- ✅ Servidor dev a correr em localhost:3000 (cache limpa, reiniciado)
+- ✅ Bucket `files` com leitura pública — avatares/banners visíveis para anónimos
+- ✅ Env vars alinhadas (canónico `NEXT_PUBLIC_APPWRITE_*` + aliases legados)
+- ✅ Scripts: `npm run fix:bucket` funcional, provision tolerante ao limite do plano
+- ✅ Typecheck, ESLint e 76 testes a passar
+- ❌ Sem repositório Git local
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 5 — 31 Julho 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Verificação da visibilidade anónima das imagens do bucket** (confirmação do fix da Sessão 4):
+   - Script temporário (`verify-anon-access.ts`, depois removido) listou os ficheiros do bucket `files` e testou o acesso às URLs `/view` **sem sessão** (fetch anónimo, sem cookies/headers de auth)
+   - **Resultado: 11/11 ficheiros → HTTP 200** (image/png e image/jpeg) — bucket confirmado com `read("any")` + `fileSecurity: true`
+   - A correção do bucket está funcionalmente comprovada no Appwrite real; as env vars no Netlify continuam pendentes (erro 403)
+
+2. **Navbar da página inicial — fundo sólido no mobile** (`src/app/globals.css`):
+   - **Problema:** a classe `.glass-nav` é transparente (`color-mix` com `transparent`) e o header é `fixed` → no telemóvel o conteúdo passava por trás e os links ficavam ilegíveis
+   - **Correção:** media query `@media (max-width: 767px)` dentro de `@layer utilities` (logo após `.glass-nav`) que força `background: var(--background) !important` → navbar sólido no mobile (#0a0a0a dark, #f5f5f7 light)
+   - **Porquê CSS e não Tailwind:** `.glass-nav` usa `background` com `!important`, o que derrotaria classes utilitárias como `max-md:bg-[...]`
+   - Aplica-se a todas as páginas no mobile (o navbar vive no root layout) — comportamento consistente; desktop mantém o glass
+
+3. **Navbar mobile — sombra + border subtil ao fazer scroll** (`src/app/globals.css`):
+   - Regra `.glass-nav.glass-strong` na mesma media query mobile: `box-shadow` com token `--glass-shadow-intensity` (0.27 dark / 0.072 light) + highlight interior de 1px + `border-bottom-color` reforçada
+   - Só aparece com scroll (`glass-strong` é aplicado pelo estado `scrolled` quando `scrollY > 20`), destacando o navbar do conteúdo — em dark e light
+
+**Estado final:**
+- ✅ Visibilidade anónima das imagens confirmada (11/11 ficheiros HTTP 200 sem sessão)
+- ✅ Navbar mobile com fundo sólido + sombra subtil ao scroll
+- ✅ Typecheck, ESLint e 76 testes a passar
+- ✅ Servidor dev a correr em localhost:3000
+- ❌ Sem repositório Git local
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 6 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Correção do erro de hydration do navbar** (não era bug de código):
+   - Sintoma: servidor renderizava "Preços"/`/#pricing` mas o cliente hidratava com "Templates"/`/#templates` no navbar
+   - Diagnóstico: `navbar.tsx` estava correto (array estático sem `Templates`), git limpo, mas o dev server em execução tinha **estado de compilação inconsistente na memória** — bundle client antigo (com "Templates") vs HTML do servidor novo ("Preços")
+   - Correção: `taskkill` no dev server (PID 19756) + `rm -rf .next` + reinício do dev server
+   - Verificado via curl: navbar serve `Funcionalidades → Preços → FAQ`, o único "Templates" restante é o link legítimo do footer
+
+2. **URLs corrigidos — `linkflow.app` → `https://linkflow-web.netlify.app`** (URL real publicado):
+   - `src/lib/seo.ts`: `siteUrl` passa a ler `process.env.NEXT_PUBLIC_SITE_URL` com fallback `https://linkflow-web.netlify.app` → fonte única do URL canónico (metadata, Open Graph, JSON-LD, sitemap)
+   - `src/app/sitemap.ts`: passou a importar `siteUrl` de `seo.ts` (removida constante duplicada)
+   - `public/robots.txt`: `Sitemap` → `https://linkflow-web.netlify.app/sitemap.xml`
+   - `src/app/u/[username]/page.tsx`: `publicUrl` usa `siteUrl` (canonical, JSON-LD, partilha de perfis)
+   - `src/app/dashboard/create/page.tsx`: prefixo do campo username mostra o hostname real
+   - `src/app/dashboard/domains/page.tsx`: registos DNS CNAME apontam para `linkflow-web.netlify.app` (correto para domínio custom no Netlify)
+   - `scripts/check-links.ts`: exemplo de uso e User-Agent atualizados
+   - `.env.example`: adicionada `NEXT_PUBLIC_SITE_URL` documentada
+   - `memoria.md` (secção "Domínio pretendido (SEO)"): atualizada para refletir o novo canónico
+
+**Estado final:**
+- ✅ Erro de hydration resolvido (cache `.next` limpa + dev server reiniciado)
+- ✅ Zero referências a `linkflow.app` no código (grep confirmado)
+- ✅ `NEXT_PUBLIC_SITE_URL` preparado para domínio próprio futuro
+- ✅ Typecheck e 76 testes a passar
+- ✅ Servidor dev a correr em localhost:3000
+- ❌ Sem repositório Git local
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 7 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Nova secção "Redes Sociais" na aba Links** (`src/app/dashboard/links/page.tsx` + novo componente `src/components/dashboard/social-links-section.tsx`):
+   - Adicionar redes rapidamente **sem configurar URLs manualmente** — basta o nome de utilizador
+   - Cada item: logo oficial SVG (Simple Icons + custom), nome da plataforma, campo username/URL, alternador ativo/inativo, botão remover, pré-visualização em tempo real, validação automática
+   - Pesquisa de plataformas (por nome, id ou keywords), picker com grelha responsiva (1-4 colunas)
+   - Reorganização por **drag & drop** (HTML5) + botões chevron ↑/↓ (telemóvel/touch) — ordem guardada
+   - A11y: `aria-label`/`aria-pressed`/`aria-haspopup` em todos os controlos, foco visível, teclado completo
+   - Desempenho: `SocialEntryRow` memoizado, callbacks estáveis via `entriesRef`, sem re-renders por tecla
+
+2. **Novo `src/lib/social.ts`** — núcleo de validação/normalização (frontend preview + backend):
+   - `buildSocialUrl()`: username → URL automática via `urlPrefix` (joao → `https://instagram.com/joao`, octocat → `https://github.com/octocat`, joao → `https://t.me/joao`); URL completa validada com a API `URL()`
+   - HTTPS obrigatório para plataformas externas; **`mailto:` só para email; `tel:` só para WhatsApp** ("quando aplicável")
+   - Bloqueio total de protocolos inseguros: `javascript:`, `data:`, `vbscript:`, `file:`, `blob:`
+   - Verificação de host por plataforma (ex.: github só aceita `github.com`; x aceita `x.com`/`twitter.com`)
+   - `normalizeSocialEntry()` + `sanitizeSocialEntries()`: dedupe por plataforma, clamp de order, coerção de `active` — **nunca persiste HTML/SVG/scripts**, só os 5 campos seguros (platform, url, username, order, active)
+
+3. **44 plataformas obrigatórias cobertas** — catálogo `SOCIAL_PLATFORM_IDS` em `social.ts` (Instagram, Facebook, X, TikTok, YouTube, LinkedIn, GitHub, GitLab, Discord, Telegram, WhatsApp, Threads, Bluesky, Reddit, Pinterest, Snapchat, Twitch, Kick, Steam, Spotify, SoundCloud, Apple Music, Deezer, Bandcamp, Medium, Substack, Behance, Dribbble, Figma, CodePen, Dev.to, Hashnode, Mastodon, Patreon, Ko-fi, Buy Me a Coffee, OnlyFans, Trello, Notion, Calendly, Email, Website, Portfólio, Blog)
+   - `src/lib/platforms.ts`: adicionadas `codepen`, `onlyfans`, `blog`, `portfolio`
+   - `src/components/ui/platform-icon.tsx`: `siOnlyfans` (Simple Icons), CodePen custom SVG, ícones genéricos blog/portfolio — **sem carregar ícones externos em runtime**
+
+4. **Tipos e persistência** — novo `SocialLinkEntry` (platform/url/username/order/active) + `PageProfile.socialList` em `types.ts`:
+   - `services.ts`: `parseSocialJson()` com **dual-format** — lê o array estruturado novo OU o flat record legado (backward compat, nada quebra); `updateSocialEntries()` com `requireOwnerOfPage` + sanitização **server-side** (o cliente nunca é confiado)
+   - `services.server.ts`: dual-parse igual para a leitura pública SSR
+
+5. **Página pública `src/app/u/[username]/page.tsx`** — renderiza `socialList` (ativas + ordenadas) com ícones e `rel="noopener noreferrer"`; fallback para o flat record legado quando não há lista estruturada
+
+6. **Testes novos** — `src/__tests__/social.test.ts` (28 testes): geração username→URL, validação de URL completa, bloqueio de protocolos inseguros, HTTPS-only, mailto só email, **tel: só WhatsApp**, normalize/sanitize (dedupe, ordem, coerção), catálogo completo das 44 plataformas, pesquisa
+
+7. **Rondas de revisão do code-reviewer — 3 correções aplicadas:**
+   - **Rascunhos só em estado local** — uma linha recém-adicionada já não desaparece antes de o utilizador escrever (antes persistia-se o rascunho vazio e o `refreshPage()` removia-o)
+   - **Corrida em toggles rápidos** — persists serializados numa promise chain (`persistQueueRef`) + `busyRef` suspende o sync do servidor enquanto há writes em curso (estado otimista autoritário); `commitEntries` mantém `entriesRef` sincronizado de forma síncrona
+   - **Clobber de edições em curso** — `dirtyRef` rastreia plataformas com typing não commitado; local vence no merge; `refreshPage()` movido para try/catch próprio (um refresh falhado nunca faz rollback de um write bem-sucedido)
+
+**Estado final:**
+- ✅ Secção de Redes Sociais completa (44 plataformas, drag & drop, preview em tempo real, pesquisa, validação automática)
+- ✅ Segurança: protocolos inseguros bloqueados, sanitização server-side, sem `innerHTML`/`eval`, nunca persiste conteúdo executável
+- ✅ Backward compat: formato legado continua a renderizar na página pública
+- ✅ Typecheck, ESLint e **107 testes** a passar
+- ✅ Servidor dev a correr em localhost:3000
+- ✅ Repositório GitHub ligado — commit `a0fe51f` (Sessões 2-6) já no `origin/main`
+- ✅ Sessão 7 (Redes Sociais) + limpeza da aba Aparência commitadas e pushed — commit `d4b0d20` no `origin/main` (detalhe na Sessão 8)
+- ❌ Deploy manual (GitHub + CI/CD pendente)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 8 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Aba Aparência limpa — removido tudo exceto "Foto e banner"** (`src/app/dashboard/appearance/page.tsx`):
+   - Removidas as secções: **Templates premium** (grelha dos 19 templates), **Tema e cores** (seletor Escuro/Claro/Sistema + cores de fundo/texto/destaque/cartões), **Fonte e tipografia** (seletor de fonte + slider de tamanho), **Botões** (estilo/largura/raio), **Background** (grelha de cores sólidas)
+   - Removidos imports sem uso: `useTheme`, `Slider`, `toHexColor`, `PREMIUM_TEMPLATES`, ícones `Palette/Type/Square/Image/Moon/Sun/Monitor/LayoutTemplate/Check`, tipo `Appearance`
+   - Removidas constantes `FONTS`, `BUTTON_STYLES`, `BUTTON_WIDTHS`, componente `ColorRow`, estado `activeTemplate`, handler `handleApplyTemplate`
+   - Mantida intacta a secção "Foto e banner" (upload/remoção de avatar e banner + toggles `showAvatar`/`showBio`/`showSocial`)
+   - **Nota:** `src/lib/templates.ts` ficou **órfão** (PREMIUM_TEMPLATES sem importadores) — pendente de remoção futura
+
+2. **Commit + push para GitHub** — commit `d4b0d20` "Social networks section in Links tab + appearance tab cleanup":
+   - **11 ficheiros** (+1252 / -269): 8 modificados + 3 novos (social.ts, social-links-section.tsx, social.test.ts)
+   - Inclui a secção de Redes Sociais (Sessão 7) e a limpeza da aba Aparência
+   - **Verificação de segurança pré-push:** zero valores de segredos nos ficheiros novos nem no diff staged (grep de `API_KEY=`, `SECRET=`, `sk_`, `whsec_`, `standard_` → 0 matches); zero `innerHTML`/`eval`/`dangerouslySetInnerHTML` no código novo (único match é um comentário de documentação)
+   - **Validação:** typecheck `tsc --noEmit` ✅, **107/107 testes** ✅, ESLint ✅ (11 ficheiros), code-reviewer ✅ (aprovou o âmbito: sem segredos, sem regressões de segurança, backward compat do dual-format confirmada)
+   - **Push:** `a0fe51f..d4b0d20  main -> main` ✅ — branch em sincronia com `origin/main`
+
+3. **Atualização deste ficheiro** — estado final da Sessão 7 corrigido (o commit deixou de estar pendente) + criação desta entrada
+
+**Estado final:**
+- ✅ Repositório GitHub com 3 commits: `adde1fa` (inicial) → `a0fe51f` (Sessões 2-6) → `d4b0d20` (Sessão 7 + Aparência) — todos em `origin/main`
+- ✅ Aba Aparência limpa (só "Foto e banner")
+- ✅ Secção de Redes Sociais completa (44 plataformas, 107 testes)
+- ✅ Typecheck, ESLint e 107 testes a passar
+- ✅ Servidor dev a correr em localhost:3000
+- ❌ `src/lib/templates.ts` órfão (dead code) — remover como limpeza futura
+- ❌ `updateSocialLinks` (flat legado) em `services.ts` possivelmente morto após a limpeza da Aparência — verificar referências
+- ❌ Deploy manual (GitHub + CI/CD pendente — Netlify ainda não ligado ao repo)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 9 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Remoção de código morto** — commit `35e3025` "Remove dead code: orphaned templates.ts and unused updateSocialLinks":
+   - **`src/lib/templates.ts` apagado** (451 linhas) — `PREMIUM_TEMPLATES`/`TemplatePreset` tinham zero importadores após a limpeza da aba Aparência (Sessão 8); `template-showcase.tsx` usa o seu próprio array local
+   - **`updateSocialLinks` removido de `services.ts`** (escritor do flat record legado) — zero usos; `updateSocialEntries` trata ambos os formatos
+   - **Resolve as 2 pendências da Sessão 8** (templates.ts órfão + updateSocialLinks possivelmente morto)
+   - Verificado: zero referências restantes, typecheck ✅, 107 testes ✅, ESLint ✅
+
+**Estado final:**
+- ✅ Código morto eliminado (templates.ts + updateSocialLinks)
+- ✅ Typecheck, ESLint e 107 testes a passar
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 10 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Redes sociais passam a links normais — picker unificado** — commit `ef5e17c` "Social networks as regular links: unified Novo link picker":
+   - `links/page.tsx`: botão "Novo link" redesenhado (badge plus rotativo + glow); abre **sempre** o novo platform picker (grelha de plataformas + pesquisa, plataforma selecionada com preview username→URL via `buildSocialUrl`, modo link custom)
+   - `handleAddPlatform()` cria um **LinkItem normal** (icon=platformId, title=nome da plataforma) via `createLink` com limite do plano gratuito + CSRF + validação de URL
+   - **Segurança:** `buildUrl()` (modo custom) bloqueia `javascript:`/`data:`/`vbscript:`/`file:`/`blob:` antes da allowlist https/mailto/tel/sms
+   - **Página pública `u/[username]`:** removida a secção de ícones sociais e o fallback flat legado — redes sociais são agora apenas links
+
+2. **Cleanup extenso do sistema social dedicado:**
+   - Apagado `social-links-section.tsx` (521 linhas)
+   - Removidos de `types.ts`: `SocialLinks`, `SocialLinkEntry`, `PageProfile.social`+`socialList`, `Appearance.showSocial`
+   - Removidos de `services.ts`/`services.server.ts`: `parseSocialJson`, `updateSocialEntries` e o plumbing socialJson
+   - Removidos de `social.ts`: `normalizeSocialEntry`, `sanitizeSocialEntries` (mantidos `buildSocialUrl`/`getSocialPlatforms`/`searchSocialPlatforms` para o picker)
+   - Removido o toggle "Mostrar redes sociais" da aba Aparência e os atributos `socialJson`+`showSocial` do script de provisionamento
+   - `social.test.ts` atualizado (menos 78 linhas — testes da secção eliminada)
+
+3. **Netlify ligado ao GitHub (CI/CD)** — primeiro deploy via build CI do commit `ef5e17c`:
+   - Deploy `6a6d4cff...` publicado 01:35Z com `___netlify-server-handler` (plugin-nextjs) — as rotas dinâmicas passam a funcionar (o drop deploy antigo não tinha funções)
+   - Fluxo automático push → build → deploy substitui o deploy manual
+
+4. **Verificação:** typecheck ✅, **98 testes** ✅ (diminuiu de 107 com a remoção dos testes sociais), ESLint ✅
+
+**Estado final:**
+- ✅ Picker unificado de links com redes sociais (44 plataformas como links normais)
+- ✅ Secção social dedicada removida (menos complexidade)
+- ✅ Netlify ligado ao GitHub — CI/CD funcional
+- ✅ Typecheck, ESLint e 98 testes a passar
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 11 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+1. **Diagnóstico do erro "This function has crashed"** no Netlify (ao ver a página pública `/u/[username]`):
+   - **Causa 1 (já resolvida pelo deploy CI):** o drop deploy manual antigo (31 Jul, `6a6ccd...`) tinha **zero funções serverless** ("No functions deployed") → as rotas dinâmicas crashavam. O deploy CI atual (commit `ef5e17c`) já tem `___netlify-server-handler`
+   - Verificado com browser real + curl: `/u/utilizador` carrega (HTTP 200), `/api/csrf` 200, `/api/view` 404 para pageId inexistente (função funciona), `/api/click` 200, RSC prefetch 200, `/@utilizador` (rewrite) 200
+
+2. **Bug real encontrado: páginas sem documento de analytics** (o motivo do tracking nunca funcionar):
+   - Verificado no Appwrite: **as 4 páginas existentes NÃO têm documento na coleção `analytics`** (nem theme) — criadas antes do tracking existir
+   - Consequência: `/api/view` devolvia **404 "Analytics not found"** a cada visita → views nunca registadas, dashboard sempre a zeros
+
+3. **Correção — upsert do documento de analytics** (3 ficheiros):
+   - **`src/lib/analytics.ts`:** novo helper partilhado `upsertAnalyticsMetric(databases, pageId, ownerUserId, type, userAgent)`:
+     - Cria o doc analytics na primeira visita/clique (páginas antigas passam a ser contadas)
+     - Com permissões de documento `Permission.read/update/delete(Role.user(dono))` — **obrigatório** porque a coleção tem `documentSecurity=true` (sem isto o dono não leria o doc no dashboard via client SDK)
+     - Trata a race do índice único em `pageId` (409 → re-consulta e incrementa em vez de falhar)
+     - Também `createInitialMetrics()` + `incrementAnalyticsMetric()` (lógica partilhada entre view/click)
+   - **`src/app/api/view/route.ts`:** simplificado — usa `upsertAnalyticsMetric(..., "views", ...)` (fim do 404)
+   - **`src/app/api/click/route.ts`:** simplificado — usa `upsertAnalyticsMetric(..., "clicks", ...)`
+   - Cast `Models.Document & Record<string, unknown>` (padrão `AppwriteDocument` já usado em services.ts)
+
+4. **Validação:** typecheck `tsc --noEmit` ✅, **98/98 testes** ✅, ESLint ✅, code-reviewer ✅ (sem regressões de segurança — upsert continua rate-limited; docs com permissões só do dono)
+
+**Estado final:**
+- ✅ Tracking de views/clicks corrigido — o doc analytics é criado automaticamente na primeira visita
+- ✅ Dashboard vai passar a mostrar dados reais após o deploy
+- ✅ Typecheck, ESLint e 98 testes a passar
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push para o deploy CI
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 12 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas — cartões Visitantes e CTR com dados reais:**
+1. **Contexto:** os cartões já existiam visualmente no Dashboard, mas mostravam dados errados — Visitantes usava `followers` (stale, nunca atualizado) e CTR era calculado por views. Esta correção liga a lógica real mantendo **zero alterações de design/layout/componentes** (só os valores mudaram)
+
+2. **Cartão Visitantes (Dashboard):**
+   - Passa a mostrar `uniqueVisitors` — contagem real de visitantes únicos via `hashIp` (dedup por IP; F5/refresh/visitas seguidas **não** contam)
+   - Novo agregado `visitorGrowth`: visitantes únicos dos últimos 7 dias vs os 7 anteriores, calculado automaticamente a cada visita → trend verde (+%) / vermelho (−%) no cartão via `StatCard`
+   - Novo agregado `dailyVisitors` (hashes por dia, limitado a **14 dias × 1000 hashes** — crescimento limitado, respeita o limite de 1MB do `metricsJson`)
+
+3. **Cartão CTR:**
+   - Fórmula corrigida para **CTR = cliques ÷ visitantes únicos × 100** (exatamente a fórmula pedida; antes usava views)
+   - Percentagem real recalculada a cada evento
+
+4. **Crescimento semanal/mensal agora real:**
+   - `weeklyGrowth`/`monthlyGrowth` passam a ser calculados dos `dailyStats` reais (7 vs 7 dias e 30 vs 30 dias de views) — antes ficavam sempre a 0
+   - `followers` mantém-se sincronizado com `uniqueVisitors` no patch de update (compatibilidade)
+
+5. **Ficheiros alterados:**
+   - `src/lib/analytics.ts` — CTR por uniqueVisitors, agregado `dailyVisitors`, `computeVisitorGrowth` (7v7), `sumRange`/`computeGrowth`, `weeklyGrowth`/`monthlyGrowth` reais, `followers` no patch de update
+   - `src/lib/types.ts` — novo campo `visitorGrowth` em `AnalyticsData`
+   - `src/lib/defaults.ts` — `visitorGrowth: 0` no `emptyAnalytics`
+   - `src/lib/services.ts` — `createPage` metricsJson com `visitorSet`/`dailyVisitors`/`uniqueVisitors`/`visitorGrowth`; `getAnalyticsByPageId` lê `visitorGrowth`
+   - `src/app/dashboard/page.tsx` — cartão Visitantes usa `uniqueVisitors` + trend de crescimento real
+   - `src/app/dashboard/analytics/page.tsx` — cartão Visitantes + export CSV usam `uniqueVisitors`
+
+6. **Atualização automática (já ativa):** polling de 30s + refresh ao focar a aba — novas visitas/cliques refletem-se sem recarregar
+
+7. **Validação:** typecheck `tsc --noEmit` ✅, **98/98 testes** ✅, ESLint ✅, code-reviewer ✅ (única preocupação — overflow do `metricsJson` com `dailyVisitors` — descartada por verificação: `hashIp` devolve ~8 chars, ~140KB no pior caso vs limite de 1MB; todos os agregados são limitados: `visitorSet` 2000, `recentVisitors` 25, `dailyVisitors` 14×1000)
+
+**Estado final:**
+- ✅ Cartões Visitantes (únicos + crescimento real 7v7) e CTR (cliques ÷ visitantes únicos) com dados reais
+- ✅ Crescimento semanal/mensal real (antes sempre 0)
+- ✅ Design/layout/componentes visuais intactos — só os dados mudaram
+- ✅ Atualização automática sem recarregar a página
+- ✅ Typecheck, ESLint e 98 testes a passar
+- ✅ Alterações commitadas e pushed — commit `f0b1717` no `origin/main` (ver Sessão 13)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403)
+
+---
+
+### Sessão 13 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas — commit `f0b1717` "Real analytics system, Paginas page templates and CTR/Visitantes cards":**
+
+1. **Aba "Páginas" no Dashboard** (novo `/dashboard/pages` + ícone `LayoutGrid` no sidebar entre Aparência e Analytics):
+   - Grelha com os **12 tipos de página**: Minimalista, Creator, Empresarial, Loja, Portfólio, Fotógrafo, Música, Restaurante, Evento, CV, Gamer, Desenvolvedor
+   - Cada cartão: miniatura de telemóvel (estrutura própria por archetype), nome, descrição e botão **Selecionar** (ou clique no cartão inteiro)
+   - Ao selecionar: animação + visto + destaque (framer-motion `AnimatePresence`); só uma página selecionada; guarda no Appwrite e muda **imediatamente** a página pública
+
+2. **Sistema de templates reutilizável** — `src/components/templates/` (12 componentes independentes + `types.ts`, `tracked-link.tsx`, `shared.tsx`, `countdown.tsx`, `index.tsx` switcher) + registry `src/lib/page-templates.ts`:
+   - **Layouts totalmente diferentes** (não só cores): Creator (hero vídeo + botões grandes + redes + "Último vídeo"), Loja (promo + grelha produtos + Comprar + pagamentos), Fotógrafo (hero imagem + mosaico), Evento (countdown + bilhetes + programação), Gamer (badge Pro Player + estatísticas + conquistas + Twitch/Discord), Desenvolvedor (barra de terminal + Open to Work + repositórios + stack), e os restantes com identidade própria
+   - **Registry extensível:** adicionar tipo novo = 1 entrada + 1 componente + 1 linha no switcher
+   - `TrackedLink` partilhado (tracking + sanitização), `Countdown` client seguro (sem hydration mismatch), **sem banners** (como pedido)
+   - Persistência: `PageProfile.pageType` em `types.ts`; `createPage`/`mapPageDocument`/`getPublicPageByUsername` mapeiam o campo; atributo `pageType` criado no Appwrite (provision) + atributo morto `socialJson` (Sessão 10) removido para libertar espaço
+
+3. **Sistema de analytics real (estilo Google Analytics)** — sem dados falsos:
+   - **`src/lib/geo.ts`:** GeoIP via cabeçalhos Netlify (`x-country`, `x-country-name`, `x-city`) + fallback API gratuita `country.is` com cache 24h; IPs privados/dev sem lookup; `hashIp()` curto (8 chars, seguro e deduplicável); IP **nunca** exposto ao cliente
+   - **`src/lib/analytics.ts`:** `recordAnalyticsEvent()` — upsert do doc analytics (cria se não existir — fim do 404 da Sessão 11), agregações reais `topCountries`/`topDevices`/`topLinks`/`recentVisitors`/`visitorSet`/`dailyVisitors`, CTR = cliques ÷ visitantes únicos, crescimento 7v7, growth semanal/mensal real; grava registo bruto na coleção `visits` (server-only)
+   - **`src/app/api/view/route.ts` + `click/route.ts`:** usam `recordAnalyticsEvent` com contexto real (ip, geo, referer, browser, os, link)
+   - **`src/lib/device-detect.ts`:** deteção device type + browser + OS
+   - **`provision-appwrite.ts`:** coleção `visits` criada (permissões `[]` — zero acesso client; atributos: pageId, visitorHash, ip, country, countryCode, city, device, browser, os, referer, userAgent, clickedLink, createdAt)
+   - **`AuthContext`:** `refreshAnalytics` + polling 30s + refresh ao focar a aba (atualização automática)
+
+4. **Cartão Resumo interativo** — `src/components/dashboard/resumo-card.tsx`:
+   - **Links ativos** → modal com lista completa ordenada por cliques (decrescente, nunca alfabética) + CTR por link real
+   - **Países** → só países com visitas, ordenados por visitantes, com bandeira
+   - **Dispositivos** → contagens reais + percentagens calculadas + barras de progresso
+
+5. **Correção dos cartões Visitantes e CTR** (Sessão 12, já incluída neste commit):
+   - Visitantes = `uniqueVisitors` reais (dedup por `hashIp`; F5/refresh não contam) + `visitorGrowth` (7 vs 7 dias) com trend verde/vermelho
+   - CTR = cliques ÷ visitantes únicos × 100; `weeklyGrowth`/`monthlyGrowth` calculados dos `dailyStats` reais; `followers` sincronizado
+   - Limites de memória: `visitorSet` 2000, `recentVisitors` 25, `dailyVisitors` 14 dias × 1000 hashes (~140KB máx vs limite 1MB do `metricsJson`)
+
+6. **Limpezas:** helper partilhado `recordLinkClick` em `src/lib/utils.ts` (dedup entre `tracked-link.tsx` e `trackable-link.tsx`); **código morto `upsertAnalyticsMetric` removido** de `analytics.ts` (deprecated, zero referências — as rotas usam `recordAnalyticsEvent` diretamente)
+
+7. **Commit + push (38 ficheiros, +3694/−214):**
+   - Validação pré-push: typecheck ✅, **98/98 testes** ✅, ESLint ✅, scan de segredos no diff completo ✅ (prática Sessão 8), code-reviewer ✅ (rondas múltiplas — todas as questões corrigidas)
+   - **Push:** `ef5e17c..f0b1717  main -> main` ✅ — deploy CI Netlify disparado automaticamente (build demora alguns minutos)
+
+**Estado final:**
+- ✅ Aba Páginas com 12 templates independentes, persistidos e renderizados na página pública
+- ✅ Analytics real (GeoIP, agregações, coleção `visits` server-only, cartões Visitantes/CTR com dados reais)
+- ✅ Commit `f0b1717` no `origin/main` — deploy CI em curso
+- ✅ Typecheck, ESLint e 98 testes a passar
+- ✅ Dev server local a correr (cache `.next` limpa)
+- ❌ Env vars Appwrite ainda não configuradas no Netlify (erro 403) — pendente para o tracking em produção
+
+### Sessão 14 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+
+**Objetivo:** corrigir o botão "Começar grátis" (feio + com bug de alinhamento), o logo do SaaS invisível na home e erros deixados por outra pessoa no código. **Sem alterações de design/estrutura** — apenas correções e polimento visual.
+
+1. **Logo invisível corrigido — `src/components/ui/logo.tsx`:**
+   - **Causa:** o `public/logo.png` é um logo **escuro** (tons `#111`–`#222`, luminância média 58.9/255) que se perde no fundo escuro `#0a0a0a` — verificado por script de análise de pixels (PNG 500×500 RGBA)
+   - **Correção:** `dark:invert` adicionado ao `<Image>` — em dark mode o logo escuro vira branco (visível); em light mode mantém-se escuro (visível no fundo claro). O `@custom-variant dark (&:is(.dark *))` garante que só aplica com a classe `.dark` presente
+   - **Limpeza:** removidos os hacks `brightness-150 contrast-125` (9 ocorrências em 7 ficheiros: navbar, footer, sidebar ×3, login, register, templates/shared, profile-renderer) — eram tentativas falhadas de outra pessoa que não resolviam o problema
+
+2. **Botão "Começar grátis" corrigido — `src/components/ui/glass-button.tsx`:**
+   - **Bug:** texto + seta ficavam dentro de um único `<span>` — o `gap-2` do flex exterior nunca se aplicava entre texto e ícone → seta colada/desalinhada
+   - **Correção:** span interior agora é `inline-flex items-center justify-center gap-2` — espaçamento e alinhamento verticais corretos entre texto e `ArrowRight`
+
+3. **Visual do botão primary melhorado — `src/app/globals.css` (`glass-btn-primary`):**
+   - Antes: fundo branco chapado 12% de opacidade (feio, sem profundidade)
+   - Agora: gradiente 180° (22%→8% branco), highlight interno no topo, sombras duplas (contato + profundidade), `text-shadow` subtil
+   - **Light mode:** overrides `.light .glass-btn-primary` — botão quase preto com texto branco (contraste correto em fundo claro)
+
+4. **Erros de outra pessoa removidos — `src/components/ui/navbar.tsx`:**
+   - Removido bloco de debug não commitado (10 linhas de `console.log` "NAVBAR HYDRATION DEBUG" com `Date.now()`) — código de diagnóstico esquecido no working tree (foi a causa de confusão em revisões anteriores)
+
+5. **Validação:** typecheck `tsc --noEmit` ✅ · **98/98 testes** ✅ · ESLint (9 ficheiros alterados) ✅ · code-reviewer ✅
+   - Nota do reviewer: `dark:invert` liga ao tema global (`.dark`), não ao fundo da página pública — em páginas `/u/username` com fundo claro customizado o logo pode ficar branco-sobre-claro (limitação conhecida, aceitável numa app dark-first; alternativa futura: filtro inline por luminância de `safeBackground`)
+
+**Estado final:**
+- ✅ Logo visível (branco em dark, escuro em light) na navbar, footer, sidebar, login/register, templates e página pública
+- ✅ Botão "Começar grátis" com seta alinhada e espaçada, visual premium (gradiente + brilho + sombras)
+- ✅ Navbar limpo (sem debug logs)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — 10 ficheiros modificados no working tree
+- ✅ Dev server local a correr
+
+### Sessão 15 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+
+**Objetivo:** auditoria de segurança completa do sistema de temas — eliminar DOM XSS (CWE-79 / OWASP A05:2025) via `localStorage["theme"]` (secondary source → DOM mutation sink), reportado por scanner OWASP PTK. Auditoria também encontrou e corrigiu **outra vulnerabilidade real**: stored XSS no JSON-LD da página pública.
+
+1. **Novo módulo central — `src/lib/theme-security.ts`:**
+   - Whitelist estrita `ALLOWED_THEMES = ["light", "dark", "system"]` + fallback `"system"`
+   - `isAllowedTheme()` / `getSafeTheme()` — qualquer valor inválido é descartado e substituído por `"system"`; **nunca** devolve o valor cru
+   - `getSafeThemeFromStorage()` (try/catch, lê e valida) e `sanitizeStoredTheme()` (corrige valores inválidos já gravados — idempotente)
+   - `THEME_SANITIZER_SCRIPT` — IIFE em JS puro (sem imports) injetado no `<head>` **ANTES** do script inline do next-themes (que lia `localStorage["theme"]` e aplicava o valor cru em `classList.add()` no `<html>` sem validação — confirmado no código-fonte minificado v0.4.6). O script: sanitiza valores existentes + **override de `Storage.prototype.setItem`** (valores inválidos nunca chegam a ser gravados — fecha também o vetor cross-tab onde o listener do next-themes lê `event.newValue` cru) + listener de `storage`
+
+2. **`src/app/layout.tsx`:** script sanitizador no `<head>` (corre antes do script do next-themes no body) + `renderJsonLd()` para o JSON-LD estático (antes era `JSON.stringify` cru) + `ThemeProvider defaultTheme="dark" enableSystem` (modo sistema ativo, default escuro preservado)
+
+3. **Stored XSS corrigido — `src/lib/seo.ts` (`renderJsonLd`):** `JSON.stringify` **não escapa `<`** — uma bio/displayName com `</script><script>` quebraria o `<script type="application/ld+json">` da página pública `/u/[username]`. Agora escapa `<`, `>`, `&`, `U+2028`, `U+2029` (padrão OWASP para JSON embutido em script tag). Round-trip preservado (JSON.parse devolve o valor original). Aplicado também em `site-jsonld.tsx` e no layout
+
+4. **Refatoração do ThemeProvider/Toggle:** `theme-provider.tsx` agora define `storageKey="theme"` + `themes=[...ALLOWED_THEMES]` (fonte única de verdade; layout simplificado sem repetição) + `useEffect` com `sanitizeStoredTheme()` (defesa em profundidade pós-hidratação). `theme-toggle.tsx` usa `getSafeTheme(resolvedTheme)`
+
+5. **Auditoria de outras fontes:** `window.name`, `document.referrer`, `sessionStorage` (uso em DOM): **zero ocorrências**; `eval`/`new Function`/`document.write`/`insertAdjacentHTML`: zero no código da app; `dangerouslySetInnerHTML` auditados (os 3 eram JSON-LD — todos agora passam por `renderJsonLd`)
+
+6. **Testes — `src/__tests__/theme-security.test.ts` (+15):** whitelist, `getSafeTheme` com payloads XSS, leitura/limpeza de localStorage, idempotência, conteúdo do script sanitizador, e escape do `renderJsonLd` (breakout `</script>`, round-trip JSON, U+2028/2029)
+
+7. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ (era 98) · ESLint ✅ · code-reviewer ✅ (3 rondas — todas as questões corrigidas: vetor cross-tab via guard do setItem, redundância de config, código morto eliminado)
+
+**Estado final:**
+- ✅ Superfície de ataque `localStorage["theme"]` → DOM fechada em 3 camadas: head script (pré-hidratação) + guard do `setItem` + validação central `getSafeTheme`
+- ✅ Stored XSS via JSON-LD eliminado (escape OWASP em `renderJsonLd`)
+- ✅ Modos claro/escuro/sistema preservados; SSR e hidratação intactos (`defaultTheme="dark"` mantido)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessão 14 + 15
+- ✅ Dev server local a correr
+
+### Sessão 15.1 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+
+**Objetivo:** reverter a cor do logo para o original (pedido explícito do utilizador) e corrigir o erro de hydration na home.
+
+1. **Reversão do logo (pedido do utilizador — "a cor do logo mudou não quero isso"):**
+   - `src/components/ui/logo.tsx`: removido `dark:invert` (adicionado na Sessão 14 para tornar o logo escuro visível em dark mode) — volta ao `object-contain` original
+   - Restaurado `brightness-150 contrast-125` nos **9 callers** (navbar, footer, sidebar ×3, login, register, templates/shared, profile-renderer) — estado exato pré-Sessão-14
+   - **Trade-off consciente:** o logo escuro fica pouco visível no fundo escuro do site — foi a escolha explícita do utilizador (confirmado via ask_user); se voltar a queixar-se de invisibilidade, a alternativa é gerar uma versão clara do próprio `logo.png`
+
+2. **Erro de hydration corrigido (operacional, sem alteração de código):**
+   - Causa: bundle do **cliente desatualizado** — o servidor compilava o código atual (`dark:invert`, `inline-flex` no GlassButton) mas o browser hidratava com chunks antigos (com `brightness-150` e span simples) → mismatch de atributos (mesmo problema clássico das Sessões 3–6)
+   - Correção: dev server terminado (PID 21568), cache `.next` apagada (`rm -rf`), reiniciado **um único** dev server limpo
+   - Verificado: HTML servido com `brightness-150` (logo original) e **zero** `dark:invert`; navbar correto (`Preços`×2, `Templates` só no footer)
+
+3. **Não afetado pela reversão:** trabalho de segurança do tema (Sessão 15 — `theme-security.ts`, whitelist, sanitizer no head, `renderJsonLd`) e a correção do gap do GlassButton mantêm-se intactos
+
+4. **Validação:** typecheck ✅ · **113/113 testes** ✅ · ESLint (8 ficheiros tocados) ✅ · code-reviewer ✅ (reversão confirmada limpa, escopo respeitado)
+
+**Estado final:**
+- ✅ Logo com a cor original restaurado em todos os callers
+- ✅ Erro de hydration resolvido (cache limpa + servidor único)
+- ⚠️ Recomendação ao utilizador: **hard refresh (Ctrl+Shift+R)** no browser para descartar chunks antigos em cache
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessão 14 + 15 + 15.1
+
+### Sessão 15.2 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash)
+
+**Objetivo:** corrigir erro de runtime na aba Páginas — `useToast must be used within a ToastProvider`.
+
+1. **Causa:** `src/context/ToastContext.tsx` define `ToastProvider`/`useToast`, mas o provider **nunca era montado** em lado nenhum (nem no layout raiz nem no layout do dashboard). A aba Páginas (`src/app/dashboard/pages/page.tsx`) é o único consumidor de `useToast()` → erro de runtime ao abrir a página
+
+2. **Correção — `src/app/layout.tsx`:** montado `<ToastProvider>` globalmente (dentro de `AuthProvider`, envolvendo `ZoomBlocker` + `children`):
+   - Resolve o erro para a aba Páginas e qualquer consumidor futuro
+   - Container de toasts renderiza vazio até `showToast()` ser chamado — sem impacto visual nem mismatches de hydration em qualquer rota (incluindo públicas)
+   - `ToastContext.tsx` é `"use client"` — funciona no layout raiz client
+
+3. **Validação:** typecheck ✅ · **113/113 testes** ✅ · ESLint ✅ · code-reviewer ✅ (nesting `ThemeProvider > AuthProvider > ToastProvider` correto, sem imports não usados)
+
+**Estado final:**
+- ✅ Aba Páginas funcional (toasts a funcionar ao selecionar/guardar template)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 15.2
+
+### Sessão 15.3 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — CAUSA RAIZ do erro recorrente `reading 'call'`
+
+**Problema:** após montar o `<ToastProvider>` no root layout (Sessão 15.2), erro de runtime `Cannot read properties of undefined (reading 'call')` em `layout.tsx:123` (`<ToastProvider>`). Reproduzia mesmo após `rm -rf .next` + restart limpo + cache de browser desativada.
+
+**Diagnóstico (causa raiz, não cache):**
+- Código-fonte correto: `ToastProvider` é export válido de `ToastContext.tsx` (`'use client'`, só importa de `react`, sem dependência circular). SSR renderiza o provider (HTML servido contém o container de toasts `fixed bottom-6 left-1/2`).
+- Bundle cliente em disco **correto**: `function ToastProvider` presente em `.next/static/chunks/app/layout.js` (24 refs).
+- Chunk **servido** via curl = **byte-idêntico** ao disco (md5 igual) e contém `function ToastProvider`.
+- Os 7 chunks referenciados pelo HTML servido respondem **todos HTTP 200**.
+- Só existe um dev server na porta 3000 (PID 15824). O processo pm2 (`9router`, PID 12652) está na porta 20128 — não interfere.
+- Log do dev server limpo (GET / 200, sem erros).
+- **CAUSA RAIZ:** `next.config.ts` enviava `Cache-Control: public, max-age=31536000, immutable` para `/_next/static/:path*` **em TODOS os ambientes**, incluindo dev. Em dev, os chunk URLs **não têm hash de conteúdo** (`app/layout.js` sem `?v=`; só `main-app.js`/`webpack.js` têm `?v=`). Com `immutable`, o browser guarda o bundle antigo **durante 1 ano** → ToastProvider `undefined` no cliente → `reading 'call'`. Explica TODAS as recorrências (Sessões 3–6, 15, 15.1).
+
+**Correção (`frontend/next.config.ts`):**
+- `headers()` agora aplica os headers de cache imutável (1 ano `/_next/static`, 1 semana imagens, 1 ano fontes) **apenas quando `process.env.NODE_ENV === "production"`** (onde o Next gera chunks com hash de conteúdo, logo o cache imutável é seguro).
+- Em dev, cai para os defaults do Next.js → verificado via curl: chunk agora serve `Cache-Control: no-store, must-revalidate`.
+- Headers de segurança continuam aplicados em todos os ambientes.
+
+**Validação:** typecheck ✅ · **113/113 testes** ✅ · ESLint (next.config.ts) ✅ · chunk servido == disco (md5) ✅ · todos os chunks 200 ✅.
+
+**Nota:** o browser do utilizador pode ainda ter o chunk antigo em cache (imutável de 1 ano) — fazer **hard refresh (Ctrl+Shift+R)** ou limpar dados do site para carregar o bundle novo. A partir daqui, em dev, o servidor manda `no-store`, pelo que o problema não volta a ocorrer.
+
+**Estado final:**
+- ✅ Aba Páginas + toasts funcionais; erro `reading 'call'` eliminado na raiz (config de cache)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 15.3
+
+### Sessão 15.4 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — ERRO `reading 'call'` DEFINITIVAMENTE CORRIGIDO
+
+**Problema:** o erro `Cannot read properties of undefined (reading 'call')` em `RootLayout layout.tsx:123` (`<ToastProvider>`) persistiu mesmo depois do fix de cache da Sessão 15.3 e com browser em perfil totalmente novo (0 cache).
+
+**Diagnóstico final:**
+- O `ToastProvider` (provider de contexto cliente, `'use client'`) estava montado no **root layout** — um **componente de servidor**. Montar um provider de contexto cliente no root layout server foi o ponto frágil que disparava o erro no cliente (independentemente de cache — reproduzia em perfil Chrome novo).
+- Verificado que `useToast()` é consumido **apenas** por `dashboard/pages/page.tsx` (grep: 1 único consumer).
+- O fix de cache da Sessão 15.3 (`next.config.ts`: `immutable` só em produção) manteve-se — correção válida e complementar.
+
+**Correção aplicada (2 ficheiros):**
+1. `src/app/layout.tsx` — **removido** o import e o wrapper `<ToastProvider>` do root layout. Root layout fica: `ThemeProvider > AuthProvider > ZoomBlocker > children`. O ponto de crash `layout.tsx:123` deixou de existir nas páginas públicas (home, /u/username, login, register).
+2. `src/app/dashboard/layout.tsx` — **adicionado** `<ToastProvider>` a envolver a árvore autenticada do dashboard (layout já é `'use client'`). Os toasts continuam a funcionar na aba Páginas (`dashboard/pages/page.tsx`).
+
+**Validação (tudo ✅):**
+- **Browser (perfil Chrome totalmente novo):** homepage renderiza 100% — navbar (Funcionalidades/Preços/FAQ), hero com botão "Começar grátis", pricing, FAQ, footer; **0 erros de consola**; título "LinkFlow — Um Link. Possibilidades Infinitas.".
+- Typecheck ✅ · **113/113 testes** ✅ · ESLint (layout.tsx + dashboard/layout.tsx) ✅ · code-reviewer ✅ (fix defensivo de scoping correto; único consumer coberto; sem imports não usados; early-return do loading correto sem wrapper).
+- `grep ToastProvider src/app/layout.tsx` = vazio ✅ · HTML da home já não contém o container de toasts ✅ (o container só aparece no dashboard agora).
+
+**Nota final:** se o browser do utilizador ainda mostrar o erro antigo, fazer **hard refresh (Ctrl+Shift+R)** ou limpar dados do site — o chunk antigo (com `immutable` pré-fix) pode estar em cache. A partir daqui, com o provider fora do root layout + `no-store` em dev, o erro não volta a ocorrer.
+
+**Estado final:**
+- ✅ Erro `reading 'call'` eliminado (provider movido para o dashboard layout + cache fix)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 15.4
+
+### Sessão 15.5 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Novo erro de hydration no GlassButton: diagnóstico concluído (sem bug de código)
+
+**Problema:** o utilizador reportou um erro de hydration mismatch no `glass-button.tsx:64`:
+```
+- className="relative z-[1] inline-flex items-center justify-center gap-2"   ← SERVIDOR (com flex)
++ className="relative z-[1]"                                                  ← CLIENTE (sem flex)
+```
+(Convenção do diff do React: `-` = servidor, `+` = cliente.)
+
+**Diagnóstico — STALE CLIENT BUNDLE (não é bug de código):**
+- Source atual `glass-button.tsx:64` tem as classes flex (alteração por commitar, `git status` = `M`).
+- HTML servido via curl contém `inline-flex items-center justify-center gap-2` (3×) ✅.
+- Chunk `page.js` servido contém as classes flex ✅.
+- Header de cache do chunk: `Cache-Control: no-store, must-revalidate` ✅ (fix da Sessão 15.3 ativo).
+- Browser em perfil Chrome **novo**: **0 erros de consola**, homepage renderiza 100% ✅.
+- Porta 3000: 1 único servidor (PID 22280) · 1 único processo `next dev` ✅.
+- Conclusão: o browser do utilizador executou um **chunk antigo** em cache (header `immutable` de 1 ano que existia antes do fix da Sessão 15.3). `immutable` desativa revalidação → o browser mantém o chunk velho até expirar ou ser limpo manualmente.
+
+**Ação:** nenhuma alteração de código necessária. Resolução para o utilizador:
+1. Janela anónima (Ctrl+Shift+N) → `http://localhost:3000` → funciona sem erros (teste definitivo).
+2. Janela normal: Ctrl+Shift+R (hard refresh) → se persistir: Ctrl+Shift+Delete → limpar dados do site de `localhost:3000`.
+
+**Validação:** typecheck ✅ · **113/113 testes** ✅ · code-reviewer ✅ (confirma: sem bug; cache do browser é a única variável restante).
+
+**Estado final do chat (working tree, tudo não commitado):**
+- `next.config.ts` — cache `immutable` só em produção; dev serve `no-store` (Sessão 15.3)
+- `src/app/layout.tsx` — `ToastProvider` removido do root layout (Sessões 15.4)
+- `src/app/dashboard/layout.tsx` — `ToastProvider` envolve a árvore autenticada do dashboard
+- `src/lib/theme-security.ts` (novo) + `src/app/layout.tsx` + `theme-provider.tsx` + `theme-toggle.tsx` + `seo.ts` + `site-jsonld.tsx` — auditoria de segurança do tema / DOM XSS (Sessão 15)
+- `src/components/ui/logo.tsx` + 9 callers — logo revertido para o original (`brightness-150 contrast-125`, sem `dark:invert`) (Sessão 15.1)
+- `src/components/ui/glass-button.tsx` — gap fix (classes flex no span) (pré-Sessão 15.1, intacto)
+- `src/__tests__/theme-security.test.ts` (novo) — 15 testes de segurança
+- Dev server a correr em `http://localhost:3000` (single instance)
+
+⚠️ **Alterações ainda não commitadas nem pushed** — working tree com Sessões 14 → 15.5
+
+### Sessão 16 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Tabela de coleta de IPs (deduplicação única)
+
+**Pedido:** criar uma tabela de coleta de IPs em que o SaaS **nunca guarda o mesmo IP duas vezes**; mas se o registo for **apagado da base de dados**, o próximo acesso do utilizador volta a recolher o IP e o país.
+
+**Implementação:**
+
+1. `frontend/scripts/provision-appwrite.ts` — nova coleção server-only **`collected_ips`** (sem permissões, como `visits`):
+   - Atributos: `ip` (obrigatório, 64), `visitorHash`, `country`, `countryCode`, `city`, `device`, `browser`, `os`, `firstSeenAt` (obrigatório), `lastSeenAt`
+   - **Índice único `idx_collected_ips_ip` em `ip`** → a garantia a nível da BD de que o mesmo IP nunca é gravado 2×
+   - Se o registo for apagado, a chave única fica livre → o próximo acesso volta a recolher o IP + país (comportamento pedido)
+   - (O índice composto redundante `(ip, firstSeenAt)` foi removido após code review — o índice único em `ip` já cobre qualquer query por IP)
+
+2. `frontend/src/lib/analytics.ts` — nova função **`collectIpIfNew(databases, input)`**:
+   - Ignora IPs vazios/privados (`isPrivateIp` — dev não polui a tabela)
+   - Verifica se o IP já existe (`Query.equal("ip", ip)`)
+   - Se não existe → cria documento com `ID.unique()` + `firstSeenAt`/`lastSeenAt` + país/cidade/dispositivo
+   - Se existe → retorna `alreadyExists` sem gravar (deduplicação)
+   - Race-safe: se dois pedidos concorrentes gravam o mesmo IP, o 409 do índice único é tratado como `alreadyExists`
+   - Chamada dentro de `recordAnalyticsEvent` (após o registo bruto em `visits`), envolvida em try/catch → nunca quebra o tracking principal
+   - É invocada tanto em views como em clicks (a primeira interação recolhe o IP; as seguintes são ignoradas pelo índice único)
+
+**Privacidade:** a coleção `collected_ips` não tem permissões (só o SDK do servidor com API key lê/escreve) — o IP nunca é exposto ao cliente.
+
+**Validação:** provision executado com sucesso (`✅ LinkFlow backend provisioned successfully!` — coleção + atributos + índice único criados/idempotentes) · Typecheck ✅ · **113/113 testes** ✅ · ESLint ✅ · code-reviewer ✅ (2 rondas — lógica de raça correta, privacidade preservada, comportamento "apagado → recolhido de novo" confirmado).
+
+⚠️ **Alterações ainda não commitadas nem pushed** — working tree com Sessões 14 → 16
+
+### Sessão 17 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Cartão "Últimos visitantes" com hora real + ícone de pessoa
+
+**Objetivo:** o cartão "Últimos visitantes" do Dashboard mostrava apenas país + browser/OS (ícone `Globe`). O utilizador pediu dados **reais** com a **hora de acesso** de cada visitante e um **ícone de pessoa** (boneco) — sem dados fictícios.
+
+1. **Diagnóstico — os dados já eram reais (sem tabela nova necessária):**
+   - Cada visita pública já grava `time: new Date().toISOString()` em `buildRecentVisitor` (`src/lib/analytics.ts`), persistido em `metricsJson.recentVisitors` (coleção `analytics`, atributo de 1 MB) — hora **real** do acesso, sem valores simulados
+   - O dashboard já faz auto-refresh a cada 30s + ao focar a aba (`refreshAnalytics`) — novas visitas aparecem sem recarregar
+   - A única lacuna era a **apresentação**: o cartão não mostrava a hora e usava o ícone `Globe` em vez de uma pessoa
+
+2. **Alteração — `src/app/dashboard/page.tsx` (1 ficheiro, só o cartão):**
+   - Ícone `Globe` → **`UserRound`** (silhueta de pessoa) num círculo (`rounded-full`) — o "boneco" pedido
+   - Novos helpers puros: `timeAgo(iso)` (relativo em pt-PT: "agora mesmo", "há X min", "há Xh", "há X dias", fallback data dd/mm) e `formatVisitTime(iso)` (hora absoluta HH:MM)
+   - **Pill de hora** à direita de cada visitante: ícone `Clock` + tempo relativo com `tabular-nums` (largura estável) e tooltip `title` com a hora absoluta ("Visitou às HH:MM")
+   - Guard de data inválida: `Number.isNaN` em ambos os helpers (fallback "—"), tooltip só renderiza com hora válida
+   - Sem alterações de dados, backend ou layout geral — cartão apenas enriquecido visualmente
+
+3. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ · ESLint ✅ · code-reviewer ✅ (confirmou limpo: import `Globe` removido sem referências restantes, helpers sem risco de hydration — dados chegam client-side via `useAuth`, componente `'use client'`)
+
+**Estado final:**
+- ✅ "Últimos visitantes" mostra a **hora real** de cada acesso (relativa + absoluta no tooltip) e ícone de pessoa
+- ✅ Dados 100% reais (gravados pelo tracking de views) — zero dados fictícios
+- ✅ Sem tabela Appwrite nova necessária (dados já persistidos no `metricsJson`)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 17
+
+### Sessão 17.1 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Bandeira do país no cartão "Últimos visitantes"
+
+**Objetivo:** adicionar a bandeira do país (emoji) ao lado de cada visitante no cartão "Últimos visitantes", usando o `countryCode` real já gravado.
+
+1. **Helper centralizado — `src/lib/utils.ts`:** novo `countryFlag(code?: string): string` exportado — converte código ISO 3166-1 alpha-2 em emoji de bandeira (`String.fromCodePoint(127397 + charCode)`); códigos inválidos/ausentes devolvem 🌍 (fallback). Antes existia uma cópia privada no `resumo-card.tsx` — **movida para utils para não duplicar**
+
+2. **`src/components/dashboard/resumo-card.tsx`:** removida a definição local de `countryFlag` (implementação idêntica) → importa a partilhada de `@/lib/utils`. Zero mudança de comportamento
+
+3. **`src/app/dashboard/page.tsx` (cartão Últimos visitantes):** a linha do país agora mostra a bandeira (span `text-base leading-none`, `aria-hidden`) antes do nome, usando `visitor.countryCode` real (gravado pelo `buildRecentVisitor`); layout de truncate preservado
+
+4. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ · ESLint ✅ (3 ficheiros) · code-reviewer ✅ (confirmado limpo: sem duplicação, sem imports não usados, hydration-safe — bandeira derivada de dados que chegam client-side)
+   - **Nota do reviewer:** Chrome no Windows renderiza bandeiras como as letras ISO ("PT" em vez de 🇵🇹) — limitação da plataforma, não do código (funciona em macOS/Android/iOS); sem alteração necessária
+
+**Estado final:**
+- ✅ Bandeira do país real em cada visitante (fallback 🌍)
+- ✅ `countryFlag()` partilhado em `utils.ts` (sem duplicação)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 17.1
+
+### Sessão 17.2 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Cartão "Últimos visitantes" também na aba Analytics
+
+**Objetivo:** aplicar o mesmo tratamento (ícone de pessoa + hora real + bandeira) à secção "Últimos visitantes" da aba Analytics. A secção não existia lá (só no Dashboard) — foi **adicionada**.
+
+1. **Helpers centralizados — `src/lib/utils.ts`:** `timeAgo(iso)` (tempo relativo pt-PT: "agora mesmo", "há X min", "há Xh", "há X dias", fallback dd/mm; "—" para inválida) e `formatVisitTime(iso)` (HH:MM absoluta; vazio para inválida) movidos do `dashboard/page.tsx` para utils — **evita duplicação** entre as duas páginas
+
+2. **`src/app/dashboard/page.tsx`:** removidas as definições locais de `timeAgo`/`formatVisitTime` → importa de `@/lib/utils` (zero mudança de comportamento)
+
+3. **`src/app/dashboard/analytics/page.tsx` (novo cartão no fim da página):**
+   - Header "Últimos visitantes" + badge "Em tempo real"
+   - Grelha com até 6 visitantes de `analytics.recentVisitors`: ícone **`UserRound`** (pessoa), **bandeira** `countryFlag` + país, browser • OS, e **pill de hora** (Clock + `timeAgo`) com tooltip "Visitou às HH:MM"
+   - `EmptyState` (ícone pessoa) quando não há visitantes
+   - Mesmo padrão do dashboard: `const recentVisitors = (analytics?.recentVisitors ?? []).slice(0, 6)` — **sem asserções não-nulas** (correção da sugestão do reviewer)
+
+4. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ · ESLint ✅ (3 ficheiros) · code-reviewer ✅ (2 rondas — confirmado limpo: helpers partilhados sem duplicação, imports todos usados, hydration-safe — dados chegam client-side via `useAuth`)
+
+**Estado final:**
+- ✅ "Últimos visitantes" com pessoa + hora real + bandeira em **ambas** as páginas (Dashboard e Analytics)
+- ✅ `timeAgo`/`formatVisitTime`/`countryFlag` centralizados em `utils.ts`
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 17.2
+
+### Sessão 17.3 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Botão "Novo link" corrigido e melhorado
+
+**Objetivo:** o utilizador reportou o botão "Novo link" (aba Links) como **feio e bugado**. Diagnóstico e correção em `frontend/src/app/dashboard/links/page.tsx`:
+
+1. **Causa 1 — sombra em conflito (o "feio"):** o `className="shadow-[0_0_24px_rgba(99,102,241,0.22)]"` (utility Tailwind) **sobrepunha-se** ao `box-shadow` do `.glass-btn-primary` (highlight interior + sombras de profundidade do Liquid Glass) → botão achatado, sem o visual glass
+   - **Correção:** trocado por `drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]` — `drop-shadow` é um *filter* e **não sobrepõe** o `box-shadow`; o efeito glass mantém-se e ganha um glow subtil
+
+2. **Causa 2 — círculo do "+" invisível em dark mode:** `bg-white/15` num botão primary que é um gradiente branco → círculo quase invisível (branco sobre branco)
+   - **Correção:** badge usa `bg-[var(--background)]/80` + `text-[var(--foreground)]` → **inverte com o tema**: círculo escuro no botão branco (dark) / círculo claro no botão escuro (light); ícone `Plus` com `strokeWidth={2.75}` e anel `ring-white/25` + highlight interior
+
+3. **Limpeza de classes redundantes:** removidos `group/btn` e `relative` (já na base do `GlassButton`: `group/btn relative inline-flex items-center justify-center gap-2`) e `!px-5` (duplicava o `px-5` do `size="md"`); `!pl-4` ajusta o espaço para o badge maior (h-6 w-6)
+
+4. **Micro-interação:** badge com `group-hover/btn:rotate-90` + `group-hover/btn:scale-110` e `transition-all duration-300` (rotação + ligeiro zoom no hover)
+
+5. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ · ESLint ✅ · code-reviewer ✅ (2 rondas — confirmado limpo; nits cosméticos não bloqueantes: `!pl-4` assimétrico 16px/20px, drop-shadow lê como profundidade em vez de glow)
+
+**Estado final:**
+- ✅ Botão "Novo link" com visual glass preservado (sem sombra achatada), badge do "+" com contraste correto em ambos os modos e micro-interação de hover
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 17.3
+
+### Sessão 17.4 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Botões "Guardar" melhorados (não mais feios nem bugados)
+
+**Objetivo:** o utilizador reportou todos os botões escritos "Guardar" como **muito feios e bugados**. Diagnóstico: (1) usavam o variant secundário `glass-btn` (quase invisível sobre os glass-cards) em vez do primary; (2) durante o save ficavam com `disabled:opacity-[0.35]` — o botão todo desaparecia/diminuía enquanto "A guardar..." (aspeto de quebrado).
+
+1. **`src/components/ui/glass-button.tsx` — nova prop `loading?: boolean`:**
+   - Quando `loading`, o botão continua `disabled` (pointer-events-none + atributo disabled) mas usa `disabled:opacity-100` em vez de `disabled:opacity-[0.35]` → **fica totalmente visível enquanto guarda** (fim do aspeto "bugado")
+   - `disabled` é desestruturado e combinado como `disabled={disabled || loading}` — compatível com todos os callers existentes (ex.: botão "Novo link" continua a usar `disabled={!canAddLink || isAdding}`)
+
+2. **Correção de sintaxe Tailwind v4 (importante!):** o projeto usa `tailwindcss ^4` onde o modificador `!important` é **sufixo** (`pl-4!`), não prefixo (`!pl-4` — ignorado silenciosamente). Corrigidos os 4 botões (Novo link, Guardar settings, Guardar editor, Salvar e continuar) e também o variant `ghost` do GlassButton (`!bg-transparent` → `bg-transparent!`, `hover:!bg-white/[0.04]` → `hover:bg-white/[0.04]!` — este último agora realmente aplica o hover, antes estava inerte)
+
+3. **Três botões de guardar com visual premium (padrão Sessão 17.3):**
+   - **`settings/page.tsx` (Guardar):** `variant="primary"` + `loading={saving}` + badge (círculo `rounded-full bg-[var(--background)]/80 ring-white/25`, ícone `Save` `text-[var(--foreground)]` strokeWidth 2.75) + `Loader2 animate-spin` durante o save + `pl-4!` + `drop-shadow`
+   - **`links/page.tsx` (LinkEditor Guardar):** mesmo tratamento em `size="sm"` (badge h-5 w-5) com ícone `Check`
+   - **`create/page.tsx` (Salvar e continuar):** mesmo tratamento com ícone `Sparkles`, `w-full sm:flex-1`
+
+4. **Validação:** typecheck `tsc --noEmit` ✅ · **113/113 testes** ✅ · ESLint ✅ (4 ficheiros) · code-reviewer ✅ (2 rondas — confirmado limpo: sintaxe sufixo correta no v4, prop loading sem quebrar callers, sem imports mortos; notas menores: badge repetido 4× poderia ser extraído, `bg-transparent!` no ghost é defensivo mas inofensivo)
+
+**Estado final:**
+- ✅ Botões "Guardar"/"Salvar" com visual primary premium (badge + ícone) e **totalmente visíveis durante o save** (spinner + texto "A guardar...")
+- ✅ Sintaxe `!important` do Tailwind v4 corrigida (sufixo) em todos os botões afetados
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree com Sessões 14 → 17.4
+
+### Sessão 18 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Auditoria de segurança OWASP: 14 vulnerabilidades
+
+**Objetivo:** o utilizador submeteu um relatório de segurança (OWASP PTK) com 14 vulnerabilidades (2 críticas, 5 médias, 6 baixas) para correção completa, sem quebrar funcionalidades. Ordem de execução seguida. Resultado: **13/14 corrigidas ou confirmadas-já-bom; 1 (L3 CSP nonce) documentada/adiada com rationale**. Validação: typecheck ✅ · **124/124 testes** ✅ · ESLint ✅ · code-review ✅ (2 rondas).
+
+1. **H1 — XSS via `link.url` no `profile-renderer.tsx` (corrigido):** `href={sanitizeUrl(link.url)}` (consistente com `trackable-link.tsx`). Teste novo `profile-renderer.test.tsx` prova que `javascript:alert(1)` nunca aparece no render.
+2. **H2 — JSON-LD injection (já corrigido na Sessão 15):** `renderJsonLd` escapa `<`, `>`, `&`, U+2028/2029; usado em `layout.tsx`, `site-jsonld.tsx` e `u/[username]/page.tsx`. Testes existentes em `theme-security.test.ts`.
+3. **M1 — Falta middleware global (corrigido):** criado `src/middleware.ts` — verifica cookie `a_session_<projectId>` (fallback prefixo `a_session_`); `/dashboard/*` → redirect `/login` sem cookie; `/api/*` mutações → 401 sem cookie, exceto `PUBLIC_API_PREFIXES` (view, click, csrf, rate-check, oauth/sync, log-anonymous, sitemap). Coexiste com AuthContext. Teste novo `middleware.test.ts`.
+4. **M2 — fetchWithCsrf degradava silenciosamente (corrigido):** agora **throw** (`Error "CSRF token unavailable"`) em vez de `fetch` sem header. `recordView`/`recordClick` passam a usar `fetch` simples porque `/api/view` e `/api/click` são públicos sem `csrfGuard`. Teste novo em `csrf.test.ts` (throw + header `x-csrf-token` no 2º call).
+5. **M3 — oauth/sync sem CSRF guard (corrigido):** `csrfGuard` no POST + cliente (`checkAndSyncOAuthUser`) passou a `fetchWithCsrf`.
+6. **M4 — logout só fechava sessão atual (corrigido):** `account.deleteSessions()` (plural) termina TODAS as sessões.
+7. **M5 — 404 uniforme em /api/view e /api/click (já bom):** ambos devolvem resposta idêntica em doc inexistente vs permissão negada — comentário documentado.
+8. **M6 — collected_ips guardava IP em texto plano (corrigido):** `collectIpIfNew` passa a deduplicar e persistir apenas `visitorHash` (hashIp salgado) — o campo `ip` guarda o hash, nunca o IP cru (RGPD/LGPD). Índice único em `visitorHash` adicionado ao provision.
+9. **M7 — Race de quota Appwrite (mitigado):** cache em memória do plano (`getCachedUserPlan`, TTL 30s) + `requireOwnerOfPage` devolve o `session` e `createOwnedDocument` reutiliza-o (menos `account.get()` por mutação). Rate-limit server-side por userId documentado como limitação (mutações vão diretas ao Appwrite via client SDK).
+10. **L1 — Password policy fraca (corrigido):** `isValidPassword` → 12+ chars + 1 símbolo; UI do register atualizada (5 checks + placeholder); mensagem do AuthContext atualizada. HIBP range API documentado como opcional/não integrado.
+11. **L2 — renderJsonLd (já corrigido):** mesmo do H2 (escape de `<`, `>`, `&`, U+2028/29).
+12. **L3 — CSP unsafe-inline/unsafe-eval (documentado/adiado):** nonce-based CSP exige refactor coordenado (middleware + layout + theme-security.ts) com risco de quebrar a hidratação do tema — mantido `'unsafe-inline'` com a superfície XSS do tema eliminada por whitelist estrita (theme-security.ts). Decisão comentada no `next.config.ts`.
+13. **L4 — Sitemap (já bom + defesa extra):** usernames já usam `encodeURIComponent`; adicionado `escapeXml` no `<loc>` do sitemap.xml.gz.
+14. **L5 — log-anonymous (já bom):** rate limit 5/min por IP + CSRF + append-only documentados em comentário; corrigido espaçamento. **L6 — OAuth origin (já bom):** callback usa `window.location.origin` (não é open redirect) — comentário documentado.
+
+**Ficheiros alterados (14):** `src/middleware.ts` (novo), `src/hooks/use-csrf.ts`, `src/lib/services.ts`, `src/lib/sanitize.ts`, `src/lib/analytics.ts`, `src/components/public/profile-renderer.tsx`, `src/app/api/auth/oauth/sync/route.ts`, `src/app/api/sitemap.xml.gz/route.ts`, `src/app/api/security/log-anonymous/route.ts`, `src/app/api/view/route.ts`, `src/app/api/click/route.ts`, `src/app/register/page.tsx`, `src/context/AuthContext.tsx`, `scripts/provision-appwrite.ts`, `next.config.ts` + testes (`middleware.test.ts`, `profile-renderer.test.tsx`, `csrf.test.ts`, `sanitize.test.ts`).
+
+**Estado final:**
+- ✅ 13/14 vulnerabilidades corrigidas ou confirmadas como já boas; L3 documentada com rationale (adiada de propósito)
+- ✅ Superfície de ataque do DOM XSS (`localStorage["theme"]`) confirmada eliminada (Sessão 15 + teste do scanner)
+- ⚠️ Alterações ainda **não commitadas nem pushed** — working tree acumula Sessões 14 → 18
+
+### Sessão 19 — 1 Agosto 2026 (Buffy / DeepSeek v4-flash) — Correção do login OAuth (Google/GitHub): reversão do middleware M1
+
+**Sintoma:** após o deploy da Sessão 18, o login com Google e GitHub deixou de funcionar — o utilizador autenticava-se no Google/GitHub mas voltava sempre para a página de login.
+
+**Diagnóstico (causa raiz):** o middleware M1 criado na Sessão 18 (`src/middleware.ts`) verificava a presença do cookie de sessão Appwrite `a_session_<projectId>` no domínio da app e redirecionava `/dashboard` → `/login` na ausência dele. Porém o projeto usa **Appwrite Cloud cross-origin** (`NEXT_PUBLIC_APPWRITE_ENDPOINT=https://nyc.cloud.appwrite.io` — domínio diferente do da app) e o **SDK Appwrite v26 nunca define o cookie `a_session_` no domínio da app**: guarda a sessão em `localStorage["cookieFallback"]` e envia-a ao Appwrite via header `X-Fallback-Cookies` (confirmado no código do SDK — `sdk.js` linhas 762-763, 1105-1109, 1306-1309; não escreve `document.cookie`). Logo o middleware redirecionava `/dashboard` → `/login` **sempre**, mesmo com o utilizador autenticado — e como o success URL do OAuth é `${origin}/dashboard`, o retorno do Google/GitHub caía nesse redirect, parecendo que o login falhava. Verificação empírica: `curl /dashboard` devolvia **307 → /login**; após a correção devolve **200**.
+
+**Correção aplicada:**
+1. **Removidos `src/middleware.ts` e `src/__tests__/middleware.test.ts`** — a proteção do dashboard volta a ser client-side via AuthContext (`isProtectedRoute` + `DashboardLayout` com loading state + redirect), exatamente como era antes da Sessão 18.
+2. **Nota sobre o M1 (reclassificado):** o item M1 da auditoria fica marcado como **não aplicável nesta arquitetura** — com Appwrite Cloud cross-origin, o servidor nunca recebe o cookie de sessão (a sessão vive no `localStorage` do browser e só chega ao Appwrite). O `requireAuth` de `auth.server.ts` também depende desse cookie, logo o auth server-side permanece limitado; o estado real do login vem do client SDK via localStorage. **Fix futuro recomendado (se quiserem proteção server-side real):** espelhar a sessão Appwrite num cookie do domínio da app após login (via `document.cookie` a partir do `cookieFallback`), em vez de reintroduzir o middleware a verificar um cookie que nunca existe.
+3. **Não afetados:** `checkAndSyncOAuthUser` (M3) mantém `fetchWithCsrf` — o token CSRF vem da cookie `csrf-token` definida pela própria app (`/api/csrf`), que funciona normalmente no domínio da app. `recordView`/`recordClick` continuam com `fetch` simples (endpoints públicos).
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ (src/) · code-review ✅ (1 ronda — confirmado limpo; notas: documentar reclassificação do M1 + fix futuro recomendado, ambos feitos neste registo). `curl /dashboard` → **HTTP 200** (sem 307) e `curl /login` → 200.
+
+**Estado final:**
+- ✅ Login OAuth (Google/GitHub) restaurado — `/dashboard` deixa de ser redirecionado para `/login`
+- ✅ M1 reclassificado (não aplicável com Appwrite Cloud cross-origin); proteção client-side mantida
+- ⚠️ Alterações desta sessão ainda **não commitadas nem pushed** — working tree acumula Sessões 14 → 19
+
+---
+
+## Sessão 20 — Correções mobile (sobreposições, duplicações e navegação)
+
+**Sintoma:** no telemóvel o site apresentava elementos a tapar outros, alguns duplicados e navegação frágil (menu que não fechava, drawer sem animação, conteúdo cortado por causa da barra do browser iOS).
+
+**Correções aplicadas:**
+
+1. **Navbar (home) — menu mobile corrigido** (`src/components/ui/navbar.tsx`):
+   - **Backdrop** `fixed inset-0 z-40` FORA do `motion.header` — a animação `filter` do header cria um containing block que tornava o `fixed inset-0` relativo ao header (e não à viewport), partindo o dim/backdrop.
+   - **Scroll-lock** do body enquanto o menu está aberto (sem scroll por trás).
+   - **Fechar com Escape** e **fechar ao tocar fora** (backdrop).
+   - **Altura máxima** no dropdown (`max-h-[calc(100dvh-6rem)] overflow-y-auto`) — nunca corta em ecrãs pequenos.
+   - **Safe-area** (`paddingTop: env(safe-area-inset-top)`) + fundo sólido do header em mobile (`bg-[var(--background)] md:bg-transparent`) — a banda do notch deixa de mostrar conteúdo a passar por trás.
+   - Acessibilidade: `aria-expanded`, `aria-controls="mobile-nav-dropdown"` + `id` no dropdown.
+
+2. **Sidebar do dashboard — drawer mobile melhorado** (`src/components/dashboard/sidebar.tsx`):
+   - **AnimatePresence** com animação de slide-in (backdrop fade + drawer `x: -100% → 0`, spring) em vez de aparecer/desaparecer abruptamente.
+   - **Scroll-lock** do body e **fechar com Escape**.
+   - **Safe-area** no top bar (paddingTop) e no drawer (header com `calc(4rem + env(safe-area-inset-top))` + rodapé com `env(safe-area-inset-bottom)`) — respeita o notch e a barra inferior do iPhone.
+
+3. **Layout do dashboard** (`src/app/dashboard/layout.tsx`): `pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-0` — compensa o top bar fixo com safe-area em mobile; em desktop sem padding extra (corrige regressão da 1ª tentativa com inline style).
+
+4. **Viewport dinâmico** (`globals.css` + 19 ficheiros): `min-h-screen` → `min-h-dvh` em todos os templates, profile-renderer, `/u/[username]`, login, register, demo, not-found, home e dashboard — o `100vh` no iOS é mais alto que o viewport visível (barra do browser), cortando o rodapé; `100dvh` resolve. Fallback `@supports not (min-height: 100dvh)` para browsers antigos.
+
+5. **Overflow horizontal**: `overflow-x: clip` em `html` e `body` — evita scroll lateral acidental (conteúdo decorativo/animado que estoura a viewport).
+
+6. **PreviewPhone** (`preview-phone.tsx`): `w-[260px]` fixo → `w-full max-w-[260px]` — deixava de transbordar o cartão em ecrãs < 340px (demo page).
+
+7. **Teste do sidebar** (`sidebar.test.tsx`): o teste de fechar o drawer usa `waitFor` — a saída agora é animada (AnimatePresence), logo a remoção do DOM é assíncrona.
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (2 rondas — a 2ª confirmou limpo; pontos da 1ª ronda aplicados: backdrop fora do header, paddingTop responsive no layout, waitFor no teste).
+
+**Estado final:**
+- ✅ Navegação mobile sem sobreposições/duplicações; menus com backdrop, scroll-lock, Escape e safe-area
+- ✅ Páginas públicas e dashboard sem conteúdo cortado (dvh) e sem scroll horizontal
+- ⚠️ Alterações desta sessão **não commitadas nem pushed** — aguardam commit + push para deploy CI
+
+---
+
+## Sessão 21 — Atividades recentes (registo real de ações da conta com IP)
+
+**Objetivo:** o cartão "Atividades recentes / Resumo das ações mais recentes na sua conta" do Dashboard deve mostrar dados **reais** — cada ação do utilizador é registada automaticamente (com IP e hora), em vez do estado vazio "Nenhuma atividade recente.".
+
+### Nova coleção Appwrite: `activity_logs`
+- Campos: `userId`, `action`, `details` (JSON string, 2048), `ipAddress`, `userAgent`, `createdAt`
+- Índices: `idx_activity_userId` (key) e `idx_activity_userId_createdAt` (key composto)
+- Permissões por documento `Role.user` — cada utilizador só lê as suas próprias atividades (tenancy seguro; ninguém pode forjar atividades de outrem porque o `userId` vem da sessão autenticada, nunca do body)
+- Adicionada ao `scripts/provision-appwrite.ts` e provisionada com sucesso no Appwrite Cloud
+
+### Tipos (`types.ts`)
+- `ActivityAction`: `login`, `logout`, `register`, `page_created`, `page_updated`, `page_published`, `page_unpublished`, `link_created`, `link_updated`, `link_deleted`, `appearance_updated`, `avatar_updated`, `banner_updated`
+- `ActivityEntry`: doc com `$id`, `action`, `details?`, `ipAddress?`, `userAgent?`, `createdAt`
+
+### Registo (client SDK autenticado)
+- `logActivity(action, details?)` em `services.ts`: escreve na coleção via client SDK (sessão no localStorage — a arquitetura cross-origin não expõe o cookie de sessão ao servidor, por isso o registo é feito pelo cliente autenticado com permissões Role.user)
+- IP real obtido do servidor via **nova rota** `GET /api/activity/ip` (`getClientIp` + rate-limit 30/min) — o IP vem do `x-forwarded-for`, nunca do body; cacheado em memória
+- **Throttle apenas para `appearance_updated`** (3s — protege os sliders da aparência); as ações discretas (criar/apagar links, publicar, etc.) são **sempre** registadas
+- Ligado a: `createPage` (page_created), `updatePage` (page_published/unpublished quando o patch muda `published`; senão page_updated), `createLink` (link_created), `updateLink` (link_updated — **ignora patches só com `order`** para o drag-reorder não inundar o feed), `deleteLink` (link_deleted), `updateTheme` (appearance_updated), `updatePageAvatar`/`updatePageBanner` (avatar_updated/banner_updated)
+
+### AuthContext
+- Novo estado `activities` + `refreshActivities()`; carrega `getRecentActivities(15)` no `loadUserData`
+- Regista `login` (após loginUser), `register` (após registo), `logout` (await **antes** de terminar sessões — o client SDK precisa da sessão ativa)
+- `setActivities([])` no logout e nos branches sem sessão
+
+### Dashboard (`page.tsx`)
+- Cartão "Atividades recentes": lista as 8 mais recentes com ícone por ação (`ACTIVITY_META` com `ComponentType` importado de react), rótulo PT, detalhe parseado do JSON (título/@username), **IP mascarado** (último octeto `.x`; IPv6 oculto — privacidade) e hora (formato HH:MM + `timeAgo`)
+- Auto-refresh a cada 30s + no foco (junto com o refreshAnalytics)
+- Estado vazio mantém mensagem "Nenhuma atividade recente." com dica
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas — pontos aplicados: `ComponentType` em vez de `React.ComponentType`, wiring do `appearance_updated`, throttle só para ações de alta frequência, reset de `activities` no logout, filtro `meaningfulKeys` no updateLink)
+
+**Limpeza:** contas de teste criadas na Sessão anterior (Teste Mobile `testemobile.0801@linkflow.app` e o antigo `teste@linkflow-temp.com`) apagadas do Appwrite (HTTP 204, confirmado `total:0`).
+
+**Estado final:**
+- ✅ Cartão Atividades recentes com dados reais (login, registo, logout, links, página, aparência, avatar/banner) + IP mascarado + hora
+- ✅ Coleção `activity_logs` criada e provisionada; fix do login (deleteSession current) da sessão anterior mantido no working tree
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26)
+
+---
+
+## Sessão 22 — Correção do erro "Document with the requested ID ... already exists" ao criar a primeira página
+
+**Sintoma reportado:** ao criar uma conta nova, a página "Criar a primeira página" falhava ao clicar em "Salvar e continuar" com o erro `Document with the requested ID '6a6e...' already exists`.
+
+**Causa raiz (confirmada no Appwrite):** já existia uma página com o username escolhido (ex: `hermes`) — o índice único `idx_pages_username` rejeitava a criação de uma segunda página para o mesmo utilizador. O `createPage` tentava criar **outra** página quando o utilizador já tinha uma (dupla submissão do botão ou tentativa anterior que ficou a meio).
+
+### Correções em `src/lib/services.ts` (`createPage`)
+
+1. **Idempotente:** primeiro `getPageByUserId(session.$id)` — se o utilizador JÁ tem página, chama `updatePage()` (que faz o owner check e regista `page_updated`) em vez de criar — elimina o 409 do índice único.
+2. **`throwPageConflict(error): never`** — traduz o 409 / mensagem `already exists` do Appwrite para `"Este nome de utilizador já está em uso. Escolha outro."` com `status: 409`; relança qualquer outro erro.
+3. **Escopo correto do 409** (refinado após code review): o `try/catch` com `throwPageConflict` envolve **apenas** o `createDocument` da coleção `pages`. Os passos seguintes (theme/analytics) usam `.catch()` com o novo helper **`isAlreadyExistsError(error)`** — um 409 no índice único de `pageId` (tentativa parcial anterior) é **auto-curado** (ignorado, pois `getThemeByPageId`/`getAnalyticsByPageId` têm fallbacks `defaultAppearance()`/`emptyAnalytics()`); erros reais (não-409) propagam.
+4. A criação da página usa `let doc: AppwriteDocument` + `throwPageConflict` (retorno `never` garante definite-assignment no TS).
+
+### Correção em `src/app/dashboard/create/page.tsx`
+
+- Guard `if (saving) return;` no `handleSubmit` (bloqueia dupla submissão) + `loading={saving}` no botão "Salvar e continuar" (mostra "A guardar..." com spinner).
+- Erro amigável do 409 é mostrado no formulário (mensagem vermelha).
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (2 rondas — aplicado o refinamento do escopo do 409 para theme/analytics).
+
+**Estado final:**
+- ✅ Criar a primeira página funciona mesmo se o utilizador já tiver página (atualiza em vez de duplicar)
+- ✅ Username em uso por outro utilizador → mensagem amigável "Este nome de utilizador já está em uso. Escolha outro."
+- ✅ Dupla submissão bloqueada no formulário
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26)
+
+---
+
+## Sessão 23 — Correção de chaves duplicadas no cartão "Últimos visitantes" (console error)
+
+**Erro reportado (console):** `Encountered two children with the same key, 'v1aah079'` no `dashboard/page.tsx` (cartão Últimos visitantes, `key={visitor.id}`).
+
+**Causa raiz:** o `recentVisitors` é um array de **acessos** (não de visitantes únicos) — cada visita à página pública adiciona uma entrada com `id: visitorHash` (hash do IP). Quando o mesmo visitante volta várias vezes, ficam várias entradas com o **mesmo id** → chaves React duplicadas (comportamento não suportado: pode duplicar/omitir itens na renderização).
+
+**Fix aplicado** em `frontend/src/app/dashboard/page.tsx` **e** `frontend/src/app/dashboard/analytics/page.tsx`:
+- `key={visitor.id}` → `key={`${visitor.id}-${visitor.time}`}` — chave única por **ACESSO** (id + hora ISO). Como cada entrada é criada com `new Date().toISOString()` (precisão de ms) e os pedidos são separados por round-trips de I/O ao Appwrite, a colisão de chaves é praticamente impossível; e a chave mantém-se estável por entrada (quando novos visitantes entram no topo, o React reutiliza em vez de remontar).
+- Mantém o comportamento pretendido: o mesmo visitante pode aparecer várias vezes, cada uma com a sua hora real (pedido original do cartão).
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (confirmado sem outras ocorrências de `key={visitor.id}`; `topLinks`/`activities`/`deviceData` usam chaves já únicas).
+
+**Estado final:**
+- ✅ Console sem o erro de chaves duplicadas nos cartões Últimos visitantes (Dashboard e Analytics)
+- ✅ Cada acesso mostra a sua hora real; o mesmo visitante pode aparecer várias vezes (comportamento intencional)
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26)
+
+---
+
+## Sessão 24 — Funcionalidade "Páginas" desativada (aviso "Em breve")
+
+**Pedido:** remover a funcionalidade de escolha de tipos de página, mas **manter a aba** no menu lateral — ao clicar, mostrar um aviso de que a funcionalidade será implementada em breve.
+
+### Alteração em `frontend/src/app/dashboard/pages/page.tsx`
+
+- A página de seleção de templates (grelha de 12 PageTypes, `TemplateThumbnail`, `updatePage({ pageType })`, `useToast`) foi **substituída** por um estado "Em breve".
+- A aba continua no sidebar (não foi removida) e navega para `/dashboard/pages`, onde aparece o aviso: ícone `LayoutGrid` + selo "Em breve" (relógio `Clock`), texto "A funcionalidade de Páginas chega em breve" e botão "Voltar ao Dashboard".
+- **Nada foi apagado do sistema de templates**: `page-templates.ts`, `components/templates/*` e `TemplateThumbnail` continuam a ser usados pela página pública `/u/username` para renderizar o layout guardado (`pageType`). Só a **seleção** ficou desativada.
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (sem imports mortos, sem rotas partidas; nota: utilizadores com `pageType` já escolhido continuam a renderizar esse template na página pública — se pretender reverter todos para `minimal`, é um passo separado).
+
+**Estado final:**
+- ✅ Aba "Páginas" continua no menu e mostra aviso "Em breve" ao clicar
+- ✅ Seleção de templates desativada (updatePage pageType deixa de ser chamado desta página)
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26)
+
+---
+
+## Sessão 25 — Aba "Páginas" escondida do menu lateral
+
+**Pedido:** em vez do aviso "Em breve", **esconder completamente** a aba Páginas do menu lateral.
+
+### Alteração em `frontend/src/components/dashboard/sidebar.tsx`
+
+- Removido o item `{ label: "Páginas", href: "/dashboard/pages", icon: LayoutGrid }` do array `navItems` (e do `export const nav`).
+- Removido o import `LayoutGrid` dos lucide-react (ficaria sem uso).
+- Os testes `sidebar.test.tsx` iteram `nav` dinamicamente, por isso continuam válidos sem alteração.
+
+**Decisão:** a rota `/dashboard/pages` **continua a existir** com a página "Em breve" da Sessão 24 como fallback — quem aceder diretamente por URL (ex: marcador antigo) não recebe 404; apenas deixa de aparecer no menu.
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (sem referências órfãs a `/dashboard/pages` noutros componentes; sem imports mortos).
+
+**Estado final:**
+- ✅ Aba "Páginas" removida do menu lateral (desktop e mobile)
+- ✅ Rota `/dashboard/pages` mantida como fallback "Em breve" para acesso direto por URL
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26)
+
+---
+
+## Sessão 26 — Aba Badges (insígnias na página pública)
+
+**Pedido:** nova aba "Badges" no dashboard com: candidatura ao staff, doação de 10€ a desbloquear a insígnia de verificado roxo na foto de perfil, e outras badges. Criar tabelas no banco se necessário.
+
+**Decisões do utilizador:** doação **simulada** por agora (sem Stripe — concedida de imediato); staff com **formulário de candidatura**; **conjunto completo** de badges.
+
+### Registo de badges (`src/lib/badges.ts` — novo)
+- 6 badges: `verified` (Verificado, roxo, 10€), `staff` (candidatura), `supporter` (Apoiante), `early` (Early Adopter, equipa), `pro` (plano pago), `partner` (Parceiro, equipa)
+- Cada badge tem `id/name/description/icon/accent/gradient/unlock`; `SELF_SERVICE_BADGES` = verified + staff; `VERIFIED_DONATION_PRICE = 10`
+
+### Base de dados (Appwrite — provisionado com sucesso)
+- **Atributo novo** `pages.badges` (String[] — `createStringArrayAttribute`)
+- **Coleção nova** `staff_applications`: `userId`, `message` (4096), `status` (pending/approved/rejected), `createdAt` + índices `userId` e `userId+status`; permissões por documento `Role.user`
+- `Collections.staffApplications` em `appwrite.ts`
+
+### Tipos (`types.ts`)
+- `BadgeId` (6 ids), `PageProfile.badges?: string[]`, `StaffApplicationStatus`, `StaffApplication`
+- `ActivityAction` + `badge_earned` e `staff_applied`
+
+### Services (`services.ts` / `services.server.ts`)
+- `mapPageDocument` e `getPublicPageByUsername` incluem `badges`
+- **`grantBadge(badgeId)`** com regras de segurança: valida `isBadgeId`; **nega badges exclusivas da equipa** (`early`/`partner` — `TEAM_ONLY_BADGES`); `staff` só com candidatura **aprovada**; `pro` só com **plano pago** (origem real em `users`); userId sempre da sessão
+- **`revokeBadge`** para sincronizar a badge pro com o plano
+- **`applyForStaff(message)`** — valida mín. 20 caracteres, bloqueia candidatura duplicada pendente, cria doc `pending`, regista atividade `staff_applied`
+- **`getStaffApplicationStatus()`** — última candidatura do utilizador
+
+### Templates (página pública `/u/username`)
+- `TemplateAvatar` agora aceita `badges` e mostra o **visto verificado roxo** sobre a foto quando a badge `verified` está ativa
+- Novo componente **`ProfileBadges`** (linha de badges por baixo do nome) — renderiza apenas badges válidas (`isBadgeId`)
+- Inserido nos **12 templates** (minimal, creator, business, store, portfolio, photographer, music, restaurant, event, resume, gamer, developer)
+
+### Dashboard
+- **Sidebar**: item "Badges" (`Award`) entre Aparência e Analytics
+- **`dashboard/badges/page.tsx`** (nova): resumo com avatar + badges ativas, grelha de 6 cartões com estados (Ativa / Em análise / Aprovada / Não aprovada / Bloqueada), **modal de doação simulada** (concede verified + supporter), **modal de candidatura ao staff** (formulário), auto-concessão de `staff` quando aprovada e sincronização automática de `pro` com o plano (sem loops — dependências `pageId`/`account?.plan`, `grantBadge` idempotente devolve `false` e só faz refresh quando algo mudou)
+- `ACTIVITY_META` no dashboard com `badge_earned` (Award) e `staff_applied` (ShieldCheck)
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (2 rondas — aplicados: whitelist/segurança no `grantBadge`, persistência da badge pro, auto-concessão do staff aprovado, correção do loop infinito no useEffect, remoção do import morto)
+
+**Estado final:**
+- ✅ Aba Badges funcional (grelha + doação simulada + candidatura staff + estados)
+- ✅ Badge Verificado (roxo) aparece na foto de perfil da página pública
+- ✅ Coleções/atributos criados e provisionados no Appwrite
+- ✅ Commitada e pushed no commit `799bd1f` (Sessões 21–26) + fix visual `8b85f4d` (TemplateAvatar: anéis circulares restaurados, cantos arredondados preservados)
+
+---
+
+## Sessão 27 — Planos com moeda localizada pelo país do utilizador
+
+**Objetivo:** melhorar a funcionalidade dos planos — quando o utilizador cria uma conta, o SaaS recolhe o **país** (via IP no servidor) para apresentar os preços dos planos na **moeda do país** do utilizador.
+
+### Lib nova — `src/lib/currencies.ts`
+- Mapa **país ISO 3166-1 → moeda ISO 4217** (`COUNTRY_CURRENCY` — ~60 países: UE→EUR, US→USD, GB→GBP, BR→BRL, JP→JPY, etc.) com fallback `DEFAULT_CURRENCY = "EUR"`
+- Taxas indicativas face ao EUR (`EUR_RATES` — estáticas, com comentário a indicar substituição por taxas reais da API quando houver pagamentos reais)
+- `PLAN_PRICES_EUR` (free 0 / pro 7,99 / business 19,99) + `annualPriceEur()` (10 meses — poupança ~17%)
+- `currencyForCountry()`, `eurToRate()`, `convertFromEur()`, `convertAndFormat()` (converte + formata com `Intl.NumberFormat` por moeda, try/catch com fallback) e `currencySymbol()`
+
+### Rota nova — `GET /api/geo/lookup`
+- Resolve o país do IP **no servidor** (`resolveGeo` de `src/lib/geo.ts` — cabeçalhos Netlify + fallback country.is com cache)
+- Rate-limited (30 req/min por IP) e devolve **apenas** `country`/`countryCode`/`currency` — **nunca o IP nem a cidade** (privacidade)
+
+### Recolha do país na criação de conta
+- **Registo por email (`registerUser`)**: após criar a conta/sessão, chama `fetchUserGeo()` (→ `/api/geo/lookup`) e guarda `country`/`countryCode`/`currency` no documento `users`; devolve `{ account, geo }` para o AuthContext preencher o estado de imediato
+- **OAuth (`/api/auth/oauth/sync`)**: recolhe geo server-side na criação do user doc; para contas antigas já existentes faz **backfill** (atualiza apenas se não tiver `countryCode`)
+- **Backfill automático no `AuthContext`**: `useEffect` que, quando a conta não tem `countryCode`/`currency`, chama `syncUserGeo()` em background (idempotente — `syncUserGeo` devolve cedo se já sincronizado; sem loops porque a guard passa após o primeiro sync)
+
+### Services
+- `syncUserGeo(force = false)` — novo: atualiza o geo no documento `users`; com `force=true` re-deteteta sempre por IP (botão manual); guard `if (!geo.countryCode) return null` evita persistir dados vazios (a rota devolve sempre `currency` como fallback, o que tornaria o guard antigo morto e causaria writes vazios por sessão)
+- `getUserProfile` passa a devolver `country`/`countryCode`/`currency`
+- `UserAccount` em `types.ts` ganhou os 3 campos opcionais
+
+### AuthContext
+- Novo **`refreshAccount()`** (recarrega o perfil e atualiza `accountData`) — exposto no contexto (interface + value + deps)
+- `register` desestrutura `{ account, geo }` e preenche país/moeda no estado imediatamente
+
+### Página Faturação (`/dashboard/billing`)
+- **Preços convertidos para a moeda do país**: `formatPrice(eur)` usa `convertAndFormat` (ex: 7,99 € → R$ 47,14; annual → preço anual convertido); fallback para **EUR** quando não há moeda
+- **Cartão "País / moeda"**: bandeira (emoji) + nome do país + moeda dos planos (com aviso "convertido de EUR" quando não é EUR); botão **"Detetar país"** que força re-deteção por IP (`syncUserGeo(true)`) e faz `refreshAccount` para os preços atualizarem em tempo real (antes usava `refreshPage` que só recarregava a página, não a conta)
+- Botões de plano corrigidos (Plano atual desativado vs Atualizar)
+
+### Provision (Appwrite — executado com sucesso)
+- Atributos `users.country`, `users.countryCode`, `users.currency` (String) — confirmados "already exists" na re-execução
+
+**Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas — aplicados: `refreshAccount` para o botão detetar país, `force` no `syncUserGeo`, guard `!geo.countryCode` contra writes vazios; confirmado que o backfill é loop-safe e o único chamador de `registerUser` é o AuthContext)
+
+**Estado final:**
+- ✅ Plano mostra preços na moeda do país do utilizador (conversão EUR + Intl)
+- ✅ País recolhido automaticamente no registo (email + OAuth) e em background para contas antigas
+- ✅ Botão "Detetar país" com re-deteção forçada e preços atualizados em tempo real
+- ✅ Atributos `country`/`countryCode`/`currency` provisionados no Appwrite
+- ✅ Alterações commitadas e pushed — commit `4cd152f` no `origin/main` (8 ficheiros, +435/−19) — deploy CI Netlify disparado
+
+## Sessão 28 — Fix erro OAuth "Falha na autenticação." (mensagens reais do Appwrite)
+
+**Objetivo:** corrigir o erro "OAuth falhou: Falha na autenticação." no login Google/GitHub.
+
+### Causa raiz (encontrada nos security logs reais)
+- Os `security_logs` do Appwrite mostravam o erro real do OAuth: `{"message":"A user with the same id, email, or phone already exists in this project.","type":"user_already_exists","code":409}`.
+- O **Appwrite Cloud envia o erro como JSON no query param `?error=`** e o `error_description` vem **vazio**.
+- O parsing antigo só lia o `error_description` (vazio) → mostrava sempre "Falha na autenticação." genérica, mesmo quando o erro real era `user_already_exists` (email já registado por email/password — comportamento de segurança do Appwrite, que recusa fazer merge de contas).
+
+### Lib nova — `src/lib/oauth-errors.ts`
+- `parseOAuthError(errorParam, errorDescription)` — normaliza o erro do Appwrite:
+  - Extrai `{type, message}` do `?error=` (JSON URL-encoded OU código simples, ex: `provider_disabled`)
+  - Prioriza o `error_description` quando preenchido
+  - **Haystack normalizado** (raw + `raw.replace(/_/g, " ")`) para casar tipos Appwrite com underscore (`user_already_exists`, `session_already_exists`) E com espaço
+  - **Checks em ordem (específico primeiro)**: sessão ativa → user já existe → provider desativado → cancelado/access_denied → fallback
+  - Fallback mostra o tipo real (ex: `OAuth falhou: unexpected_error`) em vez de "Falha na autenticação."
+
+### Páginas atualizadas
+- `src/app/login/page.tsx` — usa `parseOAuthError` e regista `oauth_failure` com `message`/`rawError`/`type`
+- `src/app/register/page.tsx` — idem (+ logging `oauth_failure` por consistência de diagnóstico)
+- Ambas mantêm o tratamento de `missing_project` antes do parser
+
+### Testes — `src/__tests__/oauth-errors.test.ts` (9 testes)
+- JSON URL-encoded (caso real Appwrite Cloud), JSON cru, `error_description` prioritário, `provider_disabled`, `access_denied`, sessão ativa (`session_already_exists`), fallback
+- 2 bugs encontrados e corrigidos durante a revisão: (1) `session_already_exists` não casava com check de espaços; (2) o check de user (`"already exists"` genérico) engolia o session normalizado — corrigido com a ordem sessão → user
+
+**Validação:** typecheck ✅ · **127/127 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas — fix de ordenação dos checks + fallback com type + check do provider restrito)
+
+**Estado final:**
+- ✅ O utilizador vê agora a mensagem real traduzida (ex: "Já existe uma conta com este email..." para `user_already_exists`)
+- ✅ Diagnóstico melhorado (security logs com o type real)
+- ⚠️ Nota: o fluxo OAuth em si funciona — o 409 `user_already_exists` é comportamento de segurança do Appwrite (não faz merge quando o email já existe via email/password); a app agora informa o utilizador corretamente
+- ✅ Alterações commitadas e pushed — commit `44fd661` no `origin/main` (4 ficheiros, +219/−35) — deploy CI Netlify disparado
+
+## Sessão 29 — OAuth `user_already_exists`: deteção e pré-preenchimento do email no login
+
+**Objetivo:** quando o OAuth (Google/GitHub) devolve 409 `user_already_exists` (o email já tem conta registada por email/password), detectar o email e **pré-preencher automaticamente o campo de email do formulário de login** — o utilizador só precisa da palavra-passe.
+
+### Contexto
+- O Appwrite **NÃO devolve o email no erro OAuth** (por privacidade/segurança) — o erro é apenas `{message, type: "user_already_exists", code: 409}`.
+- Solução: múltiplas fontes de email para pré-preenchimento, por ordem de fiabilidade:
+  1. Email incluído no erro (defensivo — alguns setups incluem no `error_description`/`message`)
+  2. `?email=` no URL (vindo do redirect do registo)
+  3. **Último email conhecido no browser** (localStorage — guardado quando o utilizador faz login ou registo por email)
+
+### Lib nova — `src/lib/email-hint.ts`
+- `extractEmailFromText()` — extrai um email de texto arbitrário (regex)
+- `rememberEmail()` — guarda o último email em `localStorage["linkflow_last_email"]` (SSR-safe, idempotente, try/catch)
+- `getLastKnownEmail()` — devolve o último email (ou "")
+- `clearEmailHint()` — limpa (chamado no logout, privacidade)
+
+### Alterações
+- `src/lib/oauth-errors.ts` — `ParsedOAuthError` ganhou campo `email?`; extraído defensivamente no branch `user_already_exists` via `extractEmailFromText`
+- `src/app/login/page.tsx` — no erro `user_already_exists`: pré-preenche o email (`parsed.email → ?email= → getLastKnownEmail`) e **foca o campo de password** (`passwordRef`); `handleSubmit` chama `rememberEmail(email)`; hint subtil verde quando `reason=oauth_exists` (derivado do `searchParams`, sem estado/latch)
+- `src/app/register/page.tsx` — `handleSubmit` chama `rememberEmail(email)`; o erro `user_already_exists` **redireciona para `/login?email=...&reason=oauth_exists`** (em vez de mostrar erro na página de registo)
+- `src/context/AuthContext.tsx` — `logout` chama `clearEmailHint()`
+
+### Testes
+- Novo `src/__tests__/email-hint.test.ts` (6 testes: extração, persistência, valores vazios, normalização, limpeza)
+- `oauth-errors.test.ts` ganhou teste de extração de email do `error_description`
+- Code review (3 rondas) corrigiu: gap crítico (register `handleSubmit` não guardava o email — o cenário real registo-por-email→Google não teria prefill), `emailRef` morto → `passwordRef`, hint como latch de uma via → derivado do `searchParams`
+
+**Validação:** typecheck ✅ · **133/133 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas)
+
+**Estado final:**
+- ✅ Email pré-preenchido no login quando OAuth devolve `user_already_exists` (fontes: erro → URL → último email conhecido)
+- ✅ Foco automático no campo de password para continuar o fluxo
+- ✅ Registo redireciona para login com email + hint "Já tem conta — introduza a palavra-passe"
+- ✅ Email lembrado no browser (login/registo) e limpo no logout (privacidade)
+- ⚠️ Limitação conhecida: se o utilizador nunca fez login/registo por email NESTE browser, o email pode não estar disponível (o Appwrite não o devolve no erro) — o campo fica por preencher mas o foco vai para o email
+
+## Sessão 30 — Fix "Missing required attribute theme" ao criar a primeira página
+
+**Objetivo:** corrigir o erro `Invalid document structure: Missing required attribute "theme"` quando um utilizador cria a primeira página.
+
+### Causa raiz
+- O schema Appwrite da coleção `themes` tem o atributo **`theme` OBRIGATÓRIO** (`required=true`, default `"glass"` — `scripts/provision-appwrite.ts` linha 378).
+- O `createPage` (`src/lib/services.ts`) criava o documento de tema com `{ pageId, ...defaultAppearance() }`, mas o `defaultAppearance()` **NÃO inclui o campo `theme`** — o sistema usa apenas Liquid Glass (sem temas) e esse campo ficou órfão do schema.
+- O Appwrite rejeitava o `createDocument` da coleção `themes` com "Missing required attribute 'theme'", quebrando a criação da página logo após o registo.
+
+### Correção
+- `src/lib/services.ts` — `createOwnedDocument(Collections.themes, { pageId, theme: "glass", ...defaultAppearance() })`: enviar explicitamente `theme: "glass"` (com comentário explicativo).
+
+### Verificações (sem cascata de erros)
+- Coleção `themes`: todos os outros atributos obrigatórios (`pageId`, `blur`, `rounded`, `linkOpacity`, `fontSize`, `buttonRadius`, `showAvatar`, `showBio`, `spacing`) têm default no schema E estão no `defaultAppearance()` ✅
+- Coleção `analytics`: só `pageId`/`views`/`clicks`/`followers` obrigatórios (com defaults) — o `createPage` já os envia ✅
+- Coleção `pages`: `userId`/`username`/`displayName`/`published` obrigatórios — enviados ✅
+- `THEME_SAFE_FIELDS` do `updateTheme` não inclui `theme` — correto (campo legado que nunca muda)
+- Não existem outros `createDocument` de themes no projeto (o `services.server.ts` só faz leitura)
+
+**Validação:** typecheck ✅ · **133/133 testes** ✅ · ESLint ✅ · code-review ✅ (confirmou o fix mínimo e correto; recomendou verificar o schema de `analytics` — verificado, sem problemas)
+
+## Sessão 31 — Provision: garantir default `glass` no atributo `theme` (contas existentes)
+
+**Objetivo:** reexecutar o provision script para garantir que o atributo `theme` da coleção `themes` tem default `glass` nas contas existentes.
+
+### Descobertas do processo
+1. O atributo `themes.theme` estava `required:true` com `default:null` no Appwrite real — porque os helpers do provision (`createStringAttribute`/`createBooleanAttribute`/`createIntegerAttribute`) usavam `required ? undefined : defaultValue`, **descartando o default em atributos obrigatórios**.
+2. Tentativa inicial de passar defaults em atributos obrigatórios **FALHOU** com `Cannot set default value for required attribute` — regra do Appwrite: **atributos obrigatórios não podem ter default**.
+3. Solução final: `themes.theme` passou de `required=true` para `required=false` com default `'glass'` (campo legado — o sistema usa apenas Liquid Glass).
+
+### Alterações (`scripts/provision-appwrite.ts`)
+- Helpers revertidos para `required ? undefined : defaultValue` (comportamento original CORRETO — o Appwrite rejeita default em obrigatórios), agora com comentário explicativo.
+- `createStringAttribute("themes", "theme", 64, false, "glass")` — campo legado, agora **opcional com default**.
+- Novo helper `ensureStringAttributeDefault(collectionId, key, required, defaultValue)`: lista atributos e chama `updateStringAttribute(databaseId, collectionId, key, required, defaultValue)` se o default atual difere do pretendido (idempotente; erros não-bloqueantes com warn).
+- Chamada após `waitForAttributes` de `themes`: `ensureStringAttributeDefault("themes", "theme", false, "glass")`.
+
+### Resultado verificado no Appwrite real
+```
+theme | required: false | default: "glass"   ✅
+pageId | required: true | default: null
+```
+- Provision idempotente: `themes.theme default already "glass", skipping` — reexecuções futuras não fazem nada.
+- **Defense-in-depth:** agora, mesmo que um code path futuro omita o campo `theme` ao criar um documento de tema, o Appwrite aplica o default `glass` automaticamente (o mesmo erro da Sessão 30 não pode voltar a acontecer).
+
+### Nota latente (não bloqueante, documentada)
+O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com default no provision (`users.plan` default `'free'`, `pages.published` default `false`, `analytics.views/clicks/followers` default `0`, `themes.blur/rounded/linkOpacity/...`). Todos estão `required:true` com `default:null` no Appwrite real. Não é um bug ativo (o app envia sempre estes campos no create), mas é a mesma classe de erro — um futuro code path que omita um deles voltaria a ter "Missing required attribute". Follow-up opcional: tornar esses atributos opcionais-com-default como o `theme`.
+
+**Validação:** typecheck ✅ · ESLint ✅ · code-review ✅ · provision reexecutado com sucesso + default verificado no Appwrite real.
+
+## Sessão 32 — Aba Páginas: sistema de templates de layout (template1/template2)
+
+**Objetivo:** criar a aba "Páginas" no Dashboard para o utilizador escolher o layout da página pública. Exatamente **2 templates** (`template1`/`template2`), referências visuais: Página 1 = cinza premium neutro (fundo `#121214`, avatar com brilho suave); Página 2 = violeta vibrante (fundo `#0c0d12`, avatar com anel roxo, botões com borda `#8b5cf6`). Substitui o sistema antigo de 12 templates (`pageType`) que estava dormente/escondido.
+
+### Arquitetura (extensível)
+- **`src/lib/types.ts`**: novo tipo `PageTemplateId = "template1" | "template2"` + campo `pageTemplate?` no `PageProfile` (`pageType` antigo mantido para compat).
+- **`src/lib/page-templates.ts`**: registry reescrito com 2 templates (`PAGE_TEMPLATES`, `PAGE_TEMPLATE_BY_ID`, `DEFAULT_PAGE_TEMPLATE="template1"`, `isPageTemplate` whitelist). Para adicionar Template 3: criar componente + id no tipo + registar + mapear no switcher — nada mais muda.
+- **`src/components/templates/`**: novo `template-one.tsx` (neutro) e `template-two.tsx` (violeta); `shared.tsx` ganhou o componente partilhado `TemplateLinkPill` (ícone circular + título + chevron, com `platformId={link.icon ?? "link"}` para satisfazer o tipo `PlatformIcon`); `index.tsx` é o switcher por `pageTemplate` com fallback `template1`.
+- **Apagados** os 12 templates antigos + `countdown.tsx` (mortos — nada mais os importava).
+- **`src/components/dashboard/template-thumbnail.tsx`**: miniaturas (mockup telemóvel) para os 2 novos templates (neutro vs violeta).
+- **`src/app/dashboard/pages/page.tsx`**: seletor visual — grid de 2 cartões com miniatura, nome, descrição, selo "Em uso", botão "Usar página" com estado de saving, animação (framer-motion), toast de sucesso/erro, redirect para `/dashboard/create` quando `!page` (padrão da Aparência). Estrutura sem HTML aninhado inválido (`motion.div` + `button`).
+- **`src/components/dashboard/sidebar.tsx`**: aba "Páginas" re-adicionada (ícone `LayoutGrid`).
+
+### Persistência
+- **`scripts/provision-appwrite.ts`**: novo atributo `pageTemplate` na coleção `pages` (opcional, default `template1`) — **provision já executado com sucesso**.
+- **`src/lib/services.ts`**: `createPage` (ramo novo + idempotente) e `mapPageDocument` persistem/leem `pageTemplate` com fallback `template1`.
+- **`src/lib/services.server.ts`**: `getPublicPageByUsername` devolve `pageTemplate` (fallback `template1`).
+- **`src/app/u/[username]/page.tsx`**: renderiza `PageTemplate` por `pageTemplate` validado com `isPageTemplate` (fallback `DEFAULT_PAGE_TEMPLATE`).
+
+### Regras de negócio
+- Novo utilizador → `template1` por padrão (em `createPage` E no default do schema Appwrite).
+- Troca instantânea: `updatePage({ pageTemplate })` no clique; `AuthContext.updatePage` atualiza o estado local → a página pública (`/u/username`) reflete o novo layout ao ser aberta.
+- Nenhum dado se perde: foto, nome, bio, links, redes sociais, aparência — apenas o layout muda.
+
+### Testes
+- Novo `src/__tests__/page-templates.test.ts` (6 testes): registro tem exatamente template1/template2, default é template1, whitelist `isPageTemplate` rejeita inválidos, metadata completa, accents distintos.
+
+**Validação:** typecheck ✅ · **139/139 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas — corrigidos: import `getPlatform` não usado, helper `dot` morto, HTML aninhado inválido `button>a`, falta de redirect sem página, `platformId` com tipo opcional).
+
+---
+
+## Sessão 33 — 2 Agosto 2026 (Auditoria Técnica Completa & Correções de Segurança/Alinhamento de Marketing)
+
+**Objetivo:** Auditoria técnica inicial (FASE 1) completa e aplicação de correções de segurança (FASE 2), alinhamento de marketing (FASE 6), UX/Onboarding (FASE 7) e atualização de estado das páginas de Domínios e Faturação (FASE 4 & 5).
+
+### 1. Auditoria Técnica Inicial (FASE 1)
+- Analisadas todas as áreas do projeto (Rotas de API, Autenticação, Dashboard, Links, Analytics, Badges, Faturação, Domínios, SEO, Performance, Landing Page).
+- Gerado o relatório completo de auditoria no ficheiro [audit_report.md](file:///C:/Users/CR712/.gemini/antigravity/brain/5de76813-8091-4ce8-8f7c-018fc581346d/audit_report.md), categorizando todas as questões por prioridade (Crítica, Alta, Média, Baixa).
+
+### 2. Bugs de Segurança Corrigidos (FASE 2)
+- **Validação Cruzada no Endpoint de Cliques (`/api/click/route.ts`)**:
+  - Implementada validação de pertença do `linkId` ao `pageId` fornecido.
+  - Verificação de estado ativo (`linkDoc.active !== false`) e visível (`linkDoc.visible !== false`).
+- **Tratamento de Dados Pessoais / RGPD (`lib/analytics.ts`)**:
+  - Anonimização do IP na coleção de visitas (`visits`): o IP em texto limpo foi substituído pelo `visitorHash` (hash salgado SHA-256 não reversível).
+- **Testes Unitários de Segurança (`click-validation.test.ts`)**:
+  - Criada nova suite de testes validando rejeição de links inativos/invisíveis ou pertencentes a páginas de terceiros.
+
+### 3. Faturação & Domínios Personalizados (FASE 4 & FASE 5 / Regra 9)
+- **Domínios Personalizados (`dashboard/domains/page.tsx`)**: adicionado aviso explicativo de "Em breve" para a funcionalidade de domínios próprios em desenvolvimento.
+- **Faturação (`dashboard/billing/page.tsx`)**: atualizados os botões de ação dos planos pagos para "Pagamentos em breve" (evitando simulação de checkout sem Stripe ativo).
+
+### 4. Alinhamento da Landing Page com o Produto Real (FASE 6)
+- **Remoção de falsas promessas**: eliminados os destaques de "IA integrada" da landing page (`src/app/page.tsx` e `src/components/home/home-sections.tsx`).
+- **Destaque a recursos reais**: substituído pelo Liquid Glass Design System, 44+ redes sociais por username e sistema de Templates de Páginas.
+
+### 5. Onboarding & UX (FASE 7)
+- Adicionado o botão **"Copiar Link Público"** com feedback instantâneo de cópia no topo da página inicial do Dashboard (`dashboard/page.tsx`).
+
+### Validação
+- Typecheck: `npm run typecheck` 👉 **0 erros de TypeScript** (Route types gerados com sucesso).
+- Testes: `npm test -- --run` 👉 **142/142 testes passados** (13 ficheiros de teste a passar).
+

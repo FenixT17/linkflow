@@ -186,12 +186,12 @@ function FaqSection() {
 const trustFeatures = [
   { icon: Zap, title: "Hospedagem rápida", desc: "Carregamentos instantâneos em todo o mundo." },
   { icon: Shield, title: "SSL gratuito", desc: "Segurança automática para a sua página." },
-  { icon: LineChart, title: "Analytics em tempo real", desc: "Dados atualizados a cada segundo." },
+  { icon: LineChart, title: "Analytics em tempo real", desc: "Dados atualizados com relatórios detalhados." },
   { icon: Users, title: "Login Google e GitHub", desc: "Acesso rápido sem passwords." },
   { icon: QrCode, title: "QR Code", desc: "Partilhe a sua página em qualquer lado." },
-  { icon: Crown, title: "Temas Premium", desc: "Designs profissionais exclusivos." },
-  { icon: Sparkles, title: "IA integrada", desc: "Sugestões inteligentes para a sua página." },
-  { icon: Layout, title: "Domínio personalizado", desc: "Use o seu próprio domínio." },
+  { icon: Crown, title: "Temas & 12 Templates", desc: "Designs profissionais exclusivos." },
+  { icon: Sparkles, title: "44+ Redes sociais", desc: "Integração instantânea por username." },
+  { icon: Layout, title: "Domínio personalizado", desc: "Suporte em desenvolvimento." },
 ];
 
 function TrustSection() {

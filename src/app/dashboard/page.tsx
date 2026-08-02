@@ -222,13 +222,28 @@ export default function DashboardPage() {
         title="Visão geral"
         description={`Bem-vindo de volta, ${account?.displayName || "Utilizador"}.`}
       >
-        <GlassButton
-          variant="primary"
-          size="sm"
-          onClick={() => router.push("/dashboard/links")}
-        >
-          <Plus className="h-4 w-4" /> Criar Link
-        </GlassButton>
+        <div className="flex items-center gap-2">
+          {page?.username && (
+            <GlassButton
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = `${window.location.origin}/u/${page.username}`;
+                navigator.clipboard.writeText(url);
+                alert("URL copiado para a área de transferência!");
+              }}
+            >
+              <Link2 className="h-4 w-4" /> Copiar Link Público
+            </GlassButton>
+          )}
+          <GlassButton
+            variant="primary"
+            size="sm"
+            onClick={() => router.push("/dashboard/links")}
+          >
+            <Plus className="h-4 w-4" /> Criar Link
+          </GlassButton>
+        </div>
       </SectionHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

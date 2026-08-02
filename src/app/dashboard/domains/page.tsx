@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { GlassButton } from "@/components/ui/glass-button";
-import { Globe, Plus, Crown, Check } from "lucide-react";
+import { Globe, Plus, Check } from "lucide-react";
 import { siteUrl } from "@/lib/seo";
 
 export default function DomainsPage() {
@@ -17,18 +17,22 @@ export default function DomainsPage() {
         <p className="mt-1 text-sm text-white/50">Use o seu próprio domínio para a sua página.</p>
       </div>
 
-      {!isPro && (
-        <div className="glass-card p-4 border-amber-500/20 bg-amber-500/5">
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-3">
-            <Crown className="h-5 w-5 text-amber-400 shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-amber-200">Funcionalidade Pro</p>
-              <p className="text-xs text-amber-200/70">Faça upgrade para usar o seu próprio domínio.</p>
+      <div className="glass-card p-4 border-cyan-500/20 bg-cyan-500/5">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-3">
+          <Globe className="h-5 w-5 text-cyan-400 shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-cyan-200">Domínios Personalizados</p>
+              <span className="inline-flex items-center rounded-full bg-cyan-500/20 px-2 py-0.5 text-xs font-semibold text-cyan-300">
+                Em breve
+              </span>
             </div>
-            <GlassButton size="sm">Upgrade</GlassButton>
+            <p className="text-xs text-cyan-200/70">
+              A funcionalidade de domínios próprios está em desenvolvimento e estará disponível em breve para utilizadores Pro e Business.
+            </p>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="glass-card p-6">
         <div className="relative z-10 space-y-6">

@@ -52,14 +52,25 @@ export async function POST(request: NextRequest) {
       try {
         const linkDoc = await databases.getDocument(databaseId, "links", linkId);
         if (linkDoc) {
-          linkTitle = String(linkDoc.title ?? "");
-          linkUrl = String(linkDoc.url ?? "");
-          await databases.updateDocument(databaseId, "links", linkId, {
-            clicks: (Number(linkDoc.clicks) || 0) + 1,
-          });
+          // Validação de segurança FASE 2:
+          // 1. O link tem de pertencer à página informada (pageId)
+          // 2. O link não pode estar inativo ou invisível
+          const linkPageId = String(linkDoc.pageId ?? "");
+          const isLinkActive = linkDoc.active !== false;
+          const isLinkVisible = linkDoc.visible !== false;
+
+          if (linkPageId === pageId && isLinkActive && isLinkVisible) {
+            linkTitle = String(linkDoc.title ?? "");
+            linkUrl = String(linkDoc.url ?? "");
+            await databases.updateDocument(databaseId, "links", linkId, {
+              clicks: (Number(linkDoc.clicks) || 0) + 1,
+            });
+          } else {
+            console.warn(`[api/click] Link ${linkId} do not match page ${pageId} or is inactive/invisible`);
+          }
         }
       } catch {
-        // Link not found; ignore
+        // Link não encontrado; ignora
       }
     }
 
