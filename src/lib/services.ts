@@ -559,6 +559,7 @@ export async function getThemeByPageId(pageId: string): Promise<Appearance & { $
     shadow: String(doc.shadow) as Appearance["shadow"],
     showAvatar: Boolean(doc.showAvatar),
     showBio: Boolean(doc.showBio),
+    showSocial: doc.showSocial !== undefined ? Boolean(doc.showSocial) : true,
     spacing: Number(doc.spacing),
     glassOpacity: doc.glassOpacity !== undefined ? Number(doc.glassOpacity) : 35,
     glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
@@ -571,7 +572,7 @@ const THEME_SAFE_FIELDS = [
   "blur", "rounded", "linkOpacity",
   "backgroundColor", "cardColor", "textColor", "accentColor",
   "fontFamily", "fontSize", "buttonRadius", "buttonWidth", "buttonHeight", "buttonStyle", "shadow",
-  "showAvatar", "showBio", "spacing",
+  "showAvatar", "showBio", "showSocial", "spacing",
   "glassOpacity", "glassBlur", "glassStrength",
 ] as const;
 

@@ -106,6 +106,8 @@ export interface Appearance {
   shadow?: "none" | "sm" | "md" | "lg";
   showAvatar: boolean;
   showBio: boolean;
+  /** Mostra secção de links sociais em destaque */
+  showSocial: boolean;
   spacing: number;
   /** Glass-specific: cor da borda das barras (ex: "rgba(255,255,255,0.06)") */
   borderColor?: string;

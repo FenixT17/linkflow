@@ -22,6 +22,7 @@ export function defaultAppearance(): Appearance {
     shadow: "md",
     showAvatar: true,
     showBio: true,
+    showSocial: true,
     spacing: 6,
     glassOpacity: 35,
     glassBlur: 25,

@@ -456,11 +456,12 @@ async function provision() {
   await createStringAttribute("themes", "shadow", 32, false, "md");
   await createBooleanAttribute("themes", "showAvatar", true, true);
   await createBooleanAttribute("themes", "showBio", true, true);
+  await createBooleanAttribute("themes", "showSocial", true, true);
   await createIntegerAttribute("themes", "spacing", true, 6);
   await waitForAttributes("themes", [
     "pageId", "theme", "blur", "rounded", "linkOpacity", "backgroundColor", "cardColor",
     "textColor", "accentColor", "fontFamily", "fontSize", "buttonRadius", "buttonWidth",
-    "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "spacing",
+    "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "showSocial", "spacing",
   ]);
   // Backfill: contas existentes têm themes.theme com default:null. Garante
   // required=false + default="glass" para o createDocument sem theme não
