@@ -23,7 +23,7 @@ import {
 } from "@/lib/types";
 
 import { detectSuspiciousInput } from "@/lib/sanitize";
-import { initCsrfToken, refreshCsrfToken, clearCsrfToken } from "@/hooks/use-csrf";
+import { fetchWithCsrf, initCsrfToken, refreshCsrfToken, clearCsrfToken } from "@/hooks/use-csrf";
 import { clearEmailHint } from "@/lib/email-hint";
 import {
   defaultAppearance,
@@ -359,9 +359,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     try {
       // Server-side rate limit check (5 login attempts/min per IP)
-      const rateRes = await fetch("/api/auth/rate-check", {
+      const rateRes = await fetchWithCsrf("/api/auth/rate-check", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "login" }),
       });
       if (!rateRes.ok) {
@@ -424,9 +423,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
       // Server-side rate limit check (3 registrations/hour per IP)
-      const rateRes = await fetch("/api/auth/rate-check", {
+      const rateRes = await fetchWithCsrf("/api/auth/rate-check", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "register" }),
       });
       if (!rateRes.ok) {

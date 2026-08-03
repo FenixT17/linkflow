@@ -159,17 +159,17 @@ export default function BillingPage() {
               const period = plan.id === "free" ? "" : annual ? "/ano" : "/mês";
 
               return (
-                <div key={plan.id} className={`relative glass-card p-6 flex flex-col transition-all ${plan.popular ? "pt-12 ring-1 ring-white/20" : ""}`}>
+                <div key={plan.id} className={`relative glass-card p-6 flex flex-col transition-all ${plan.popular ? "ring-1 ring-white/20" : ""}`}>
                   {plan.popular && <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent z-10" />}
-                  {plan.popular && (
-                    <div className="absolute right-4 top-4 z-10">
-                      <span className="inline-flex items-center gap-1 rounded-full glass-btn-primary !h-6 !px-3 text-xs font-semibold">
-                        <Crown className="h-3 w-3" /> Popular
-                      </span>
-                    </div>
-                  )}
                   <div className="relative z-10 mb-6">
-                    <h3 className="text-lg font-semibold text-white/90">{plan.name}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold text-white/90">{plan.name}</h3>
+                      {plan.popular && (
+                        <span className="inline-flex items-center gap-1 rounded-full glass-btn-primary !h-6 !px-3 text-xs font-semibold">
+                          <Crown className="h-3 w-3" /> Popular
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-3 flex items-baseline gap-1">
                       <span className="text-4xl md:text-5xl font-semibold tracking-tight text-white/90">{priceLabel}</span>
                       <span className="text-white/50 text-sm">{period}</span>

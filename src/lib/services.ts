@@ -94,6 +94,9 @@ export async function registerUser(email: string, password: string, name: string
   const newAccount = await account.create(ID.unique(), email, password, name);
   await account.createEmailPasswordSession(email, password);
 
+  // Verificação por email está desativada temporariamente por decisão do
+  // produto. A conta é criada sem iniciar qualquer envio de email.
+
   // O perfil é criado pelo servidor: userId, email, plano e permissões não
   // podem ser adulterados pelo payload do browser.
   const res = await fetchWithAppwriteAuth("/api/users/provision", {
@@ -112,6 +115,26 @@ export async function registerUser(email: string, password: string, name: string
       }
     : {};
   return { account: newAccount, geo };
+}
+
+/**
+ * Fluxos de email mantidos como preparação futura, mas deliberadamente
+ * desativados. Não chamar o Appwrite enquanto o envio estiver desligado.
+ */
+export async function sendEmailVerification(): Promise<never> {
+  throw new Error("A verificação por email está temporariamente desativada.");
+}
+
+export async function requestPasswordReset(_email: string): Promise<never> {
+  throw new Error("A recuperação por email está temporariamente desativada.");
+}
+
+export async function completeEmailVerification(userId: string, secret: string) {
+  return account.updateEmailVerification(userId, secret);
+}
+
+export async function completePasswordReset(userId: string, secret: string, password: string) {
+  return account.updateRecovery(userId, secret, password);
 }
 
 export async function loginUser(email: string, password: string) {

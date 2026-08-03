@@ -10,6 +10,10 @@
 #   NEXT_PUBLIC_APPWRITE_DATABASE_ID=linkflow
 #   NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID=files
 #   APPWRITE_API_KEY=<your-server-api-key>
+#   RESEND_API_KEY=<server-only-resend-api-key>
+#   RESEND_FROM_EMAIL=LinkFlow <onboarding@resend.dev>
+#   RESEND_REPLY_TO=<optional-reply-to>
+#   NEXT_PUBLIC_SITE_URL=https://linkflow-web.netlify.app
 #
 # NOTA: Os redirects, rewrites e security headers
 # são geridos pelo next.config.ts — o plugin

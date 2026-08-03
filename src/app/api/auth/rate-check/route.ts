@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { csrfGuard } from "@/lib/csrf";
 
 /**
  * POST /api/auth/rate-check
@@ -17,11 +18,14 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
  *  - register: 3 accounts per hour per IP
  */
 export async function POST(request: NextRequest) {
+  const csrfCheck = csrfGuard(request);
+  if (csrfCheck) return csrfCheck;
+
   try {
     const body = await request.json();
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (action !== "login" && action !== "register") {
+    if (action !== "login" && action !== "register" && action !== "passwordReset") {
       return NextResponse.json(
         { allowed: false, error: "Ação inválida." },
         { status: 400 }
@@ -36,7 +40,9 @@ export async function POST(request: NextRequest) {
       const message =
         action === "login"
           ? `Muitas tentativas de login. Aguarde ${waitSeconds}s antes de tentar novamente.`
-          : `Limite de registos atingido. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`;
+          : action === "register"
+            ? `Limite de registos atingido. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`
+            : `Muitos pedidos de recuperação. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`;
 
       return NextResponse.json(
         { allowed: false, error: message },

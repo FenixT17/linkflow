@@ -205,13 +205,12 @@ function LoginForm() {
                   />
                   <span>Lembrar-me</span>
                 </label>
-                <button
-                  type="button"
-                  disabled={loading}
-                  className="text-white/70 hover:text-white transition-colors text-sm"
+                <Link
+                  href="/forgot-password"
+                  className={`text-white/70 hover:text-white transition-colors text-sm ${loading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   Esqueceu a palavra-passe?
-                </button>
+                </Link>
               </div>
 
               {oauthExistsHint && !error && (

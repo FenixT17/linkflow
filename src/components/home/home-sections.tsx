@@ -26,24 +26,22 @@ function PricingCard({
           ? "glass-strong glass-card"
           : "glass-card glass-card-hover",
         "hover:-translate-y-1",
-        popular ? "pt-12 md:pt-14" : "",
       ].join(" ")}
     >
       {popular && (
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent z-[1]" />
       )}
 
-      {popular && (
-        <div className="absolute right-4 top-4 z-[1]">
-          <span className="inline-flex items-center gap-1 rounded-full glass-btn-primary !h-6 !px-3 text-xs font-semibold">
-            <Crown className="h-3 w-3 relative z-[1]" />
-            <span className="relative z-[1]">Mais Popular</span>
-          </span>
-        </div>
-      )}
-
       <div className="relative z-[1] mb-6">
-        <h3 className="text-lg font-semibold text-[var(--foreground)]">{name}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-lg font-semibold text-[var(--foreground)]">{name}</h3>
+          {popular && (
+            <span className="inline-flex items-center gap-1 rounded-full glass-btn-primary !h-6 !px-3 text-xs font-semibold">
+              <Crown className="h-3 w-3 relative z-[1]" />
+              <span className="relative z-[1]">Mais Popular</span>
+            </span>
+          )}
+        </div>
         <div className="mt-3 flex items-baseline gap-1">
           <span className="text-4xl md:text-5xl font-semibold tracking-tight text-[var(--foreground)]">{price}</span>
           <span className="text-[var(--muted-foreground)] text-sm">{period}</span>

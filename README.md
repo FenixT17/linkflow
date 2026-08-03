@@ -62,3 +62,19 @@ src/
   lib/            # Utilities, types, Appwrite client
   hooks/          # Custom React hooks
 ```
+
+## Resend — email transacional
+
+O envio de emails é exclusivamente server-side e está centralizado em `src/lib/email.server.ts`. O serviço expõe `sendEmail()`, `sendVerificationEmail()` e `sendPasswordResetEmail()`, com templates reutilizáveis em `src/lib/email-templates.ts`.
+
+Configure apenas no ambiente do servidor:
+
+```env
+RESEND_API_KEY=re_xxx
+RESEND_FROM_EMAIL=LinkFlow <onboarding@resend.dev>
+RESEND_REPLY_TO=
+```
+
+Nunca use `NEXT_PUBLIC_` nestas variáveis, nem coloque a chave em componentes `use client`, no Git ou em logs. Localmente, use `.env.local`; em produção, configure as variáveis no Netlify. Para um domínio personalizado, verifique-o na Resend, configure SPF/DKIM/DMARC e altere `RESEND_FROM_EMAIL` para o remetente verificado.
+
+O envio de emails está **temporariamente desativado por decisão do produto**. Os templates, o serviço Resend server-only e as páginas de verificação/recuperação permanecem preparados para uma ativação futura, mas os fluxos atuais não iniciam pedidos ao Appwrite nem enviam mensagens. A configuração SMTP também não deve ser ativada enquanto esta decisão estiver em vigor.
