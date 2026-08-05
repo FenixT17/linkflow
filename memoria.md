@@ -1824,3 +1824,21 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Override brace-expansion escopado (fix de segurança mantido + tooling ESM funcional)
 - ✅ npm audit 0 vulnerabilidades
 - ⚠️ **Produção continua no código da Sessão 33 até os créditos do Netlify serem repostos ou deploy manual** — a coleta de dados vai funcionar assim que o código novo (Sessões 42-43, 45) for publicado
+
+---
+
+### Sessão 47 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — Nova aba Código QR no dashboard
+
+**Pedido:** adicionar uma nova aba "Código QR" no dashboard onde o utilizador vê o QR code da sua página pública.
+
+**Implementação:**
+- Nova rota `src/app/dashboard/qrcode/page.tsx` (client component) + item de navegação "Código QR" na sidebar (`src/components/dashboard/sidebar.tsx`, ícone `QrCode`, após "Links"). O teste do sidebar cobre o item automaticamente (itera sobre `nav`).
+- Dependência nova: `qrcode.react@^4.2.0` (peerDeps: react 16-19 ✓ — verificado antes de instalar).
+- O QR aponta para `${window.location.origin}/u/{username}` (fallback `siteUrl` no SSR) — mesma convenção do copy-link do dashboard.
+- Ações: copiar link (clipboard + toast), descarregar PNG em 600px (serializa o SVG → canvas → toDataURL), partilhar nativo (`navigator.share` com fallback para copiar), ver página.
+- Estados: sem página → redireciona para `/dashboard/create` (padrão das páginas Aparência/Páginas); página não publicada → banner âmbar a avisar com link para publicar.
+- Design consistente com o dashboard (dark glass): QR branco com glow, lista de sugestões de uso, cartão com o URL público e badge Público/Privado.
+
+**Validação:** typecheck ✅ · ESLint ✅ · 178/178 testes ✅.
+
+**Estado final:** commit + push feitos. Nota: a aba só fica visível em produção quando o deploy (bloqueado por créditos desde 2 Ago — ver Sessão 46) for desbloqueado ou feito manualmente.
