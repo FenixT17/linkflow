@@ -1793,3 +1793,34 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Schema `themes` corrigido (showSocial/showAvatar/showBio opcionais com default true) no Appwrite real
 - ✅ Criação de página volta a funcionar mesmo com o deploy antigo (default aplicado pelo Appwrite)
 - ⚠️ Recomendado: confirmar que o deploy CI do Netlify volta a publicar builds novos (produção estava com bundle anterior a `b2186b6`)
+
+---
+
+### Sessão 46 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — CAUSA RAIZ: coleta de dados vazia = deploy CI bloqueado por créditos + fix override brace-expansion
+
+**Sintoma reportado:** a tabela `dados_para_estudos` no Appwrite está vazia — o utilizador esperava ver a coleta de IP/dispositivo/coordenadas a funcionar.
+
+**Diagnóstico (múltiplas camadas, todas verificadas empiricamente):**
+1. **A coleta de dados só corre quando alguém visita a página pública** — `collectStudyData` (`src/lib/analytics.ts`) é chamado dentro de `recordAnalyticsEvent`, que por sua vez é invocado em `/api/view` e `/api/click`. O utilizador viu o dashboard/banco mas não houve visitas novas → tabela vazia é esperada NESTE estado. (`visits` tinha 52 registos, todos de 1 Ago.)
+2. **CAUSA RAIZ — o deploy CI do Netlify está BLOQUEADO: todos os builds desde 2 Ago foram pulados com `"Skipped due to account credit usage exceeded"`** (verificado via API `listSiteDeploys`: deploys `6a6fab73` (2 Ago 20:41) até `6a737b82` (5 Ago 18:05) todos `error` com esse motivo). O último deploy bem-sucedido foi `6a6f5712` (2 Ago 14:41, commit `dd79f27` = **Sessão 33**).
+3. **Consequência: a produção serve código da Sessão 33 (2 Ago)** — anterior à coleta de dados (Sessão 42, 5 Ago), ao fix `showSocial` (Sessão 45) e a tudo o resto. Confirmado no bundle servido: sem `Accept-CH` header, sem `dados_para_estudos`/`ipwho`/`collectStudyData`/`sec-ch-ua-model` (0 matches em 18 chunks).
+4. **Fator agravante descoberto: o override global `brace-expansion: ^1.1.17` (Sessão 37) partiu o netlify-cli local e todo o tooling ESM** — o minimatch v9/v10 (ESM) importa `{ expand }` do brace-expansion v2+, mas o override forçava v1.1.18 em TODO o grafo (`SyntaxError: The requested module 'brace-expansion' does not provide an export named 'expand'`).
+
+**Correção 1 — override escopado (`package.json`):**
+- Antes: `"brace-expansion": "^1.1.17"` (global — partia o minimatch ESM v9/v10 do netlify-cli e potencialmente o build do Netlify).
+- Agora: `"minimatch@3.1.5": { "brace-expansion": "^1.1.17" }` — o fix de segurança da Sessão 37 mantém-se APENAS no minimatch v3 (o vulnerável do @eslint/eslintrc), enquanto minimatch v9/v10 voltam a usar brace-expansion v2+/v5 com o export `expand`.
+- Verificado: `npm ls` mostra minimatch@10 → brace-expansion@5.0.9, minimatch@9 → brace-expansion@2.1.4, minimatch@3.1.5 → brace-expansion@1.1.18. `npx netlify --version` voltou a funcionar (era `SyntaxError`).
+
+**Correção 2 — `npm audit fix`:** resolvidas 2 vulns transitivas (fast-uri host confusion + hono ReDoS CORS, ambas via netlify-cli/shadcn — dev only) → **0 vulnerabilidades**.
+
+**Env vars do Netlify (verificadas via API): estão TODAS configuradas** — `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY` (265 chars), `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `DATABASE_ID`, `FILES_BUCKET_ID`, hCaptcha (site+secret), `SECRETS_SCAN_OMIT_KEYS`. (Corrige a nota antiga da memória de que faltavam — já lá estavam.)
+
+**Pendente/PRÓXIMO PASSO CRÍTICO:** os créditos de build da conta free do Netlify estão esgotados — nada volta a produção até (a) reset mensal dos créditos, (b) upgrade do plano, ou (c) deploy manual via `netlify deploy` (que não consome créditos de build do CI). O push deste fix só terá efeito quando o CI voltar a correr.
+
+**Validação:** typecheck ✅ · **178/178 testes** ✅ · ESLint ✅ · `npm run build` ✅ (compila em 37s) · npm audit 0 ✅ · netlify-cli funcional ✅.
+
+**Estado final:**
+- ✅ Diagnóstico completo com causa raiz (créditos Netlify esgotados desde 2 Ago)
+- ✅ Override brace-expansion escopado (fix de segurança mantido + tooling ESM funcional)
+- ✅ npm audit 0 vulnerabilidades
+- ⚠️ **Produção continua no código da Sessão 33 até os créditos do Netlify serem repostos ou deploy manual** — a coleta de dados vai funcionar assim que o código novo (Sessões 42-43, 45) for publicado
