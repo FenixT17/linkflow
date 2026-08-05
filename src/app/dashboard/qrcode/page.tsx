@@ -33,7 +33,7 @@ export default function QrCodePage() {
   const publicUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/u/${username}`
-      : `${siteUrl}/u/${page.username}`;
+      : `${siteUrl}/u/${username}`;
 
   const handleCopy = async () => {
     try {
@@ -73,7 +73,11 @@ export default function QrCodePage() {
     setDownloading(true);
     try {
       const serializer = new XMLSerializer();
-      const svgData = serializer.serializeToString(svg);
+      let svgData = serializer.serializeToString(svg);
+      // Sem o namespace, alguns browsers (Safari/Firefox) recusam decodificar o SVG como imagem.
+      if (!svgData.includes("xmlns")) {
+        svgData = svgData.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
       const blob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
       const url = URL.createObjectURL(blob);
 
@@ -224,7 +228,7 @@ export default function QrCodePage() {
                 <Share2 className="h-4 w-4" />
                 Partilhar
               </GlassButton>
-              <GlassButton variant="outline" onClick={() => router.push(`/u/${page.username}`)}>
+              <GlassButton variant="outline" onClick={() => router.push(`/u/${username}`)}>
                 <ExternalLink className="h-4 w-4" />
                 Ver página
               </GlassButton>
