@@ -1763,7 +1763,7 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 
 2. **Validação pré-push (convenção do projeto):** typecheck `tsc --noEmit` ✅ · **178/178 testes** ✅ · ESLint ✅ · scan de segredos no diff ✅ (0 matches) · `.env.local`/`.env.netlify` gitignored ✅ · code-review ✅
 
-3. **Commit + push:** "Session 42-43: study data collection table + account deletion E2E fix" no `origin/main` — deploy CI Netlify disparado automaticamente (build demora alguns minutos)
+3. **Commit + push:** commit `f178de3` "Session 42-43: study data collection table + account deletion E2E fix" no `origin/main` — deploy CI Netlify disparado automaticamente (build demora alguns minutos)
 
 **Estado final:**
 - ✅ Alterações das Sessões 42–43 (tabela de estudos + exclusão de conta) em produção após o build CI
