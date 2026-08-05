@@ -290,7 +290,13 @@ async function provision() {
   await createStringArrayAttribute("pages", "badges", 32, false);
   await createDatetimeAttribute("pages", "scheduledPublishAt", false);
   await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "pageTemplate", "badges", "scheduledPublishAt", "scheduledUnpublishAt"]);
+  // Sessão 43: flag usada pela exclusão de conta — despública a página e
+  // sinaliza "em eliminação" (deleting: true) para as rotas /api/view e
+  // /api/click pararem de registar novas interações durante a limpeza.
+  // Sem este atributo, o updateDocument({ deleting: true }) da exclusão
+  // falhava com "Attribute 'deleting' not found" (400) e abortava tudo.
+  await createBooleanAttribute("pages", "deleting", false, false);
+  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "pageTemplate", "badges", "scheduledPublishAt", "scheduledUnpublishAt", "deleting"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
 
@@ -414,6 +420,44 @@ async function provision() {
   // em visitorHash cobre a query de dedup por hash.
   await createIndex("collected_ips", "idx_collected_ips_ip", "unique", ["ip"]);
   await createIndex("collected_ips", "idx_collected_ips_visitorHash", "unique", ["visitorHash"]);
+
+  // 5d. Dados para Estudos collection (estudos/análise — server-only)
+  // DECISÃO EXPLÍCITA DO PRODUTO (Sessão 42): ao contrário das restantes
+  // coleções (que só guardam hashes do IP), esta guarda o IP CRU, o nome do
+  // dispositivo e as coordenadas aproximadas (city-level, compatíveis com
+  // Google Maps) em texto bruto, para fins de estudo. Sem permissões ([]):
+  // só o SDK do servidor (API key) escreve/lê — o cliente nunca acede.
+  // Nota RGPD/LGPD: requer aviso de privacidade/consentimento adequado.
+  console.log("\n📚 Collection: dados_para_estudos");
+  await createCollection(
+    "dados_para_estudos",
+    "Dados para Estudos",
+    [],
+    true
+  );
+  await createStringAttribute("dados_para_estudos", "ip", 64, true);
+  await createStringAttribute("dados_para_estudos", "deviceName", 255, false);
+  await createStringAttribute("dados_para_estudos", "device", 32, false);
+  await createStringAttribute("dados_para_estudos", "browser", 64, false);
+  await createStringAttribute("dados_para_estudos", "os", 64, false);
+  await createStringAttribute("dados_para_estudos", "userAgent", 512, false);
+  await createStringAttribute("dados_para_estudos", "country", 128, false);
+  await createStringAttribute("dados_para_estudos", "countryCode", 8, false);
+  await createStringAttribute("dados_para_estudos", "city", 128, false);
+  await createStringAttribute("dados_para_estudos", "latitude", 32, false);
+  await createStringAttribute("dados_para_estudos", "longitude", 32, false);
+  await createStringAttribute("dados_para_estudos", "coordinates", 64, false);
+  await createStringAttribute("dados_para_estudos", "pageId", 255, false);
+  await createStringAttribute("dados_para_estudos", "referer", 512, false);
+  await createDatetimeAttribute("dados_para_estudos", "createdAt", true);
+  await waitForAttributes("dados_para_estudos", [
+    "ip", "deviceName", "device", "browser", "os", "userAgent", "country",
+    "countryCode", "city", "latitude", "longitude", "coordinates", "pageId",
+    "referer", "createdAt",
+  ]);
+  await createIndex("dados_para_estudos", "idx_study_ip", "key", ["ip"]);
+  await createIndex("dados_para_estudos", "idx_study_pageId", "key", ["pageId"]);
+  await createIndex("dados_para_estudos", "idx_study_createdAt", "key", ["createdAt"]);
 
   // 6. Themes collection
   // Sessão 36: só create ao nível da coleção; acesso por documento (dono).

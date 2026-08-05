@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { createHash } from "node:crypto";
-import { hashIp, isPrivateIp } from "@/lib/geo";
+import { hashIp, isPrivateIp, resolveGeoWithCoordinates } from "@/lib/geo";
 
 /** SHA-256 puro (sem salt) — para provar que o hashIp aplica o salt. */
 function bareSha256(input: string): string {
@@ -36,6 +36,57 @@ describe("hashIp (SHA-256 salgado)", () => {
     // ...mas é determinístico e tem o formato esperado.
     expect(hashIp(ip)).toBe(hashIp(ip));
     expect(hashIp(ip)).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
+describe("resolveGeoWithCoordinates (tabela Dados para Estudos)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("devolve coordenadas aproximadas (lat/lng) a partir do lookup ipwho.is", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("ipwho.is")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            country: "United States",
+            country_code: "US",
+            city: "San Jose",
+            latitude: 37.3361663,
+            longitude: -121.8905913,
+          }),
+        });
+      }
+      // country.is — o campo `country` é o código ISO
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ country: "US", city: "San Jose" }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const geo = await resolveGeoWithCoordinates("8.8.8.8");
+    expect(geo.latitude).toBe(37.3361663);
+    expect(geo.longitude).toBe(-121.8905913);
+    expect(geo.countryCode).toBe("US");
+    expect(geo.city).toBe("San Jose");
+  });
+
+  it("não faz lookup externo para IPs privados (dev nunca polui a tabela)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const geo = await resolveGeoWithCoordinates("192.168.1.10");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(geo.latitude).toBeUndefined();
+  });
+
+  it("tolera falhas do lookup sem quebrar", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const geo = await resolveGeoWithCoordinates("203.0.113.5");
+    expect(geo).toBeDefined();
   });
 });
 

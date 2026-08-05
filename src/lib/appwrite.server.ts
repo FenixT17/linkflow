@@ -1,4 +1,4 @@
-import { Client, Databases, Storage } from "node-appwrite";
+import { Client, Databases, Storage, Users } from "node-appwrite";
 
 const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
@@ -6,6 +6,11 @@ const apiKey = process.env.APPWRITE_API_KEY ?? "";
 const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "linkflow";
 
 export const filesBucketId = process.env.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID ?? "files";
+export const accountFileBucketIds = [
+  filesBucketId,
+  process.env.NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID ?? process.env.APPWRITE_AVATARS_BUCKET_ID ?? "avatars",
+  process.env.NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID ?? process.env.APPWRITE_BANNERS_BUCKET_ID ?? "banners",
+].filter((bucketId, index, buckets) => bucketId && buckets.indexOf(bucketId) === index);
 
 export function createServerClient() {
   const missing: string[] = [];
@@ -20,6 +25,7 @@ export function createServerClient() {
   return {
     databases: new Databases(client),
     storage: new Storage(client),
+    users: new Users(client),
   };
 }
 

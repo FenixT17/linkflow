@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     let pageDoc;
     try {
       pageDoc = await databases.getDocument(databaseId, "pages", pageId);
-      if (!pageDoc.published) {
+      if (!pageDoc.published || pageDoc.deleting === true) {
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
     } catch {
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
 
     const userAgent = request.headers.get("user-agent") ?? "";
     const referer = request.headers.get("referer") ?? "";
+    // Nome do dispositivo via User-Agent Client Hints (ex: "Pixel 7",
+    // "iPhone 15 Pro") — o header só existe quando o browser o envia.
+    const deviceName = request.headers.get("sec-ch-ua-model") ?? "";
 
     // GeoIP real (país/cidade) a partir do IP — nunca exposto ao cliente.
     const geo = await resolveGeo(ip, request);
@@ -58,6 +61,7 @@ export async function POST(request: NextRequest) {
       device: detectDeviceType(userAgent),
       browser: detectBrowser(userAgent),
       os: detectOS(userAgent),
+      deviceName,
     });
 
     return NextResponse.json({ success: true });

@@ -18,6 +18,7 @@
     "migrate:users-permissions": "tsx scripts/migrate-users-permissions.ts",
     "seo:audit": "tsx scripts/seo-audit.ts",
     "check:links": "tsx scripts/check-links.ts",
+    "verify:account-deletion": "tsx --env-file=.env.local scripts/verify-account-deletion.ts",
     "typegen": "next typegen",
     "typecheck": "next typegen && tsc --noEmit"
   },

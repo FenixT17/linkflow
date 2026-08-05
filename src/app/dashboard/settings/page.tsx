@@ -9,11 +9,28 @@ import { fetchWithCsrf } from "@/hooks/use-csrf";
 import { Save, Globe, Bell, Shield, Trash2, Mail, Lock, Smartphone, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { account } = useAuth();
+  const { account, deleteAccount } = useAuth();
   const [name, setName] = useState(account?.displayName || "");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const { verifyCsrf, csrfError } = useCsrfAction();
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      "Tem a certeza? Esta ação apaga permanentemente a sua conta, página, links, fotos, visitantes, IPs, analytics, atividades e restantes dados. Não pode ser desfeita."
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDeleteError("");
+    const result = await deleteAccount();
+    if (!result.success) {
+      setDeleteError(result.error || "Não foi possível eliminar a conta. Tente novamente.");
+    }
+    setDeleting(false);
+  };
 
   const handleSave = async () => {
     const csrfOk = await verifyCsrf();
@@ -119,13 +136,20 @@ export default function SettingsPage() {
                 <h2 className="text-base font-semibold text-red-400">Zona de perigo</h2>
                 <p className="text-sm text-white/50">Ações irreversíveis.</p>
               </div>
-              <button disabled className="w-full flex items-center gap-3 p-3 rounded-xl glass-card hover:bg-white/[0.04] transition-colors text-left disabled:opacity-50">
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="w-full flex items-center gap-3 p-3 rounded-xl glass-card hover:bg-red-500/[0.08] transition-colors text-left disabled:opacity-50"
+              >
                 <Trash2 className="h-5 w-5 text-red-400" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white/90">Eliminar conta</p>
-                  <p className="text-xs text-white/40">Em breve</p>
+                  <p className="text-sm font-medium text-white/90">{deleting ? "A eliminar..." : "Eliminar conta"}</p>
+                  <p className="text-xs text-white/40">Apaga permanentemente todos os seus dados</p>
                 </div>
+                {deleting && <Loader2 className="h-4 w-4 animate-spin text-red-400" />}
               </button>
+              {deleteError && <p className="text-sm text-red-400" role="alert">{deleteError}</p>}
             </div>
           </div>
         </div>

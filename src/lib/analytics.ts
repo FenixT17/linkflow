@@ -2,7 +2,7 @@ import type { Databases, Models } from "node-appwrite";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { databaseId } from "./appwrite.server";
 import { detectDeviceType, type DeviceType } from "./device-detect";
-import { hashIp, isPrivateIp, type GeoInfo } from "./geo";
+import { hashIp, isPrivateIp, lookupCoordinates, type GeoInfo } from "./geo";
 import type { TopCountry, TopDevice, TopLink, Visitor } from "./types";
 
 /**
@@ -123,9 +123,38 @@ export interface RecordAnalyticsEventInput {
   browser?: string;
   os?: string;
   device?: DeviceType;
+  /** Nome legível do dispositivo (ex: "Pixel 7" via sec-ch-ua-model). */
+  deviceName?: string;
   linkId?: string;
   linkTitle?: string;
   linkUrl?: string;
+}
+
+/**
+ * Nome legível do dispositivo para a tabela de estudos.
+ * Prioridade: nome explícito (UA-CH) → combinação dispositivo + OS → genérico.
+ */
+export function buildStudyDeviceName(
+  deviceName: string | undefined,
+  device: DeviceType | undefined,
+  os: string | undefined,
+  userAgent: string
+): string {
+  const explicit = deviceName?.trim();
+  if (explicit) return explicit;
+  const deviceLabel = device ?? detectDeviceType(userAgent);
+  const osLabel = os?.trim() || "Desconhecido";
+  return `${deviceLabel} (${osLabel})`;
+}
+
+/**
+ * Formata lat/lng como texto bruto compatível com Google Maps.
+ * Ex: 38.7294435, -9.1537627 → "38.7294435, -9.1537627" (aceite em
+ * https://www.google.com/maps?q=38.7294435,-9.1537627).
+ */
+export function formatCoordinates(latitude?: number, longitude?: number): string {
+  if (latitude == null || longitude == null) return "";
+  return `${latitude}, ${longitude}`;
 }
 
 // ---------- Agregadores puros (sem I/O) ----------
@@ -453,4 +482,59 @@ export async function recordAnalyticsEvent(
     // Nunca deve quebrar o tracking principal
     console.error("[analytics] failed to collect ip:", collectError);
   }
+
+  // Tabela "Dados para Estudos": registo bruto por interação (IP, dispositivo,
+  // coordenadas aproximadas). Decisão explícita do produto — ver memoria.md.
+  try {
+    await collectStudyData(databases, input);
+  } catch (studyError) {
+    // Nunca deve quebrar o tracking principal
+    console.error("[analytics] failed to collect study data:", studyError);
+  }
+}
+
+/**
+ * Coleção server-only `dados_para_estudos` — dados de estudo em texto bruto.
+ *
+ * DECISÃO EXPLÍCITA DO PRODUTO (Sessão 42): ao contrário das restantes
+ * coleções (que só guardam hashes do IP), esta tabela guarda o IP CRU, o
+ * nome do dispositivo e as coordenadas aproximadas (city-level) para fins
+ * de estudo/análise. A coleção tem permissões [] — só o server SDK (API
+ * key) escreve/lê; o cliente nunca acede. Nota RGPD/LGPD: como guarda
+ * dados pessoais em texto bruto, requer aviso de privacidade/consentimento
+ * adequado na página pública.
+ */
+async function collectStudyData(
+  databases: Databases,
+  input: RecordAnalyticsEventInput
+): Promise<void> {
+  const ip = (input.ip || "").trim().slice(0, 64);
+  // IPs privados/locais (dev) nunca entram na tabela de estudos.
+  if (!ip || isPrivateIp(ip)) return;
+
+  // País/cidade vêm do geo já resolvido na rota (headers Netlify — zero
+  // custo e mais preciso); as coordenadas aproximadas vêm do lookup ipwho.is
+  // (cache 24h) — compatíveis com Google Maps.
+  const coords = await lookupCoordinates(ip);
+  const country = input.geo?.country || coords.country || "";
+  const countryCode = input.geo?.countryCode || coords.countryCode || "";
+  const city = input.geo?.city || coords.city || "";
+
+  await databases.createDocument(databaseId, "dados_para_estudos", ID.unique(), {
+    ip: ip.slice(0, 64), // IP em texto bruto (decisão explícita do produto)
+    deviceName: buildStudyDeviceName(input.deviceName, input.device, input.os, input.userAgent).slice(0, 255),
+    device: (input.device ?? detectDeviceType(input.userAgent)).slice(0, 32),
+    browser: (input.browser || "").slice(0, 64),
+    os: (input.os || "").slice(0, 64),
+    userAgent: input.userAgent.slice(0, 512),
+    country: country.slice(0, 128),
+    countryCode: countryCode.slice(0, 8),
+    city: city.slice(0, 128),
+    latitude: coords.latitude != null ? String(coords.latitude).slice(0, 32) : "",
+    longitude: coords.longitude != null ? String(coords.longitude).slice(0, 32) : "",
+    coordinates: formatCoordinates(coords.latitude, coords.longitude).slice(0, 64),
+    pageId: input.pageId.slice(0, 255),
+    referer: (input.referer || "").slice(0, 512),
+    createdAt: new Date().toISOString(),
+  });
 }

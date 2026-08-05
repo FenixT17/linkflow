@@ -20,6 +20,10 @@ export interface GeoInfo {
   country?: string;
   countryCode?: string;
   city?: string;
+  /** Latitude aproximada (city-level) — só disponível via lookup externo. */
+  latitude?: number;
+  /** Longitude aproximada (city-level) — só disponível via lookup externo. */
+  longitude?: number;
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -52,6 +56,85 @@ function readHeaderGeo(request: Request): GeoInfo | null {
     return { country: name, countryCode: code.toUpperCase(), city };
   }
   return null;
+}
+
+/** Cache das coordenadas (ipwho.is) — mesmo TTL de 24h que o país. */
+const COORDS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const coordsCache = new Map<string, { info: GeoInfo; expiresAt: number }>();
+
+/**
+ * Lookup de coordenadas aproximadas (city-level) via ipwho.is — gratuito,
+ * sem chave, HTTPS. Devolve latitude/longitude + país/cidade (fill-in).
+ * Valores inválidos/falhas devolvem {} (nunca quebram o fluxo).
+ */
+export async function lookupCoordinates(ip: string): Promise<GeoInfo> {
+  const cached = coordsCache.get(ip);
+  if (cached && cached.expiresAt > Date.now()) return cached.info;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return {};
+    const data = (await res.json()) as {
+      success?: boolean;
+      latitude?: number | null;
+      longitude?: number | null;
+      country?: string | null;
+      country_code?: string | null;
+      city?: string | null;
+    };
+    const info: GeoInfo =
+      data.success === false || data.latitude == null || data.longitude == null
+        ? {}
+        : {
+            latitude: data.latitude,
+            longitude: data.longitude,
+            country: data.country || undefined,
+            countryCode: data.country_code ? data.country_code.toUpperCase() : undefined,
+            city: data.city || undefined,
+          };
+    coordsCache.set(ip, { info, expiresAt: Date.now() + COORDS_CACHE_TTL_MS });
+    if (coordsCache.size > MAX_CACHE) {
+      // LRU simples: limpa expiradas; se ainda exceder, apaga as mais antigas
+      // (mesma lógica do cache de país — evita crescimento ilimitado).
+      const now = Date.now();
+      for (const [key, entry] of coordsCache) {
+        if (entry.expiresAt <= now) coordsCache.delete(key);
+      }
+      if (coordsCache.size > MAX_CACHE) {
+        const keys = [...coordsCache.keys()];
+        for (const key of keys.slice(0, keys.length - MAX_CACHE)) coordsCache.delete(key);
+      }
+    }
+    return info;
+  } catch {
+    return {};
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Resolve GeoInfo **com coordenadas aproximadas** (compatíveis com Google
+ * Maps: lat/lng city-level). Usado pela tabela "Dados para Estudos".
+ *
+ * - Cabeçalhos da infra têm prioridade para país/cidade (zero custo).
+ * - As coordenadas vêm do lookup ipwho.is (cache 24h) — nunca de headers.
+ * - IPs privados/dev → sem lookup externo (devolve apenas o geo de headers).
+ */
+export async function resolveGeoWithCoordinates(
+  ip: string,
+  request?: Request
+): Promise<GeoInfo> {
+  const base = await resolveGeo(ip, request);
+  if (isPrivateIp(ip)) return base;
+  const coords = await lookupCoordinates(ip);
+  // base (headers/country.is) tem prioridade para país/cidade; o lookup
+  // preenche latitude/longitude (e o que faltar de país/cidade).
+  return { ...coords, ...base };
 }
 
 async function lookupCountryIs(ip: string): Promise<GeoInfo | null> {

@@ -72,7 +72,7 @@
 ### Appwrite
 - **Endpoint:** `https://cloud.appwrite.io/v1`
 - **Database:** `linkflow`
-- **Collections:** users, pages, links, analytics, themes, qr_codes, subscriptions, teams, notifications, security_logs, visits (o `social_links` nunca existiu como coleção — os dados sociais viviam no documento pages como `socialJson`/`socialList`, removidos na Sessão 10; a coleção `visits` foi criada na Sessão 13 — registos brutos de visitas, server-only, permissões `[]`)
+- **Collections:** users, pages, links, analytics, themes, qr_codes, subscriptions, teams, notifications, security_logs, visits, activity_logs, staff_applications, collected_ips, dados_para_estudos (o `social_links` nunca existiu como coleção — os dados sociais viviam no documento pages como `socialJson`/`socialList`, removidos na Sessão 10; `visits` (Sessão 13), `collected_ips` (Sessão 16) e `dados_para_estudos` (Sessão 42) são server-only com permissões `[]`; `activity_logs` e `staff_applications` criadas nas Sessões 21/26)
 - **Buckets:** avatars, banners, files
 - **Nota:** Variáveis de ambiente `NEXT_PUBLIC_APPWRITE_PROJECT_ID` e `APPWRITE_API_KEY` ainda não estão configuradas (env vars no Netlify deram erro 403)
 
@@ -1681,3 +1681,91 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Headers de segurança completos em produção
 - ✅ Nenhuma correção necessária
 
+
+### Sessão 41 — 3 Agosto 2026 — Emails temporariamente desativados
+
+**Decisão do produto:** não deve existir envio de email no LinkFlow por enquanto.
+
+- O registo de utilizadores **não inicia** verificação por email.
+- A recuperação de palavra-passe por email está temporariamente desativada.
+- O SMTP da Resend **não deve ser configurado/ativado** nesta fase.
+- A implementação server-only da Resend (`sendEmail`, `sendVerificationEmail` e `sendPasswordResetEmail`) e os templates ficam guardados apenas como preparação futura.
+- A API key da Resend não deve ser colocada no código, frontend, Git ou logs.
+- A tentativa anterior de configurar o SMTP do Appwrite falhou com HTTP 401 por falta de permissão da API key do Appwrite; não é necessário resolver isso enquanto o envio estiver desativado.
+- Quando esta funcionalidade voltar a ser necessária, reativar os fluxos de forma explícita e testar primeiro com uma chave nova/revogada posteriormente.
+
+**Estado atual:** nenhum fluxo do LinkFlow inicia envio de email.
+
+### Sessão 42 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — Tabela "Dados para Estudos" (IP + dispositivo + coordenadas)
+
+**Pedido:** criar uma tabela no Appwrite chamada "dados para estudos" que recolha o IP do dispositivo, o nome do dispositivo e as coordenadas aproximadas de localização — tudo em texto bruto, com coordenadas compatíveis com Google Maps.
+
+### Nova coleção Appwrite: `dados_para_estudos` (server-only)
+- Permissões `[]` — só o SDK do servidor (API key) escreve/lê; o cliente nunca acede (verificado no Appwrite real: `"$permissions":[]`, `documentSecurity: true`)
+- **15 atributos (tudo em texto bruto, como pedido):** `ip` (IP cru), `deviceName`, `device`, `browser`, `os`, `userAgent`, `country`, `countryCode`, `city`, `latitude`, `longitude`, `coordinates` ("lat, lng" — aceite diretamente em `https://www.google.com/maps?q=lat,lng`), `pageId`, `referer`, `createdAt`
+- Índices: `idx_study_ip`, `idx_study_pageId`, `idx_study_createdAt`
+- **DECISÃO EXPLÍCITA DO PRODUTO:** ao contrário das restantes coleções (que só guardam hashes do IP — Sessões 33/35), esta tabela guarda o IP CRU para fins de estudo. Nota RGPD/LGPD: por guardar dados pessoais em texto bruto, requer aviso de privacidade/consentimento adequado na página pública.
+
+### Coordenadas aproximadas — `src/lib/geo.ts`
+- `GeoInfo` ganhou `latitude`/`longitude`; novo **`lookupCoordinates(ip)`** (exportado) — API gratuita **ipwho.is** (`https://ipwho.is/<ip>`), sem chave, HTTPS, devolve lat/lng + país/cidade; cache 24h com LRU (máx. 10k, trim idêntico ao cache de país)
+- `resolveGeoWithCoordinates(ip, request)` — usa headers da infra primeiro para país/cidade e o lookup ipwho.is para as coordenadas
+
+### Recolha automática — `src/lib/analytics.ts` + rotas
+- `collectStudyData(databases, input)` — chamado dentro de `recordAnalyticsEvent` (views E clicks), em try/catch próprio (nunca quebra o tracking principal); IPs privados/dev ignorados; país/cidade vêm do `input.geo` (headers Netlify — zero custo, sem country.is redundante) e as coordenadas do ipwho.is
+- `deviceName` — nome real do dispositivo via User-Agent Client Hints (`sec-ch-ua-model`) capturado nas rotas `/api/view` e `/api/click`; fallback `buildStudyDeviceName` (tipo de dispositivo + OS)
+- **`next.config.ts`:** header **`Accept-CH`** (`Sec-CH-UA-Model, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List`) — SEM este opt-in o Chrome NÃO envia o nome do modelo do dispositivo (só envia por defeito `sec-ch-ua`/`-platform`/`-mobile`)
+
+### Outros
+- **Exclusão de conta:** `dados_para_estudos` adicionada a `PAGE_SCOPED_COLLECTIONS` (`account-deletion.ts`/`server.ts` — os 2 loops de eliminação passaram a iterar a constante em vez da lista hardcoded) — a tabela é limpa quando a conta é apagada (direito ao esquecimento)
+- **Testes:** `study-data.test.ts` novo (6 testes — `buildStudyDeviceName` + `formatCoordinates`) e `geo.test.ts` +3 (coords com fetch mockado por URL, IP privado sem lookup, falha tolerada)
+
+**Validação:** typecheck ✅ · **177/177 testes** ✅ (era 168) · ESLint ✅ · code-review ✅ (4 correções aplicadas: header Accept-CH, remoção do country.is redundante no `collectStudyData`, trim do cache de coordenadas, índice `idx_study_ip`) · provision executado com sucesso + coleção/atributos/índices/permissões confirmados no Appwrite real (SDK + REST)
+
+**Estado final:**
+- ✅ Tabela `dados_para_estudos` criada no Appwrite real (server-only: IP cru + dispositivo + coordenadas em texto bruto)
+- ✅ Coleta automática em cada visita/clique da página pública (`/api/view` e `/api/click`)
+- ✅ Coordenadas aproximadas (city-level) compatíveis com Google Maps
+- ✅ 177/177 testes · typecheck · ESLint a passar
+- ⚠️ Alterações **não commitadas nem pushed** — pendente commit + push
+
+### Sessão 43 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — Correção do bug da exclusão de conta (`deleting` + campo `ownerId` das teams)
+
+**Objetivo:** corrigir o bug da exclusão de conta (identificado na análise da Sessão 42): o `deleteAccountData` atualizava as páginas com `{ published: false, deleting: true }`, mas o atributo `deleting` NÃO existia no schema Appwrite da coleção `pages` → erro 400 "Attribute 'deleting' not found" → a exclusão abortava. A validação end-to-end revelou **ainda um segundo bug**: a coleção `teams` usa `ownerId` (não `userId`) e a query de limpeza falhava com "Attribute not found in schema: userId" DEPOIS de as páginas já terem sido apagadas (metade da conta apagada + erro ao utilizador).
+
+### Correções
+1. **`scripts/provision-appwrite.ts`** — novo atributo booleano `pages.deleting` (`required=false`, `default=false`) + `waitForAttributes` atualizado. Provision executado e confirmado no Appwrite real: `{"key":"deleting","type":"boolean","required":false,"default":false}` — documentos antigos recebem `false` automaticamente, pelo que `pageDoc.deleting === true` nas rotas view/click fica seguro
+2. **`src/lib/account-deletion.ts`** — nova constante **`USER_SCOPED_OWNER_FIELD`** (fonte única da verdade): subscriptions→`userId`, **teams→`ownerId`**, notifications→`userId`, activityLogs→`userId`, staffApplications→`userId`
+3. **`src/lib/account-deletion.server.ts`** — o loop de limpeza user-scoped usa o mapa em vez de `Query.equal("userId", ...)` hardcoded (o bug das teams); comentário com a causa-raiz
+4. **`src/__tests__/account-deletion.test.ts`** — novo teste de regressão: o mapa cobre EXATAMENTE as 5 coleções do loop (users/securityLogs ficam de fora de propósito — têm lógica dedicada) e teams→ownerId
+5. **`scripts/verify-account-deletion.ts`** (NOVO) + **`npm run verify:account-deletion`** — validação E2E reutilizável: cria utilizador de teste + dados nas 14 coleções + 1 ficheiro no bucket (com permissões por dono), executa `deleteAccountData` e verifica 16 checks (identidade Appwrite apagada, zero docs por página/por utilizador, security_logs por userId/email-hash/metadata, collected_ips sem o hash de teste, ficheiro apagado). Limpeza de emergência em caso de falha E limpeza em caso de resíduos
+
+### Validação end-to-end (Appwrite real)
+- **2 execuções: 16/16 checks ✅** — identidade apagada; links/themes/analytics/visits/qr_codes/dados_para_estudos limpos; subscriptions/teams/notifications/activity_logs/staff_applications limpos; users perfil limpo; security_logs limpos (userId + email-hash + metadata); collected_ips limpos (lógica cross-page); ficheiro apagado (via permissões do dono)
+- Sem resíduos no banco (sweep final: 0 docs de teste restantes)
+- Typecheck ✅ · **178/178 testes** ✅ (era 177; +1 teste de regressão) · ESLint ✅ · code-review ✅ (3 correções aplicadas: teste do mapa com cobertura exata, dotenv morto removido do script E2E + cleanup em verificação falhada, script npm adicionado)
+
+**Estado final:**
+- ✅ Bug da exclusão de conta corrigido (2 bugs reais: atributo `deleting` + campo `ownerId` das teams)
+- ✅ Exclusão de conta validada de ponta a ponta no Appwrite real (16/16 checks, 2 execuções)
+- ✅ Script de validação reutilizável: `npm run verify:account-deletion`
+- ✅ Typecheck, ESLint e 178/178 testes a passar
+- ⚠️ Alterações **não commitadas nem pushed** — working tree acumula Sessões 42 + 43
+
+---
+
+### Sessão 44 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — Commit + push das Sessões 42–43 (deploy automático Netlify)
+
+**Objetivo:** commitar e fazer push das alterações pendentes (Sessões 42–43) para que o Netlify faça o deploy automático via CI/CD.
+
+1. **Estado do working tree commitado:**
+   - **13 ficheiros modificados:** `.env.example`, `memoria.md`, `next.config.ts` (header `Accept-CH`), `package.json` (script `verify:account-deletion`), `scripts/provision-appwrite.ts` (coleção `dados_para_estudos` + atributo `pages.deleting` + índices), `src/__tests__/geo.test.ts` (+3 coords), `src/app/api/click/route.ts` + `view/route.ts` (captura `sec-ch-ua-model`), `src/app/dashboard/settings/page.tsx`, `src/context/AuthContext.tsx`, `src/lib/analytics.ts` (`collectStudyData` + `buildStudyDeviceName`), `src/lib/appwrite.server.ts` (`accountFileBucketIds`), `src/lib/geo.ts` (coordenadas via ipwho.is)
+   - **7 ficheiros novos:** `README_TECHNICAL.md`, `scripts/verify-account-deletion.ts` (validação E2E da exclusão de conta), `src/__tests__/account-deletion.test.ts`, `src/__tests__/study-data.test.ts`, `src/app/api/users/delete/route.ts`, `src/lib/account-deletion.ts`, `src/lib/account-deletion.server.ts`
+
+2. **Validação pré-push (convenção do projeto):** typecheck `tsc --noEmit` ✅ · **178/178 testes** ✅ · ESLint ✅ · scan de segredos no diff ✅ (0 matches) · `.env.local`/`.env.netlify` gitignored ✅ · code-review ✅
+
+3. **Commit + push:** "Session 42-43: study data collection table + account deletion E2E fix" no `origin/main` — deploy CI Netlify disparado automaticamente (build demora alguns minutos)
+
+**Estado final:**
+- ✅ Alterações das Sessões 42–43 (tabela de estudos + exclusão de conta) em produção após o build CI
+- ✅ Working tree limpo, `main` sincronizado com `origin/main`
+- ❌ Pendente (não bloqueante): env vars Appwrite no Netlify (erro 403 da conta free) — necessário para o tracking em produção

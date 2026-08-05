@@ -35,6 +35,16 @@ const nextConfig: NextConfig = {
         value: "max-age=63072000; includeSubDomains; preload",
       },
       { key: "X-DNS-Prefetch-Control", value: "on" },
+      // Opt-in dos User-Agent Client Hints: sem Accept-CH o Chrome NÃO envia
+      // sec-ch-ua-model / sec-ch-ua-platform-version (só envia por defeito
+      // sec-ch-ua / sec-ch-ua-platform / sec-ch-ua-mobile). Necessário para
+      // a tabela "Dados para Estudos" capturar o NOME real do dispositivo
+      // (ex: "Pixel 7") nas rotas /api/view e /api/click.
+      {
+        key: "Accept-CH",
+        value:
+          "Sec-CH-UA-Model, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version, Sec-CH-UA-Full-Version-List",
+      },
       {
         key: "Cross-Origin-Opener-Policy",
         value: "same-origin-allow-popups",

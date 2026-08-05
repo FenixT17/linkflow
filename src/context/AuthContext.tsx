@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Models } from "appwrite";
+import { account as appwriteAccount } from "@/lib/appwrite";
 import {
   ActivityEntry,
   PageProfile,
@@ -70,6 +71,7 @@ interface AuthContextValue {
     password: string
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   createPage: (profile: Omit<PageProfile, "published">) => Promise<void>;
   updatePage: (patch: Partial<PageProfile>) => Promise<void>;
   refreshPage: () => Promise<void>;
@@ -544,6 +546,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router, accountData]);
 
+  const deleteAccount = useCallback(async () => {
+    try {
+      const jwt = await appwriteAccount.createJWT();
+      const response = await fetchWithCsrf("/api/users/delete", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${jwt.jwt}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({})) as { error?: string };
+        return { success: false, error: data.error || "Não foi possível eliminar a conta." };
+      }
+
+      // The server has already deleted the Appwrite identity, so calling
+      // account.deleteSession afterwards would be unnecessary and may fail.
+      clearCsrfToken();
+      setAccountData(null);
+      setPage(null);
+      setPageId(null);
+      setLinksState([]);
+      setAppearance(defaultAppearance());
+      setThemeId(null);
+      setAnalytics(emptyAnalytics());
+      setActivities([]);
+      clearEmailHint();
+      clearAppStorage();
+      hasLoadedRef.current = false;
+      router.replace("/login?deleted=1");
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  }, [router]);
+
   const createPage = useCallback(async (profile: Omit<PageProfile, "published">) => {
     const doc = await createPageService(profile);
     const id = doc.$id;
@@ -562,9 +597,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshPage = useCallback(async () => {
     if (!pageId) return;
-    const refreshed = await getPageByUserId(pageId);
-    if (refreshed) {
-      setPage(refreshed);
+    try {
+      const session = await getCurrentSession();
+      const refreshed = await getPageByUserId(session.$id);
+      if (refreshed) {
+        setPage(refreshed);
+      }
+    } catch {
+      // Mantém o estado local se a atualização falhar.
     }
   }, [pageId]);
 
@@ -706,6 +746,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      deleteAccount,
       createPage,
       updatePage,
       refreshPage,
@@ -733,6 +774,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      deleteAccount,
       createPage,
       updatePage,
       refreshPage,
