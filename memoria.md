@@ -1769,3 +1769,27 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - ✅ Alterações das Sessões 42–43 (tabela de estudos + exclusão de conta) em produção após o build CI
 - ✅ Working tree limpo, `main` sincronizado com `origin/main`
 - ❌ Pendente (não bloqueante): env vars Appwrite no Netlify (erro 403 da conta free) — necessário para o tracking em produção
+
+---
+
+### Sessão 45 — 5 Agosto 2026 (Buffy / DeepSeek v4-flash) — Fix "Missing required attribute showSocial" ao criar a primeira página
+
+**Sintoma reportado:** ao criar uma conta nova, a criação da primeira página falhava com `Invalid document structure: Missing required attribute "showSocial"`.
+
+**Diagnóstico (2 causas em camadas):**
+1. **Schema real do Appwrite:** `themes.showSocial` estava `required:true / default:null` — o `createBooleanAttribute` descarta o default em atributos obrigatórios (`required ? undefined : defaultValue`), o bug latente documentado na Sessão 31. Qualquer `createDocument` de `themes` sem o campo falhava.
+2. **Produção a servir código desatualizado:** o bundle servido no Netlify tinha `showAvatar`/`showBio` mas **zero ocorrências de `showSocial`** (verificado nos chunks `/_next/static` via curl) — o deploy ativo era anterior ao commit `b2186b6` (2 Ago). Ou seja, o código antigo em produção não enviava o campo, e o schema rejeitava.
+
+**Correção (defesa em profundidade, mesmo padrão da Sessão 31 para `theme`):**
+- **`scripts/provision-appwrite.ts`:** novo helper **`ensureBooleanAttributeDefault`** (espelho do `ensureStringAttributeDefault` — lista atributos, compara default e chama `updateBooleanAttribute`) + backfills para `showSocial`/`showAvatar`/`showBio` (os 3 boolean da coleção themes tinham a mesma classe de bug) + criação passa a `required=false, default=true`.
+- **Aplicado ao Appwrite real:** `npm run provision` — confirmado no schema real: `showSocial | required: false | default: true`, `showAvatar | required: false | default: true`, `showBio | required: false | default: true` (e `theme` mantém `false / "glass"`).
+- **Resultado:** mesmo o código antigo em produção (que não envia o campo) passa a criar páginas — o Appwrite aplica o default `true`. O erro desaparece sem depender do estado do deploy.
+
+**Nota:** o código atual (`defaultAppearance()` com `showSocial: true`) já enviava o campo — o erro era exclusivamente do schema + deploy antigo. Com o backfill, a classe de bug fica eliminada para sempre (o mesmo vale para `showAvatar`/`showBio`).
+
+**Validação:** provision executado com sucesso ✅ · schema confirmado via SDK (4 atributos com default) ✅ · typecheck `tsc --noEmit` ✅ · **178/178 testes** ✅ · ESLint ✅ · code-review ✅.
+
+**Estado final:**
+- ✅ Schema `themes` corrigido (showSocial/showAvatar/showBio opcionais com default true) no Appwrite real
+- ✅ Criação de página volta a funcionar mesmo com o deploy antigo (default aplicado pelo Appwrite)
+- ⚠️ Recomendado: confirmar que o deploy CI do Netlify volta a publicar builds novos (produção estava com bundle anterior a `b2186b6`)

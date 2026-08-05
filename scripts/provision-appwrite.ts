@@ -214,6 +214,50 @@ async function ensureStringAttributeDefault(
   }
 }
 
+/**
+ * Backfill: garante que um atributo boolean JÁ EXISTENTE tem o default
+ * pretendido. Necessário porque createBooleanAttribute descarta o default
+ * em atributos obrigatórios (required ? undefined : defaultValue) — ex:
+ * themes.showSocial ficou com required:true/default:null, o que fazia o
+ * createDocument sem o campo falhar com "Missing required attribute".
+ * Igual ao ensureStringAttributeDefault (Sessão 31) mas para booleans.
+ */
+async function ensureBooleanAttributeDefault(
+  collectionId: string,
+  key: string,
+  required: boolean,
+  defaultValue: boolean
+) {
+  try {
+    const { attributes } = await databases.listAttributes(databaseId, collectionId);
+    const attr = (attributes as unknown as Array<{ key: string; required?: boolean; default?: unknown }>).find(
+      (a) => a.key === key
+    );
+    if (!attr) {
+      console.log(`   ↳ ${collectionId}.${key} not found, skipping backfill.`);
+      return;
+    }
+    const currentDefault = attr.default as unknown;
+    if (currentDefault === defaultValue) {
+      console.log(`   ↳ ${collectionId}.${key} default already ${defaultValue}, skipping.`);
+      return;
+    }
+    // O `required` pretendido é o que o chamador passa (o default só é
+    // permitido em atributos não-obrigatórios no Appwrite).
+    await databases.updateBooleanAttribute(
+      databaseId,
+      collectionId,
+      key,
+      required,
+      defaultValue
+    );
+    console.log(`   ↳ ${collectionId}.${key} updated (required=${required}, default=${defaultValue}).`);
+  } catch (error: unknown) {
+    // Falha não bloqueante — o provision continua; apenas avisa.
+    console.warn(`   ↳ Could not backfill default for ${collectionId}.${key}: ${(error as Error).message}`);
+  }
+}
+
 type IndexType = "key" | "unique" | "fulltext" | "spatial";
 
 async function createIndex(collectionId: string, key: string, type: IndexType, attributes: string[]) {
@@ -491,9 +535,13 @@ async function provision() {
   await createStringAttribute("themes", "buttonHeight", 32, false, "normal");
   await createStringAttribute("themes", "buttonStyle", 32, false, "glass");
   await createStringAttribute("themes", "shadow", 32, false, "md");
-  await createBooleanAttribute("themes", "showAvatar", true, true);
-  await createBooleanAttribute("themes", "showBio", true, true);
-  await createBooleanAttribute("themes", "showSocial", true, true);
+  // showAvatar/showBio/showSocial: OPCIONAIS com default true (Sessão 45).
+  // Antes eram required:true/default:null — o helper descartava o default em
+  // atributos obrigatórios e o createDocument sem o campo falhava com
+  // "Missing required attribute showSocial" (ex: produção antiga).
+  await createBooleanAttribute("themes", "showAvatar", false, true);
+  await createBooleanAttribute("themes", "showBio", false, true);
+  await createBooleanAttribute("themes", "showSocial", false, true);
   await createIntegerAttribute("themes", "spacing", true, 6);
   await waitForAttributes("themes", [
     "pageId", "theme", "blur", "rounded", "linkOpacity", "backgroundColor", "cardColor",
@@ -504,6 +552,13 @@ async function provision() {
   // required=false + default="glass" para o createDocument sem theme não
   // falhar com "Missing required attribute theme".
   await ensureStringAttributeDefault("themes", "theme", false, "glass");
+  // Backfill (Sessão 45): showAvatar/showBio/showSocial existentes têm
+  // required:true/default:null — cria páginas sem o campo falhava com
+  // "Missing required attribute showSocial". Torna-os opcionais com default
+  // true, como o theme acima.
+  await ensureBooleanAttributeDefault("themes", "showAvatar", false, true);
+  await ensureBooleanAttributeDefault("themes", "showBio", false, true);
+  await ensureBooleanAttributeDefault("themes", "showSocial", false, true);
   await createIndex("themes", "idx_themes_pageId", "unique", ["pageId"]);
 
   // 7. QR Codes collection
