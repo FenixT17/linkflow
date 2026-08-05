@@ -1842,3 +1842,10 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 **Validação:** typecheck ✅ · ESLint ✅ · 178/178 testes ✅.
 
 **Estado final:** commit + push feitos. Nota: a aba só fica visível em produção quando o deploy (bloqueado por créditos desde 2 Ago — ver Sessão 46) for desbloqueado ou feito manualmente.
+
+**Sessão 47 (continuação) — personalização do QR code:**
+- Cores: predefinições + seletor nativo de cor para módulos (`fgColor`) e fundo (`bgColor`) — QR atualiza em tempo real; aviso de contraste baixo (<2.5) para proteger a leitura.
+- Logo LinkFlow no centro: `fetchLogoDataUri` converte `/logo.png` em data URI (SVG autocontido → download fiável em todos os browsers) e `imageSettings={{ src, width: 38, height: 38, excavate: true }}` do qrcode.react v4; nível sobe para "H" com logo, "M" sem.
+- Tamanho do download: 512/1024/2048 px (segmented control), default 1024; o canvas usa `bgColor` no fill.
+- Persistência em `localStorage` (`linkflow_qr_*` — limpos pelo clearAppStorage no logout), com defesa contra valores corrompidos (`normalizeHex` com fallback próprio por campo; `EXPORT_SIZES.includes`).
+- Validação: typecheck ✅ · ESLint ✅ · 178/178 testes ✅ · code-review ✅ (fix: fallback de bg corrompido passava a preto em vez de branco).
