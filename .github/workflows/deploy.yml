@@ -113,8 +113,6 @@ jobs:
           CF_APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
           CF_UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           CF_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          CF_DIAG_EMAIL: e2e1786132960759@teste.pt
-          CF_DIAG_PASSWORD: SenhaForte123!
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -123,5 +121,3 @@ jobs:
             if [ -n "$CF_APPWRITE_API_KEY" ]; then echo "$CF_APPWRITE_API_KEY" | npx wrangler secret put APPWRITE_API_KEY; else echo "⚠️ APPWRITE_API_KEY não definido no GitHub — definir no dashboard Cloudflare (Workers → linkflow → Settings → Variables and Secrets)."; fi
             if [ -n "$CF_UPSTASH_REDIS_REST_URL" ]; then echo "$CF_UPSTASH_REDIS_REST_URL" | npx wrangler secret put UPSTASH_REDIS_REST_URL; else echo "⚠️ UPSTASH_REDIS_REST_URL não definido no GitHub."; fi
             if [ -n "$CF_UPSTASH_REDIS_REST_TOKEN" ]; then echo "$CF_UPSTASH_REDIS_REST_TOKEN" | npx wrangler secret put UPSTASH_REDIS_REST_TOKEN; else echo "⚠️ UPSTASH_REDIS_REST_TOKEN não definido no GitHub."; fi
-            if [ -n "$CF_DIAG_EMAIL" ]; then echo "$CF_DIAG_EMAIL" | npx wrangler secret put DIAG_EMAIL; else echo "⚠️ DIAG_EMAIL não definido."; fi
-            if [ -n "$CF_DIAG_PASSWORD" ]; then echo "$CF_DIAG_PASSWORD" | npx wrangler secret put DIAG_PASSWORD; else echo "⚠️ DIAG_PASSWORD não definido."; fi

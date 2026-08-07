@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ID } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { createPublicAuthClient, setAuthSessionCookie } from "@/lib/auth.server";
+import { createEmailPasswordSessionResolved, createPublicAuthClient, setAuthSessionCookie } from "@/lib/auth.server";
 import { isValidEmail, isValidPassword, sanitizeDisplayName } from "@/lib/sanitize";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     const { account } = createPublicAuthClient();
     const user = await account.create(ID.unique(), email, password, name);
-    const session = await account.createEmailPasswordSession(email, password);
+    const session = await createEmailPasswordSessionResolved(email, password);
     const response = NextResponse.json(
       { user: { $id: user.$id, email: user.email, name: user.name, $createdAt: user.$createdAt } },
       { status: 201, headers: mergeRateLimitHeaders(undefined, rateLimit) },

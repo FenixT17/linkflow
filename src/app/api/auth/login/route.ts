@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { createPublicAuthClient, setAuthSessionCookie } from "@/lib/auth.server";
+import { createEmailPasswordSessionResolved, setAuthSessionCookie } from "@/lib/auth.server";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_EMAIL_LENGTH = 254;
@@ -67,8 +67,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { account } = createPublicAuthClient();
-    const session = await account.createEmailPasswordSession(email, password);
+    const session = await createEmailPasswordSessionResolved(email, password);
     const response = NextResponse.json(
       { user: { $id: session.userId, email } },
       { headers: mergeRateLimitHeaders(undefined, rateLimit) },

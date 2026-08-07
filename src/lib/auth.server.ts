@@ -76,6 +76,89 @@ export function createPublicAuthClient(): { client: Client; account: Account } {
 }
 
 /**
+ * Creates an Appwrite email/password session via a direct REST call and
+ * returns the session secret, even on public (key-less) flows.
+ *
+ * Why not `account.createEmailPasswordSession`? When called WITHOUT an API key,
+ * Appwrite returns `secret: ""` in the JSON body and instead issues the real
+ * session secret inside an `a_session_<projectId>` Set-Cookie header
+ * (base64url-encoded `{ id, secret }`). The node-appwrite server SDK only
+ * reads `body.secret` (empty) and does not expose the response Set-Cookie
+ * headers, so the application session cookie would be set with an empty value
+ * in runtimes like Cloudflare Workers. Doing the request with the global
+ * `fetch` lets us read the header directly and works in both Node.js and
+ * Workers.
+ */
+export async function createEmailPasswordSessionResolved(
+  email: string,
+  password: string,
+): Promise<{ secret: string; expire: string; userId: string }> {
+  const response = await fetch(`${endpoint}/account/sessions/email`, {
+    method: "POST",
+    headers: {
+      "X-Appwrite-Project": projectId,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = (await response.json()) as {
+    $id?: unknown;
+    userId?: unknown;
+    expire?: unknown;
+    secret?: unknown;
+  };
+  if (!response.ok) {
+    const error = new Error(
+      typeof data === "object" && data && "message" in data
+        ? String((data as { message?: unknown }).message ?? "Appwrite session error")
+        : "Appwrite session error",
+    ) as Error & { code?: number; type?: string };
+    if (typeof data === "object" && data) {
+      error.code = (data as { code?: unknown }).code as number | undefined;
+      error.type = (data as { type?: unknown }).type as string | undefined;
+    }
+    throw error;
+  }
+
+  // Public flow: secret comes via the a_session_* cookie, not the body.
+  let secret =
+    typeof data.secret === "string" && data.secret.length > 0 ? data.secret : "";
+  if (!secret) {
+    const cookieName = `a_session_${projectId}`;
+    const setCookies = response.headers.getSetCookie
+      ? response.headers.getSetCookie()
+      : [response.headers.get("set-cookie")].filter((v): v is string => Boolean(v));
+    for (const header of setCookies) {
+      const name = header.slice(0, header.indexOf("=")).trim();
+      if (name !== cookieName && name !== `${cookieName}_legacy`) continue;
+      const semi = header.indexOf(";");
+      const value = header.slice(header.indexOf("=") + 1, semi === -1 ? undefined : semi).trim();
+      if (!value) continue;
+      try {
+        const decoded = JSON.parse(
+          Buffer.from(value, "base64url").toString("utf8"),
+        ) as { secret?: unknown };
+        if (typeof decoded.secret === "string" && decoded.secret.length >= 16) {
+          secret = decoded.secret;
+          break;
+        }
+      } catch {
+        // try next Set-Cookie header
+      }
+    }
+  }
+
+  if (!secret) {
+    throw new Error("Appwrite did not return a session secret.");
+  }
+  return {
+    secret,
+    expire: typeof data.expire === "string" ? data.expire : "",
+    userId: typeof data.userId === "string" ? data.userId : typeof data.$id === "string" ? data.$id : "",
+  };
+}
+
+/**
  * Creates a request-scoped Appwrite client authenticated only by the
  * application-owned HttpOnly cookie. Authorization/JWT headers are ignored
  * deliberately: they must not bypass the normal session flow.
