@@ -54,9 +54,10 @@ export async function GET(request: NextRequest) {
 
   let upstream: Response;
   try {
-    // Endpoint público (sem API key) — tal como email/password. A troca de
-    // userId+secret do OAuth é o mecanismo oficial para completar a sessão.
-    upstream = await fetch(`${APPWRITE_ENDPOINT}/account/sessions`, {
+    // Endpoint público (sem API key). POST /account/sessions/token é o
+    // `createSession` do SDK atual — o mecanismo oficial para completar o
+    // OAuth web com as credenciais userId+secret do success URL.
+    upstream = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/token`, {
       method: "POST",
       headers: {
         "X-Appwrite-Project": PROJECT_ID,
@@ -92,14 +93,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(failure);
   }
 
-  // O body devolve `secret` vazio em fluxos públicos — o secret real vem no
+  // Em fluxos públicos o body devolve `secret` vazio — o secret real vem no
   // Set-Cookie `a_session_<projectId>` (token opaco, não o JSON decodificado).
+  // Tenta o body primeiro (caso o Appwrite o devolva) e depois o cookie.
+  const data = (await upstream.json().catch(() => ({}))) as { secret?: unknown; expire?: unknown };
+  let sessionSecret = typeof data.secret === "string" && data.secret.length >= 16 ? data.secret : "";
+  let expire = typeof data.expire === "string" ? data.expire : "";
+
   const cookieName = `a_session_${PROJECT_ID}`;
   const setCookies = upstream.headers.getSetCookie
     ? upstream.headers.getSetCookie()
     : [upstream.headers.get("set-cookie")].filter((v): v is string => Boolean(v));
-  let sessionSecret = "";
-  let expire = "";
   for (const header of setCookies) {
     const name = header.slice(0, header.indexOf("=")).trim();
     if (name !== cookieName && name !== `${cookieName}_legacy`) continue;
