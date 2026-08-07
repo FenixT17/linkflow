@@ -77,8 +77,12 @@ Never prefix these variables with `NEXT_PUBLIC_`, commit them, or print them in 
 
 Copy `.env.example` to `.env.local` and set your Appwrite endpoint, project and database IDs.
 
+> ⚠️ The endpoint must match the **region where your Appwrite project was created** — using
+the global endpoint (`https://cloud.appwrite.io/v1`) for a regional project returns HTTP 401
+`"Project is not accessible in this region"`. The LinkFlow project lives in **Nova Iorque**, so use:
+
 ```env
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://nyc.cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT=your_project_id
 NEXT_PUBLIC_APPWRITE_DATABASE=your_database_id
 ```
