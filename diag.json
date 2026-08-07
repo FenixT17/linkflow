@@ -1,1 +1,0 @@
-{"email":"diag1786132246094@teste.pt","create":{"message":"fetch failed"},"accountProbe":{"status":401,"body":"{\"message\":\"User (role: guests) missing scopes ([\\\"account\\\"])\",\"code\":401,\"type\":\"general_unauthorized_scope\",\"version\":\"1.9.6\"}"}}
