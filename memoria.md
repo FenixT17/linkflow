@@ -1849,3 +1849,18 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - Tamanho do download: 512/1024/2048 px (segmented control), default 1024; o canvas usa `bgColor` no fill.
 - Persistência em `localStorage` (`linkflow_qr_*` — limpos pelo clearAppStorage no logout), com defesa contra valores corrompidos (`normalizeHex` com fallback próprio por campo; `EXPORT_SIZES.includes`).
 - Validação: typecheck ✅ · ESLint ✅ · 178/178 testes ✅ · code-review ✅ (fix: fallback de bg corrompido passava a preto em vez de branco).
+**Sessão 52 — 7 Agosto 2026 — Fix botões OAuth (Google/GitHub): retorno do OAuth2 passava a server-side**
+
+**Problema:** os botões "Continuar com Google/GitHub" levavam ao provider mas, após autorizar, o utilizador voltava ao login (sessão não criada).
+
+**Causa raiz:** no retorno, o Appwrite anexa `userId`+`secret` ao success URL e a app deve completar a sessão com `createSession` (`POST /account/sessions/token`). O fluxo anterior dependia de cookies cross-site (`a_session_*` no domínio nyc.cloud.appwrite.io + `x-fallback-cookies`) — bloqueados por 3P cookie blocking (Chrome/Safari), pelo que o `getCurrentSession` nunca obtinha a sessão.
+
+**Fix:**
+- Nova rota `src/app/api/auth/oauth/callback/route.ts`: troca `userId`+`secret` por uma sessão real server-side (`POST {endpoint}/account/sessions/token`, padrão verificado do `createEmailPasswordSessionResolved`) e define o cookie HttpOnly da app (`setAuthSessionCookie`) antes de redirecionar para `/dashboard`. Rate limit próprio (10/10min por IP); erros reencaminhados para `/login?error={json}` (o `parseOAuthError` decodifica).
+- `src/app/api/auth/oauth/start/route.ts`: `success` passa a apontar para `/api/auth/oauth/callback` (era `/dashboard`).
+- NOTA: `POST /account/sessions` (documentado em versões antigas) devolve 400 "Param email is not optional" no Appwrite atual — o endpoint certo é `/account/sessions/token` (verificado: devolve `user_invalid_token` 401 para credenciais falsas, e 200+Set-Cookie para credenciais válidas).
+- `.gitignore`: adicionado `.tmpcheck/` e `deploy.logs.zip` (artefactos de diagnóstico).
+
+**Validação:** typecheck ✅ · 195/195 testes ✅ · deploys verdes (runs 31220259767 e 31220729191) · rotas core 200 · callback: sem params → `/login?error=oauth_missing`; credenciais inválidas → `/login?error=user_invalid_token` (prova o endpoint correto). O happy path completo (autorizar no provider) só pode ser testado com uma conta real GitHub/Google.
+
+**Estado:** commits `1f51013` (callback + start) e `e0c4404` (endpoint `/account/sessions/token` + gitignore) pushados para `main` e deployados em https://linkflow.editsttk43.workers.dev .
