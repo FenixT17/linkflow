@@ -19,11 +19,6 @@ interface ThemeContextValue {
 
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined);
 
-function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 function readStoredTheme(defaultTheme: AllowedTheme): AllowedTheme {
   if (typeof window === "undefined") return defaultTheme;
   try {
