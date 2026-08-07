@@ -45,7 +45,11 @@ export async function GET(request: NextRequest) {
     `${appwrite.origin}${appwrite.pathname.replace(/\/$/, "")}/account/sessions/oauth2/${encodeURIComponent(provider)}`,
   );
   oauthUrl.searchParams.set("project", PROJECT_ID);
-  oauthUrl.searchParams.set("success", new URL("/dashboard", request.url).toString());
+  // O Appwrite anexa userId+secret ao success URL. O callback troca essas
+  // credenciais por uma sessão real server-side e define o cookie HttpOnly
+  // da app — sem depender de cookies cross-site (bloqueados por 3P cookie
+  // blocking no Chrome/Safari, que devolviam o utilizador ao login).
+  oauthUrl.searchParams.set("success", new URL("/api/auth/oauth/callback", request.url).toString());
   oauthUrl.searchParams.set("failure", new URL("/login", request.url).toString());
 
   return NextResponse.redirect(oauthUrl, {
