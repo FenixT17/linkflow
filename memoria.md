@@ -1892,3 +1892,19 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - Aplicado diretamente no Appwrite real (script idempotente): 3 atributos criados e `available` (23 no total).
 
 **Validação E2E (browser real):** registo de conta nova → criar página → redireciona para /dashboard com sucesso, sem erros de console. A página pública /u/<username> dá 404 até ser publicada (published:false por defeito — comportamento esperado).
+
+**Sessão 55 — 7 Agosto 2026 — Validação E2E pós-publicação: links + tema Liquid Glass + analytics**
+
+**Objetivo:** validar que, após publicar a página, os links, o tema (glassOpacity) e os analytics aparecem corretamente na página pública.
+
+**Validação (browser real + Appwrite):**
+- Página publicada: `published: true` ✅
+- Tema: `glassOpacity: 35`, `glassBlur: 25`, `glassStrength: 50` persistidos no Appwrite e aplicados via CSS `--glass-opacity-value: 35%` (verificado com getComputedStyle na página pública) ✅
+- Link criado e visível na página pública como pílula (bg #1c1c1f, texto #fafafa, href saneado) ✅
+- Click no link: `/api/view → 200` + `/api/click → 200` ✅
+- Analytics: views: 8, clicks: 1, topLinks[0] = {title: "O meu site", clicks: 1, ctr: 100}, topCountries PT, topDevices desktop, uniqueVisitors: 1 ✅
+- Zero erros de console ✅
+
+**Nota técnica:** o `border-radius` do `rounded-full` no Tailwind v4 é `calc(infinity * 1px)` (3.4e38px) — o browser faz clamp ao tamanho do elemento e o resultado visual é a pílula correta. Não é bug.
+
+**Nota:** o bio não foi gravado no teste porque o preenchimento do textarea via CDP usou o setter de input (falha do teste, não da app — o autosave do perfil grava o bio).
