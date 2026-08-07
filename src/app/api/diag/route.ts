@@ -26,7 +26,6 @@ export async function GET() {
 
   // 2) Verify the endpoint by hitting /account (public-ish)
   try {
-    const { client } = createPublicAuthClient();
     const raw = await fetch(`${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/account`, {
       headers: {
         "X-Appwrite-Project": process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "",
