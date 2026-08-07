@@ -13,15 +13,34 @@ describe("distributed rate limiter", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses an atomic Redis script and preserves shared counts across calls", async () => {
-    const calls: Array<{ script: string; keys: string[]; args: unknown[] }> = [];
-    let count = 0;
-    const evalMock = vi.fn(async (script: string, keys: string[], args: unknown[]) => {
-      calls.push({ script, keys, args });
-      count += 1;
-      return [count, 59_500] as [number, number];
-    }) as unknown as RateLimitRedisClient["eval"];
-    const redis: RateLimitRedisClient = { eval: evalMock };
+  /** Cria um mock stateful que simula fielmente INCR/PEXPIRE/PTTL do Redis. */
+  function createRedisMock() {
+    const counts = new Map<string, number>();
+    const ttls = new Map<string, number>();
+    return {
+      incr: vi.fn(async (key: string) => {
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        // A chave recém-criada NÃO tem TTL até que o PEXPIRE seja chamado.
+        if (!ttls.has(key)) ttls.set(key, -1);
+        return next;
+      }),
+      pexpire: vi.fn(async (key: string, ms: number) => {
+        ttls.set(key, ms);
+        return 1;
+      }),
+      pttl: vi.fn(async (key: string) => ttls.get(key) ?? -1),
+    };
+  }
+
+  it("uses basic INCR/PEXPIRE/PTTL commands and preserves shared counts across calls", async () => {
+    const redis = createRedisMock();
+    const incrCalls: string[] = [];
+    const originalIncr = redis.incr;
+    redis.incr = vi.fn(async (key: string) => {
+      incrCalls.push(key);
+      return originalIncr(key);
+    });
     setRateLimitRedisForTests(redis);
 
     const first = await checkRateLimit("login", "198.51.100.10");
@@ -29,16 +48,33 @@ describe("distributed rate limiter", () => {
 
     expect(first).toMatchObject({ allowed: true, remaining: 4, limit: 5 });
     expect(second).toMatchObject({ allowed: true, remaining: 3, limit: 5 });
-    expect(calls).toHaveLength(2);
-    expect(calls[0].keys[0]).toMatch(/^linkflow:rate-limit:login:[a-f0-9]{32}$/);
-    expect(calls[0].keys[0]).not.toContain("198.51.100.10");
-    expect(calls[0].script).toContain("PEXPIRE");
-    expect(calls[0].args).toEqual(["60000"]);
+    expect(incrCalls).toHaveLength(2);
+    expect(incrCalls[0]).toMatch(/^linkflow:rate-limit:login:[a-f0-9]{32}$/);
+    expect(incrCalls[0]).not.toContain("198.51.100.10");
+    expect(redis.pexpire).toHaveBeenCalled();
+  });
+
+  it("sets the window expiry on the first request of a window", async () => {
+    const redis = createRedisMock();
+    setRateLimitRedisForTests(redis);
+
+    const result = await checkRateLimit("login", "198.51.100.99");
+
+    expect(result.allowed).toBe(true);
+    // PEXPIRE é chamado porque o PTTL era -1 (chave recém-criada pelo INCR).
+    expect(redis.pexpire).toHaveBeenCalledTimes(1);
+    expect(redis.pexpire).toHaveBeenLastCalledWith(
+      expect.stringMatching(/^linkflow:rate-limit:login:/),
+      60_000,
+    );
   });
 
   it("rejects requests after the shared limit is exceeded", async () => {
-    const evalMock = vi.fn(async () => [6, 12_000] as [number, number]) as unknown as RateLimitRedisClient["eval"];
-    setRateLimitRedisForTests({ eval: evalMock });
+    setRateLimitRedisForTests({
+      incr: vi.fn(async () => 7), // já acima do limite de 5
+      pexpire: vi.fn(async () => 1),
+      pttl: vi.fn(async () => 12_000),
+    });
 
     const result = await checkRateLimit("login", "198.51.100.11");
 
@@ -49,11 +85,15 @@ describe("distributed rate limiter", () => {
 
   it("works with concurrent calls through the same distributed adapter", async () => {
     let count = 0;
-    const evalMock = vi.fn(async () => {
-      count += 1;
-      return [count, 30_000] as [number, number];
-    }) as unknown as RateLimitRedisClient["eval"];
-    setRateLimitRedisForTests({ eval: evalMock });
+    const redis: RateLimitRedisClient = {
+      incr: vi.fn(async () => {
+        count += 1;
+        return count;
+      }),
+      pexpire: vi.fn(async () => 1),
+      pttl: vi.fn(async () => 30_000),
+    };
+    setRateLimitRedisForTests(redis);
 
     const results = await Promise.all(
       Array.from({ length: 8 }, () => checkRateLimit("view", "198.51.100.12", {

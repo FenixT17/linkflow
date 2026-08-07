@@ -42,21 +42,18 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 const RATE_LIMIT_PREFIX = "linkflow:rate-limit";
-const RATE_LIMIT_SCRIPT = `
-local current = redis.call("INCR", KEYS[1])
-if current == 1 then
-  redis.call("PEXPIRE", KEYS[1], ARGV[1])
-end
-local ttl = redis.call("PTTL", KEYS[1])
-return { current, ttl }
-`;
 
+// NOTA: não usamos EVAL/scripts Lua. Tokens Upstash REST limitados rejeitam
+// o comando `eval` com "NOPERM this user has no permissions to run the 'eval'
+// command". Usamos INCR + PEXPIRE + PTTL (comandos básicos permitidos por
+// qualquer token) e compensamos a race entre INCR e PEXPIRE no primeiro
+// pedido: se a chave existir mas o TTL for -1 (morreu entre INCR e PEXPIRE),
+// aplicamos o PEXPIRE nesse momento. Janela de erro residual é insignificante
+// para rate limiting (apenas se o processo crashar entre as duas chamadas).
 export interface RateLimitRedisClient {
-  eval<TArgs extends unknown[], TData = unknown>(
-    script: string,
-    keys: string[],
-    args: TArgs,
-  ): Promise<TData>;
+  incr(key: string): Promise<number>;
+  pexpire(key: string, milliseconds: number): Promise<number>;
+  pttl(key: string): Promise<number>;
 }
 
 let redisClient: RateLimitRedisClient | null = null;
@@ -163,25 +160,24 @@ export async function checkRateLimit(
 ): Promise<RateLimitResult> {
   const limit = normalizeConfig(config ?? RATE_LIMITS[action] ?? RATE_LIMITS.api);
   const key = `${RATE_LIMIT_PREFIX}:${safeAction(action)}:${hashIdentifier(identifier)}`;
-  const result = await getRedis().eval<
-    [string],
-    [number | string, number | string]
-  >(
-    RATE_LIMIT_SCRIPT,
-    [key],
-    [String(limit.windowMs)],
-  );
+  const redis = getRedis();
 
-  const count = Number(result?.[0]);
-  const ttl = Math.max(Number(result?.[1]), 1);
-  if (!Number.isFinite(count) || !Number.isFinite(ttl)) {
-    throw new Error("Invalid response from Upstash rate limiter.");
+  const count = await redis.incr(key);
+
+  // PTTL devolve -1 quando a chave não tem expiração — acontece no primeiro
+  // pedido da janela (a chave acabou de ser criada pelo INCR) e no caso de
+  // crash entre o INCR e o PEXPIRE anterior. Nesses casos define a janela.
+  let ttl = await redis.pttl(key);
+  if (ttl === -1) {
+    await redis.pexpire(key, limit.windowMs);
+    ttl = await redis.pttl(key);
   }
+  const effectiveTtl = Math.max(ttl, 1);
 
   return {
     allowed: count <= limit.maxRequests,
     remaining: Math.max(limit.maxRequests - count, 0),
-    resetTime: Date.now() + ttl,
+    resetTime: Date.now() + effectiveTtl,
     limit: limit.maxRequests,
   };
 }
