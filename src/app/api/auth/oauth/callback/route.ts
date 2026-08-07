@@ -33,10 +33,18 @@ export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get("userId") ?? "";
   const secret = request.nextUrl.searchParams.get("secret") ?? "";
 
-  // Sem credenciais → o fluxo não passou pelo provider. A página de login
-  // mostra o erro amigável (parseOAuthError).
+  // Appwrite Cloud (web OAuth) NÃO anexa userId+secret ao success URL — a
+  // sessão fica no domínio do Appwrite (cookie `a_session_*`, SameSite=None)
+  // e o browser completa a recuperação via o fallback do SDK já existente:
+  //   getCurrentSession → /api/auth/me 401 → createOAuthAccount().get()
+  //   (fetch cross-site com o cookie) → x-fallback-cookies em localStorage
+  //   → migrateLegacyBrowserSession → /api/auth/session → cookie HttpOnly.
+  // Por isso, quando não há credenciais no URL, redireciona para o dashboard
+  // para disparar esse fluxo (a sessão é criada no browser, não aqui).
   if (!userId || !secret) {
-    return NextResponse.redirect(new URL("/login?error=oauth_missing", request.url));
+    const returning = new URL("/dashboard", request.url);
+    returning.searchParams.set("oauth", "returning");
+    return NextResponse.redirect(returning);
   }
 
   let rateLimit;

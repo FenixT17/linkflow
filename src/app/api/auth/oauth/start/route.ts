@@ -41,14 +41,17 @@ export async function GET(request: NextRequest) {
   }
 
   const appwrite = new URL(APPWRITE_ENDPOINT);
+  // Fluxo TOKEN (createOAuth2Token): GET /account/tokens/oauth2/{provider}.
+  // Ao contrário do fluxo session (/account/sessions/oauth2/...), que guarda
+  // a sessão num cookie a_session_* no domínio do Appwrite (bloqueado por 3P
+  // cookie blocking e impossível de ler num Worker), o fluxo token anexa
+  // `userId`+`secret` ao success URL. O callback troca essas credenciais por
+  // uma sessão real server-side (POST /account/sessions/token) e define o
+  // cookie HttpOnly da app — sem depender de cookies cross-site.
   const oauthUrl = new URL(
-    `${appwrite.origin}${appwrite.pathname.replace(/\/$/, "")}/account/sessions/oauth2/${encodeURIComponent(provider)}`,
+    `${appwrite.origin}${appwrite.pathname.replace(/\/$/, "")}/account/tokens/oauth2/${encodeURIComponent(provider)}`,
   );
   oauthUrl.searchParams.set("project", PROJECT_ID);
-  // O Appwrite anexa userId+secret ao success URL. O callback troca essas
-  // credenciais por uma sessão real server-side e define o cookie HttpOnly
-  // da app — sem depender de cookies cross-site (bloqueados por 3P cookie
-  // blocking no Chrome/Safari, que devolviam o utilizador ao login).
   oauthUrl.searchParams.set("success", new URL("/api/auth/oauth/callback", request.url).toString());
   oauthUrl.searchParams.set("failure", new URL("/login", request.url).toString());
 
