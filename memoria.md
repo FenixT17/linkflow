@@ -1880,3 +1880,15 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 **Validação live:** start github → Location `https://nyc.cloud.appwrite.io/v1/account/tokens/oauth2/github?...` ✅ · rotas core 200 ✅ · /api/auth/me 401 sem sessão ✅ · typecheck ✅ · 195/195 testes ✅ · deploy verde run 31224789549 (commit 3b540a0).
 
 **Contexto da sessão:** também corrigido o bug `ReferenceError: __name is not defined` (script inline de tema do next-themes quebrado pelo minifier no worker deployado) — substituído por provider próprio (commit 990bef2). Login email/password verificado a funcionar num browser real (register → logout → login → dashboard).
+
+**Sessão 54 — 7 Agosto 2026 — Fix criação da 1ª página: "Invalid document structure: Unknown attribute: glassOpacity"**
+
+**Problema:** ao criar a primeira página, o Appwrite devolvia `Invalid document structure: Unknown attribute: "glassOpacity"`.
+
+**Causa raiz:** o `createPage` cria o documento `themes` com `...defaultAppearance()` (que inclui `glassOpacity: 35`, `glassBlur: 25`, `glassStrength: 50`), mas a coleção `themes` no Appwrite real só tinha 20 atributos (até `spacing`) — os 3 atributos Liquid Glass existiam no código (types/defaults/THEME_SAFE_FIELDS) mas nunca foram criados no schema.
+
+**Fix:**
+- `scripts/provision-appwrite.ts`: adicionados `glassOpacity`/`glassBlur`/`glassStrength` (integer, opcionais, defaults 35/25/50) à coleção themes + waitForAttributes.
+- Aplicado diretamente no Appwrite real (script idempotente): 3 atributos criados e `available` (23 no total).
+
+**Validação E2E (browser real):** registo de conta nova → criar página → redireciona para /dashboard com sucesso, sem erros de console. A página pública /u/<username> dá 404 até ser publicada (published:false por defeito — comportamento esperado).

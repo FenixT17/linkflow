@@ -543,10 +543,19 @@ async function provision() {
   await createBooleanAttribute("themes", "showBio", false, true);
   await createBooleanAttribute("themes", "showSocial", false, true);
   await createIntegerAttribute("themes", "spacing", true, 6);
+  // Sessão 54: atributos Liquid Glass. O código envia estes campos no
+  // createDocument do tema (defaultAppearance + THEME_SAFE_FIELDS) mas o
+  // schema não os tinha — o createDocument falhava com "Invalid document
+  // structure: Unknown attribute: \"glassOpacity\"" ao criar a primeira
+  // página. OPCIONAIS com os defaults usados no runtime.
+  await createIntegerAttribute("themes", "glassOpacity", false, 35);
+  await createIntegerAttribute("themes", "glassBlur", false, 25);
+  await createIntegerAttribute("themes", "glassStrength", false, 50);
   await waitForAttributes("themes", [
     "pageId", "theme", "blur", "rounded", "linkOpacity", "backgroundColor", "cardColor",
     "textColor", "accentColor", "fontFamily", "fontSize", "buttonRadius", "buttonWidth",
     "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "showSocial", "spacing",
+    "glassOpacity", "glassBlur", "glassStrength",
   ]);
   // Backfill: contas existentes têm themes.theme com default:null. Garante
   // required=false + default="glass" para o createDocument sem theme não
