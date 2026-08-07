@@ -81,13 +81,14 @@ export function createPublicAuthClient(): { client: Client; account: Account } {
  *
  * Why not `account.createEmailPasswordSession`? When called WITHOUT an API key,
  * Appwrite returns `secret: ""` in the JSON body and instead issues the real
- * session secret inside an `a_session_<projectId>` Set-Cookie header
- * (base64url-encoded `{ id, secret }`). The node-appwrite server SDK only
- * reads `body.secret` (empty) and does not expose the response Set-Cookie
- * headers, so the application session cookie would be set with an empty value
- * in runtimes like Cloudflare Workers. Doing the request with the global
- * `fetch` lets us read the header directly and works in both Node.js and
- * Workers.
+ * session secret as the VALUE of the `a_session_<projectId>` Set-Cookie header
+ * (an opaque 256-char token; the cookie's base64url-decoded JSON payload only
+ * holds `{ id, secret }` metadata and is NOT the credential — sending it as
+ * `X-Appwrite-Session` returns 401). The node-appwrite server SDK only reads
+ * `body.secret` (empty) and does not expose the response Set-Cookie headers,
+ * so the application session cookie would be set with an empty value in
+ * runtimes like Cloudflare Workers. Doing the request with the global `fetch`
+ * lets us read the header directly and works in both Node.js and Workers.
  */
 export async function createEmailPasswordSessionResolved(
   email: string,
@@ -120,7 +121,11 @@ export async function createEmailPasswordSessionResolved(
     throw error;
   }
 
-  // Public flow: secret comes via the a_session_* cookie, not the body.
+  // Public (key-less) flow: Appwrite returns `secret: ""` in the JSON body
+  // and issues the real session secret as the VALUE of the `a_session_<projectId>`
+  // Set-Cookie header (a 256-char opaque token, NOT the decoded JSON inside
+  // which is only metadata). Sending that raw cookie value as
+  // `X-Appwrite-Session` authenticates correctly (verified: /account → 200).
   let secret =
     typeof data.secret === "string" && data.secret.length > 0 ? data.secret : "";
   if (!secret) {
@@ -133,17 +138,9 @@ export async function createEmailPasswordSessionResolved(
       if (name !== cookieName && name !== `${cookieName}_legacy`) continue;
       const semi = header.indexOf(";");
       const value = header.slice(header.indexOf("=") + 1, semi === -1 ? undefined : semi).trim();
-      if (!value) continue;
-      try {
-        const decoded = JSON.parse(
-          Buffer.from(value, "base64url").toString("utf8"),
-        ) as { secret?: unknown };
-        if (typeof decoded.secret === "string" && decoded.secret.length >= 16) {
-          secret = decoded.secret;
-          break;
-        }
-      } catch {
-        // try next Set-Cookie header
+      if (value.length >= 16) {
+        secret = value;
+        break;
       }
     }
   }
