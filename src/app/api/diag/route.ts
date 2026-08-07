@@ -37,6 +37,7 @@ export async function GET() {
       keys: Object.keys(parsed).length,
       bodyLength: bodyText.length,
       bodyHasSecretWord: bodyText.includes('"secret"'),
+      body: bodyText.slice(0, 900),
     };
   } catch (error) {
     results.raw = { error: String(error) };
