@@ -5,6 +5,7 @@ import * as Navigation from "next/navigation";
 import * as AuthContext from "@/context/AuthContext";
 import type { getCurrentSession as GetCurrentSessionFn } from "@/lib/services";
 import DashboardLayout from "@/app/dashboard/layout";
+import { ThemeProvider } from "@/components/theme-provider";
 
 type Session = Awaited<ReturnType<typeof GetCurrentSessionFn>>;
 
@@ -47,9 +48,11 @@ describe("DashboardLayout auth guard", () => {
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
     render(
-      <DashboardLayout>
-        <div data-testid="content">Conteúdo protegido</div>
-      </DashboardLayout>
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Conteúdo protegido</div>
+        </DashboardLayout>
+      </ThemeProvider>
     );
 
     expect(screen.getByText("A carregar...")).toBeInTheDocument();
@@ -63,9 +66,11 @@ describe("DashboardLayout auth guard", () => {
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
     render(
-      <DashboardLayout>
-        <div data-testid="content">Conteúdo protegido</div>
-      </DashboardLayout>
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Conteúdo protegido</div>
+        </DashboardLayout>
+      </ThemeProvider>
     );
 
     expect(screen.getByText("A carregar...")).toBeInTheDocument();
@@ -79,9 +84,11 @@ describe("DashboardLayout auth guard", () => {
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
     render(
-      <DashboardLayout>
-        <div data-testid="content">Conteúdo protegido</div>
-      </DashboardLayout>
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Conteúdo protegido</div>
+        </DashboardLayout>
+      </ThemeProvider>
     );
 
     expect(screen.getByTestId("content")).toBeInTheDocument();

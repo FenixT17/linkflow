@@ -1,34 +1,119 @@
 "use client";
 
 import * as React from "react";
-import { useEffect } from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   ALLOWED_THEMES,
+  AllowedTheme,
   THEME_STORAGE_KEY,
-  sanitizeStoredTheme,
+  isAllowedTheme,
 } from "@/lib/theme-security";
 
+interface ThemeContextValue {
+  theme: AllowedTheme;
+  resolvedTheme: "light" | "dark";
+  systemTheme: "light" | "dark";
+  setTheme: (theme: AllowedTheme) => void;
+  themes: readonly string[];
+}
+
+const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined);
+
+function getSystemTheme(): "light" | "dark" {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function readStoredTheme(defaultTheme: AllowedTheme): AllowedTheme {
+  if (typeof window === "undefined") return defaultTheme;
+  try {
+    const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isAllowedTheme(raw) ? raw : defaultTheme;
+  } catch {
+    return defaultTheme;
+  }
+}
+
+/**
+ * Provider de tema próprio (sem next-themes).
+ *
+ * O script inline do next-themes era minificado pelo pipeline de build com o
+ * helper `__name` sem definição (ReferenceError em produção — ver
+ * THEME_SCRIPT em lib/theme-security.ts). Este provider aplica o tema com o
+ * mesmo contrato (useTheme: theme/resolvedTheme/systemTheme/setTheme) mas sem
+ * depender de scripts inline de bibliotecas externas.
+ *
+ * O tema default é "dark" (igual ao defaultTheme do layout). O valor é
+ * persistido em localStorage["theme"] (whitelist em lib/theme-security) e o
+ * script pré-hidratação THEME_SCRIPT aplica a classe .dark no <head> antes do
+ * React correr — sem flash de tema.
+ */
 export function ThemeProvider({
   children,
-  ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  // Defesa em profundidade: após a hidratação, garante que qualquer valor
-  // inválido remanescente em localStorage["theme"] seja corrigido para
-  // "system" (a sanitização pré-hidratação já corre no <head>).
+  defaultTheme = "dark",
+}: {
+  children: React.ReactNode;
+  defaultTheme?: AllowedTheme;
+}) {
+  const [theme, setThemeState] = useState<AllowedTheme>(() => readStoredTheme(defaultTheme));
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">("dark");
+
+  // Acompanha o esquema de cor do sistema (guard para ambientes sem
+  // matchMedia — ex.: jsdom nos testes).
   useEffect(() => {
-    sanitizeStoredTheme();
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setSystemTheme(mq.matches ? "dark" : "light");
+    setSystemTheme(mq.matches ? "dark" : "light");
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  return (
-    <NextThemesProvider
-      attribute="class"
-      disableTransitionOnChange
-      storageKey={THEME_STORAGE_KEY}
-      themes={[...ALLOWED_THEMES]}
-      {...props}
-    >
-      {children}
-    </NextThemesProvider>
+  const applyTheme = useCallback((next: AllowedTheme, system: "light" | "dark") => {
+    const resolved = next === "system" ? system : next;
+    const dark = resolved === "dark";
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  }, []);
+
+  // Aplica sempre que o tema ou o esquema do sistema mudam (inclui 1º mount).
+  useEffect(() => {
+    applyTheme(theme, systemTheme);
+  }, [theme, systemTheme, applyTheme]);
+
+  // Sincronização cross-tab.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === THEME_STORAGE_KEY && isAllowedTheme(e.newValue)) {
+        setThemeState(e.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const setTheme = useCallback((next: AllowedTheme) => {
+    setThemeState(next);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, next);
+    } catch {
+      // localStorage indisponível (ex.: modo privado) — o tema ainda aplica
+      // nesta sessão via applyTheme.
+    }
+  }, []);
+
+  const resolvedTheme: "light" | "dark" = theme === "system" ? systemTheme : theme;
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({ theme, resolvedTheme, systemTheme, setTheme, themes: ALLOWED_THEMES }),
+    [theme, resolvedTheme, systemTheme, setTheme],
   );
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme(): ThemeContextValue {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error("useTheme must be used within a ThemeProvider");
+  return ctx;
 }

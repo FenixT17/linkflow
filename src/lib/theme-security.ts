@@ -79,6 +79,52 @@ export function sanitizeStoredTheme(): AllowedTheme {
  *
  * Não usa nenhuma API React/Next — JS puro, sem dependências.
  */
+/**
+ * Script de aplicação de tema pré-hidratação (substitui o script inline do
+ * next-themes).
+ *
+ * O script do next-themes era minificado pelo pipeline de build com o helper
+ * esbuild `__name` sem a definição do helper ("ReferenceError: __name is not
+ * defined" no <head> de todas as páginas em produção), o que quebrava a
+ * aplicação do tema antes da hidratação. Este script é uma string pura no
+ * bundle (como o sanitizador) — nunca é transformado pelo minificador, por
+ * isso não pode voltar a partir. Aplica o tema (dark por defeito, igual ao
+ * defaultTheme="dark" do layout) e acompanha mudanças de sistema/cross-tab.
+ */
+export const THEME_SCRIPT = `(function () {
+  var ALLOWED = ["light", "dark", "system"];
+  var KEY = "theme";
+  var FALLBACK = "dark";
+  function isAllowed(v) {
+    return typeof v === "string" && ALLOWED.indexOf(v) !== -1;
+  }
+  function current() {
+    var raw;
+    try {
+      raw = window.localStorage.getItem(KEY);
+    } catch (e) {}
+    return isAllowed(raw) ? raw : FALLBACK;
+  }
+  function apply(t) {
+    var dark =
+      t === "dark" ||
+      (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  }
+  apply(current());
+  try {
+    window.addEventListener("storage", function (e) {
+      if (e.key === KEY) apply(current());
+    });
+  } catch (e) {}
+  try {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      if (current() === "system") apply("system");
+    });
+  } catch (e) {}
+})();`;
+
 export const THEME_SANITIZER_SCRIPT = `(function () {
   var ALLOWED = ["light", "dark", "system"];
   var KEY = "theme";

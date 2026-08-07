@@ -6,7 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { ZoomBlocker } from "@/components/zoom-blocker";
 import { organizationJsonLd, websiteJsonLd, softwareApplicationJsonLd, renderJsonLd, siteUrl, siteName, siteTagline, defaultDescription } from "@/lib/seo";
-import { THEME_SANITIZER_SCRIPT } from "@/lib/theme-security";
+import { THEME_SCRIPT, THEME_SANITIZER_SCRIPT } from "@/lib/theme-security";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -110,6 +110,9 @@ export default function RootLayout({
             whitelist ANTES do script inline do next-themes o aplicar ao DOM
             (previne DOM XSS via secondary source — CWE-79). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }} />
+        {/* Aplica o tema antes da hidratação (substitui o script inline do
+            next-themes — ver THEME_SCRIPT em lib/theme-security.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={renderJsonLd(structuredData)}
@@ -118,7 +121,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${geist.variable}`}
       >
-        <ThemeProvider defaultTheme="dark" enableSystem>
+        <ThemeProvider defaultTheme="dark">
           <ToastProvider>
             <AuthProvider>
               <ZoomBlocker />
