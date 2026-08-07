@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { ID } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
-import { getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { getClientIp, checkRateLimit, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { hashForLog } from "@/lib/sanitize";
 
 const VALID_EVENTS = [
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
 
   // Rate limit: max 5 anonymous logs per IP per minute
   const ip = getClientIp(request);
-  const rateLimit = checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
+  const rateLimit = await checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
   if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   }
 
   try {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.error("[api/security/log-anonymous] error:", error);
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"

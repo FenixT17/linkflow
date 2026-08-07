@@ -3,7 +3,7 @@ import { Query } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
 
@@ -14,6 +14,18 @@ export async function POST(request: NextRequest) {
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
 
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit("user_geo", `${auth.user.$id}:${ip}`, {
+    maxRequests: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
+  }
+
   try {
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, "users", [
@@ -23,7 +35,7 @@ export async function POST(request: NextRequest) {
     const doc = docs.documents[0];
     if (!doc) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
-    const geo = await resolveGeo(getClientIp(request), request);
+    const geo = await resolveGeo(ip, request);
     const countryCode = geo.countryCode?.toUpperCase() ?? "";
     const updated = await databases.updateDocument(databaseId, "users", doc.$id, {
       country: geo.country ?? "",
@@ -31,11 +43,14 @@ export async function POST(request: NextRequest) {
       currency: currencyForCountry(countryCode),
     });
 
-    return NextResponse.json({
-      country: String(updated.country ?? ""),
-      countryCode: String(updated.countryCode ?? ""),
-      currency: String(updated.currency ?? "EUR"),
-    });
+    return NextResponse.json(
+      {
+        country: String(updated.country ?? ""),
+        countryCode: String(updated.countryCode ?? ""),
+        currency: String(updated.currency ?? "EUR"),
+      },
+      { headers: mergeRateLimitHeaders(undefined, rate) },
+    );
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
       ? (error as { status: number }).status

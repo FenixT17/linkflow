@@ -1,0 +1,87 @@
+import { NextRequest, NextResponse } from "next/server";
+import { csrfGuard } from "@/lib/csrf";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
+import { createPublicAuthClient, setAuthSessionCookie } from "@/lib/auth.server";
+
+const MAX_BODY_BYTES = 8 * 1024;
+const MAX_EMAIL_LENGTH = 254;
+const MAX_PASSWORD_LENGTH = 256;
+
+function bodyTooLarge(request: NextRequest): boolean {
+  const length = request.headers.get("content-length");
+  return length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_BODY_BYTES);
+}
+
+export async function POST(request: NextRequest) {
+  const csrfCheck = csrfGuard(request);
+  if (csrfCheck) return csrfCheck;
+  if (bodyTooLarge(request)) {
+    return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+  }
+
+  const ip = getClientIp(request);
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit("login", ip);
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde antes de tentar novamente." },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) },
+    );
+  }
+
+  try {
+    const rawBody = await request.text();
+    if (rawBody.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+    }
+    const body = (() => {
+      try {
+        return JSON.parse(rawBody) as { email?: unknown; password?: unknown };
+      } catch {
+        return null;
+      }
+    })();
+    const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (!email || email.length > MAX_EMAIL_LENGTH || password.length < 1 || password.length > MAX_PASSWORD_LENGTH) {
+      return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
+    }
+
+      let accountRateLimit;
+    try {
+      accountRateLimit = await checkRateLimit("login_account", email, {
+        maxRequests: 10,
+        windowMs: 15 * 60 * 1000,
+      });
+    } catch {
+      return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+    }
+    if (!accountRateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Muitas tentativas para esta conta. Aguarde antes de tentar novamente." },
+        { status: 429, headers: mergeRateLimitHeaders(undefined, accountRateLimit) },
+      );
+    }
+
+    const { account } = createPublicAuthClient();
+    const session = await account.createEmailPasswordSession(email, password);
+    const response = NextResponse.json(
+      { user: { $id: session.userId, email } },
+      { headers: mergeRateLimitHeaders(undefined, rateLimit) },
+    );
+    setAuthSessionCookie(response, session.secret, session.expire);
+    return response;
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 429
+      ? 429
+      : 401;
+    return NextResponse.json(
+      { error: status === 429 ? "Muitas tentativas. Aguarde antes de tentar novamente." : "Email ou palavra-passe incorretos." },
+      { status, headers: mergeRateLimitHeaders(undefined, rateLimit) },
+    );
+  }
+}

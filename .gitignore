@@ -40,6 +40,11 @@ yarn-error.log*
 # netlify (build cache)
 .netlify/
 
+# cloudflare (opennext + wrangler)
+.open-next/
+.wrangler/
+.dev.vars
+
 # dev logs
 *.log
 

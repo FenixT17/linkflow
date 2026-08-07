@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
+// Domínio canónico: NEXT_PUBLIC_SITE_URL (definido no build — ver
+// .github/workflows/deploy.yml). Fallback para o domínio Cloudflare
+// (workers.dev) — substituir pelo subdomínio real da conta em produção.
 export const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://linkflow-web.netlify.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://linkflow.workers.dev";
 export const siteName = "LinkFlow";
 export const siteTagline = "Um Link. Possibilidades Infinitas.";
 export const defaultDescription =

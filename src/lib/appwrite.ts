@@ -5,10 +5,15 @@ export const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 export const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "linkflow";
 export const filesBucketId = process.env.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID ?? "files";
 
+// All browser SDK requests go through our same-origin proxy. The proxy
+// attaches the HttpOnly application session cookie server-side, so the
+// browser never stores Appwrite session secrets in localStorage.
+export const appwriteApiEndpoint =
+  typeof window !== "undefined" ? `${window.location.origin}/api/appwrite` : endpoint;
 export const appwriteClient = new Client();
 
 if (projectId) {
-  appwriteClient.setEndpoint(endpoint).setProject(projectId);
+  appwriteClient.setEndpoint(appwriteApiEndpoint).setProject(projectId);
 } else if (typeof window !== "undefined") {
   // Aviso em runtime quando o cliente Appwrite não consegue identificar o projeto.
   // Os botões OAuth continuam a renderizar (UX não quebra) mas o fluxo devolve
@@ -21,6 +26,14 @@ if (projectId) {
 }
 
 export const account = new Account(appwriteClient);
+
+/** Creates an isolated Cloud client only for the OAuth callback handoff. */
+export function createOAuthAccount(): Account {
+  const oauthClient = new Client();
+  if (projectId) oauthClient.setEndpoint(endpoint).setProject(projectId);
+  return new Account(oauthClient);
+}
+
 export const databases = new Databases(appwriteClient);
 export const storage = new Storage(appwriteClient);
 

@@ -6,8 +6,9 @@
  * agregados — apenas no log bruto de visits (coleção server-only).
  *
  * Estratégia (por ordem):
- * 1. Cabeçalhos GeoIP da infraestrutura (Netlify: x-country, x-country-name,
- *    x-city, x-region). Zero custo quando disponíveis.
+ * 1. Cabeçalhos GeoIP da infraestrutura (Cloudflare: cf-ipcountry; headers
+ *    legados do Netlify x-country/x-country-name/x-city mantidos por
+ *    compatibilidade). Zero custo quando disponíveis.
  * 2. Fallback: API gratuita country.is (sem key, uso comercial permitido)
  *    com cache em memória por IP (TTL 24h) para não exceder o rate limit.
  * 3. IPs privados/locais (dev) → sem lookup, devolvem vazio.
@@ -49,7 +50,10 @@ export function getCountryName(countryCode: string): string {
 }
 
 function readHeaderGeo(request: Request): GeoInfo | null {
-  const code = request.headers.get("x-country") ?? request.headers.get("cf-ipcountry");
+  // Cloudflare injeta cf-ipcountry (código ISO 3166-1 alpha-2) em todos os
+  // pedidos; x-country era o header da infraestrutura Netlify — mantido por
+  // compatibilidade caso o header volte a existir.
+  const code = request.headers.get("cf-ipcountry") ?? request.headers.get("x-country");
   if (code) {
     const name = request.headers.get("x-country-name") ?? getCountryName(code);
     const city = request.headers.get("x-city") || undefined;

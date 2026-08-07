@@ -14,6 +14,12 @@ LinkFlow é uma aplicação SaaS construída com Next.js (TypeScript) e Appwrite
 - **Emails**: Resend
 - **Pagamentos**: Stripe (configurado, mas não integrado)
 
+### Distributed protection
+- **Rate limiting**: `@upstash/redis` via REST, with an atomic Lua `INCR`/`PEXPIRE` script.
+- **Runtime**: server-only credentials (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) shared by all Netlify instances.
+- **Client identity**: only the infrastructure-provided single-IP header (`cf-connecting-ip` on Cloudflare) is accepted; arbitrary `X-Forwarded-For` values are ignored.
+- **Failure mode**: missing Redis configuration fails closed instead of falling back to local memory.
+
 ### Backend (Indireto via Appwrite)
 - **Autenticação**: Appwrite (login, recuperação de senha, gerenciamento de usuários)
 - **Banco de Dados**: Coleções no Appwrite (`linkflow`)
@@ -50,6 +56,8 @@ Copie `.env.example` para `.env.local` e preencha com valores reais.
 - **Appwrite**: Autenticação segura com escopos restritos.
 
 ### CSP (Content Security Policy)
+O rate limiting distribuído usa Redis REST e não depende de estado local da função. O CSP atual ainda usa scripts inline necessários para a hidratação do tema; a migração completa para nonce/hash deve ser tratada separadamente para não quebrar `next-themes`.
+
 O CSP atual usa `nonce` para scripts dinâmicos. Para garantir segurança:
 1. **Middleware**: Gera um nonce único por requisição.
 2. **Scripts Dinâmicos**: Usam o nonce gerado (ex: `next-themes`).

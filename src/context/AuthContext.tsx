@@ -12,7 +12,6 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Models } from "appwrite";
-import { account as appwriteAccount } from "@/lib/appwrite";
 import {
   ActivityEntry,
   PageProfile,
@@ -360,15 +359,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      // Server-side rate limit check (5 login attempts/min per IP)
-      const rateRes = await fetchWithCsrf("/api/auth/rate-check", {
-        method: "POST",
-        body: JSON.stringify({ action: "login" }),
-      });
-      if (!rateRes.ok) {
-        const rateData = await rateRes.json().catch(() => ({}));
-        return { success: false, error: rateData.error ?? "Muitas tentativas. Aguarde um momento." };
-      }
       // Detect suspicious input
       const suspicious = detectSuspiciousInput(email);
       if (suspicious.suspicious) {
@@ -424,15 +414,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
-      // Server-side rate limit check (3 registrations/hour per IP)
-      const rateRes = await fetchWithCsrf("/api/auth/rate-check", {
-        method: "POST",
-        body: JSON.stringify({ action: "register" }),
-      });
-      if (!rateRes.ok) {
-        const rateData = await rateRes.json().catch(() => ({}));
-        return { success: false, error: rateData.error ?? "Muitas tentativas. Aguarde um momento." };
-      }
       // Detect suspicious input
       const emailCheck = detectSuspiciousInput(email);
       const nameCheck = detectSuspiciousInput(name);
@@ -548,18 +529,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const deleteAccount = useCallback(async () => {
     try {
-      const jwt = await appwriteAccount.createJWT();
       const response = await fetchWithCsrf("/api/users/delete", {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${jwt.jwt}` },
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
         return { success: false, error: data.error || "Não foi possível eliminar a conta." };
       }
 
-      // The server has already deleted the Appwrite identity, so calling
-      // account.deleteSession afterwards would be unnecessary and may fail.
+      // The server has already deleted the Appwrite identity and session.
       clearCsrfToken();
       setAccountData(null);
       setPage(null);

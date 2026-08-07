@@ -17,6 +17,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // The server-only guard is intentionally neutralized only in Vitest;
+      // production builds still resolve the real package and prevent client imports.
+      "server-only": path.resolve(__dirname, "./src/__tests__/server-only-shim.ts"),
     },
   },
 });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { csrfGuard } from "@/lib/csrf";
 
 /**
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ip = getClientIp(request);
-    const result = checkRateLimit(action, ip);
+    const result = await checkRateLimit(action, ip);
 
     if (!result.allowed) {
       const waitSeconds = Math.ceil((result.resetTime - Date.now()) / 1000);
@@ -48,12 +48,15 @@ export async function POST(request: NextRequest) {
         { allowed: false, error: message },
         {
           status: 429,
-          headers: { "Retry-After": String(waitSeconds) },
+          headers: mergeRateLimitHeaders({ "Retry-After": String(waitSeconds) }, result),
         }
       );
     }
 
-    return NextResponse.json({ allowed: true });
+    return NextResponse.json(
+      { allowed: true },
+      { headers: mergeRateLimitHeaders(undefined, result) },
+    );
   } catch {
     // Fail closed — if we can't check rate limits, block the attempt
     return NextResponse.json(

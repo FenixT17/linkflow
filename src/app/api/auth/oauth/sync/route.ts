@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { requireAuth } from "@/lib/auth.server";
 import { csrfGuard } from "@/lib/csrf";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
 import { ID, Permission, Query, Role } from "node-appwrite";
@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
 
     // 2. Rate limit: max 3 sync requests por IP por minuto
     const ip = getClientIp(request);
-    const rateLimit = checkRateLimit("oauth_sync", ip, { maxRequests: 3, windowMs: 60 * 1000 });
+    const rateLimit = await checkRateLimit("oauth_sync", ip, { maxRequests: 3, windowMs: 60 * 1000 });
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
     }
 
     const { databases } = createServerClient();
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     const status =
       typeof error === "object" &&

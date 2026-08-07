@@ -3,7 +3,7 @@ import { ID, Permission, Query, Role } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { normalizeStaffApplicationMessage } from "@/lib/staff-security";
 
 const COLLECTION_STAFF_APPLICATIONS = "staff_applications";
@@ -22,12 +22,12 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const ip = getClientIp(request);
-  const rateLimit = checkRateLimit("staff_application", `${auth.user.$id}:${ip}`, {
+  const rateLimit = await checkRateLimit("staff_application", `${auth.user.$id}:${ip}`, {
     maxRequests: 3,
     windowMs: 60 * 60 * 1000,
   });
   if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Demasiadas candidaturas. Tenta novamente mais tarde." }, { status: 429 });
+    return NextResponse.json({ error: "Demasiadas candidaturas. Tenta novamente mais tarde." }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   }
 
   try {
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         createdAt: String(doc.createdAt ?? ""),
       },
-    }, { status: 201 });
+    }, { status: 201, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
       ? (error as { status: number }).status

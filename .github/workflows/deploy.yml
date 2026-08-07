@@ -1,0 +1,89 @@
+# ============================================================================
+# LinkFlow — Deploy automático para Cloudflare Workers
+# ============================================================================
+# Substitui a integração Netlify. No push para `main`, faz o build do Next.js
+# com o adaptador @opennextjs/cloudflare e publica o Worker na Cloudflare.
+#
+# GitHub Secrets necessários (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN          → API token (permissões: Workers Scripts
+#                                   Edit + Account Settings Read)
+#   CLOUDFLARE_ACCOUNT_ID         → ID da conta Cloudflare
+#   NEXT_PUBLIC_APPWRITE_ENDPOINT / PROJECT_ID / DATABASE_ID /
+#   NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID / AVATARS_BUCKET_ID / BANNERS_BUCKET_ID
+#   NEXT_PUBLIC_SITE_URL          → URL público final (workers.dev ou domínio)
+#   APPWRITE_API_KEY              → Server API key do Appwrite
+#   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN → rate limiting
+# ============================================================================
+name: Deploy LinkFlow → Cloudflare Workers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: cloudflare-deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # NOTA: o repositório GitHub está enraizado em frontend/ (a app é o
+      # root do repo) — por isso não há prefixo de diretório nos passos.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # NEXT_PUBLIC_* são inlined no bundle em build time pelo Next.js.
+      - name: Build (OpenNext Cloudflare)
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_DATABASE_ID }}
+          NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID }}
+          NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID }}
+          NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+        run: npx opennextjs-cloudflare build
+
+      # wrangler lê o wrangler.jsonc. postCommands grava os segredos runtime
+      # (idempotente) — correm DEPOIS do deploy, quando o Worker já existe.
+      # Em primeiro deploy há uma janela curta (segundos) sem segredos; nas
+      # vezes seguintes os valores persistem. Alternativa: definir uma vez no
+      # dashboard do Cloudflare (Workers & Pages → linkflow → Settings →
+      # Variables and Secrets). Cada linha tem guarda contra secret vazio
+      # (evita gravar valores vazios que quebrariam o runtime).
+      - name: Deploy para Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          postCommands: |
+            if [ -n "${{ secrets.APPWRITE_API_KEY }}" ]; then
+              echo "${{ secrets.APPWRITE_API_KEY }}" | npx wrangler secret put APPWRITE_API_KEY
+            else
+              echo "⚠️ APPWRITE_API_KEY não definido no GitHub — a gravar no dashboard da Cloudflare."
+            fi
+            if [ -n "${{ secrets.UPSTASH_REDIS_REST_URL }}" ]; then
+              echo "${{ secrets.UPSTASH_REDIS_REST_URL }}" | npx wrangler secret put UPSTASH_REDIS_REST_URL
+            else
+              echo "⚠️ UPSTASH_REDIS_REST_URL não definido no GitHub."
+            fi
+            if [ -n "${{ secrets.UPSTASH_REDIS_REST_TOKEN }}" ]; then
+              echo "${{ secrets.UPSTASH_REDIS_REST_TOKEN }}" | npx wrangler secret put UPSTASH_REDIS_REST_TOKEN
+            else
+              echo "⚠️ UPSTASH_REDIS_REST_TOKEN não definido no GitHub."
+            fi

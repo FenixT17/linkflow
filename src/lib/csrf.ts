@@ -15,7 +15,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const CSRF_COOKIE_NAME = "csrf-token";
+export const CSRF_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-linkflow-csrf" : "csrf-token";
 const CSRF_HEADER_NAME = "x-csrf-token";
 const CSRF_COOKIE_MAX_AGE = 60 * 60; // 1 hour
 
@@ -117,4 +118,4 @@ export function clearCsrfCookie(response: NextResponse): void {
   });
 }
 
-export { CSRF_COOKIE_NAME, CSRF_HEADER_NAME };
+export { CSRF_HEADER_NAME };

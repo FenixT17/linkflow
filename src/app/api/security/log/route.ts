@@ -3,6 +3,7 @@ import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { ID } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
+import { getClientIp } from "@/lib/rate-limit";
 import { hashForLog } from "@/lib/sanitize";
 
 const VALID_EVENTS = [
@@ -37,9 +38,9 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createServerClient();
 
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-      ?? request.headers.get("x-real-ip")
-      ?? "unknown";
+    // IP confiável da infraestrutura (cf-connecting-ip da Cloudflare) — nunca
+    // do body nem de headers falsificáveis pelo cliente.
+    const ipAddress = getClientIp(request);
     const userAgent = request.headers.get("user-agent") ?? "";
 
     // Sanitize email: hash it to avoid storing PII in plain text

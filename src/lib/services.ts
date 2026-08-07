@@ -1,6 +1,6 @@
 import { ID, Query, Models, OAuthProvider, Permission, Role } from "appwrite";
 
-import { account, databases, storage, databaseId, Collections, Buckets, endpoint, projectId } from "./appwrite";
+import { account, databases, storage, databaseId, Collections, Buckets, endpoint, projectId, createOAuthAccount } from "./appwrite";
 import { fetchWithCsrf } from "@/hooks/use-csrf";
 import {
   ActivityAction,
@@ -91,30 +91,37 @@ export async function fetchUserGeo(): Promise<{
 }
 
 export async function registerUser(email: string, password: string, name: string) {
-  const newAccount = await account.create(ID.unique(), email, password, name);
-  await account.createEmailPasswordSession(email, password);
+  const response = await fetchWithCsrf("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, name }),
+  });
+  const data = await response.json().catch(() => ({})) as {
+    user?: Models.User<Models.Preferences>;
+    error?: string;
+  };
+  if (!response.ok || !data.user) {
+    throw new Error(data.error || "Não foi possível criar a conta.");
+  }
 
-  // Verificação por email está desativada temporariamente por decisão do
-  // produto. A conta é criada sem iniciar qualquer envio de email.
-
-  // O perfil é criado pelo servidor: userId, email, plano e permissões não
-  // podem ser adulterados pelo payload do browser.
-  const res = await fetchWithAppwriteAuth("/api/users/provision", {
+  const provision = await fetchWithCsrf("/api/users/provision", {
     method: "POST",
     body: JSON.stringify({}),
   });
-  if (!res.ok) {
+  if (!provision.ok) {
+    // Do not leave a newly-created account authenticated if the mandatory
+    // profile transaction cannot be completed.
+    await fetchWithCsrf("/api/auth/logout", { method: "POST" }).catch(() => {});
     throw new Error("Não foi possível preparar o perfil da conta.");
   }
-  const data = await res.json() as { profile?: UserAccount };
-  const geo = data.profile
+  const provisionData = await provision.json() as { profile?: UserAccount };
+  const geo = provisionData.profile
     ? {
-        country: data.profile.country,
-        countryCode: data.profile.countryCode,
-        currency: data.profile.currency,
+        country: provisionData.profile.country,
+        countryCode: provisionData.profile.countryCode,
+        currency: provisionData.profile.currency,
       }
     : {};
-  return { account: newAccount, geo };
+  return { account: data.user, geo };
 }
 
 /**
@@ -138,39 +145,67 @@ export async function completePasswordReset(userId: string, secret: string, pass
 }
 
 export async function loginUser(email: string, password: string) {
-  // O Appwrite recusa criar uma nova sessão enquanto existir uma sessão
-  // ativa no cliente (erro "Creation of a session is prohibited when a
-  // session is active"). Isto acontece, por exemplo, logo após o registo
-  // (que já cria sessão) ou quando o browser ainda tem uma sessão antiga.
-  //
-  // O SDK v26 guarda a sessão em localStorage["cookieFallback"] e envia-a
-  // via header X-Fallback-Cookies em todos os pedidos. Apagar apenas a
-  // sessão no servidor (deleteSession("current")) não garante a limpeza
-  // desse fallback local — o createEmailPasswordSession seguinte voltaria
-  // a enviar a sessão antiga e o Appwrite rejeitaria. Por isso: apagamos a
-  // sessão atual no servidor (não afeta sessões de outros dispositivos;
-  // ao contrário do logout que usa deleteSessions()) E limpamos o fallback
-  // local antes de autenticar.
-  try {
-    await account.deleteSession("current");
-  } catch {
-    // Sem sessão ativa — segue em frente normalmente.
+  const response = await fetchWithCsrf("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await response.json().catch(() => ({})) as {
+    user?: Models.User<Models.Preferences>;
+    error?: string;
+  };
+  if (!response.ok || !data.user) {
+    throw new Error(data.error || "Email ou palavra-passe incorretos.");
   }
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem("cookieFallback");
-  }
-  return account.createEmailPasswordSession(email, password);
+  return data.user;
 }
 
 export async function logoutUser() {
-  // M4: termina TODAS as sessões do utilizador no projeto Appwrite
-  // (account.deleteSession("current") só fechava a sessão atual — um
-  // atacante com um cookie de sessão paralela ficaria válido após logout).
-  return account.deleteSessions();
+  const response = await fetchWithCsrf("/api/auth/logout", { method: "POST" });
+  if (!response.ok) {
+    throw new Error("Não foi possível terminar a sessão.");
+  }
+}
+
+async function migrateLegacyBrowserSession(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const fallback = window.localStorage.getItem("cookieFallback");
+  if (!fallback) return;
+
+  const response = await fetchWithCsrf("/api/auth/session", {
+    method: "POST",
+    body: JSON.stringify({ fallback }),
+  });
+  // A successful migration or a malformed/expired legacy session must not
+  // leave an Appwrite secret in localStorage indefinitely.
+  if (response.ok || response.status === 401) {
+    window.localStorage.removeItem("cookieFallback");
+  }
 }
 
 export async function getCurrentSession() {
-  return account.get();
+  await migrateLegacyBrowserSession().catch(() => {});
+  let response = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+
+  // OAuth is the only legacy browser flow. After the provider redirects back,
+  // one direct read lets Appwrite expose its fallback session locally; it is
+  // immediately exchanged for the HttpOnly application cookie below. Email
+  // and password are never sent through this client path.
+  if (!response.ok && typeof window !== "undefined") {
+    try {
+      await createOAuthAccount().get();
+      await migrateLegacyBrowserSession();
+      response = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
+    } catch {
+      // Fall through to the normal unauthorized result.
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error("Unauthorized");
+  }
+  const data = await response.json() as { user?: Models.User<Models.Preferences> };
+  if (!data.user) throw new Error("Unauthorized");
+  return data.user;
 }
 
 /**
@@ -187,14 +222,10 @@ function createOAuthSession(provider: OAuthProvider) {
     window.location.assign(`${window.location.origin}/login?error=missing_project`);
     return;
   }
-  // L6: o callback usa window.location.origin (a origem da própria app) —
-  // não é um open redirect. A allowlist de origens continua a ser validada
-  // pelo projeto Appwrite (Web Platform).
-  account.createOAuth2Session(
-    provider,
-    `${window.location.origin}/dashboard`,
-    `${window.location.origin}/login`
-  );
+  const providerKey = provider === OAuthProvider.Google ? "google" : "github";
+  // The server route applies the distributed limit and owns the callback
+  // allowlist. It then redirects to Appwrite's provider endpoint.
+  window.location.assign(`/api/auth/oauth/start?provider=${providerKey}`);
 }
 
 export function loginWithGoogle() {
@@ -206,10 +237,7 @@ export function loginWithGitHub() {
 }
 
 async function fetchWithAppwriteAuth(url: string, options: RequestInit = {}): Promise<Response> {
-  const jwt = await account.createJWT();
-  const headers = new Headers(options.headers || {});
-  headers.set("Authorization", `Bearer ${jwt.jwt}`);
-  return fetchWithCsrf(url, { ...options, headers });
+  return fetchWithCsrf(url, options);
 }
 
 export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences>) {

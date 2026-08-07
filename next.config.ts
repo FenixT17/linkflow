@@ -5,20 +5,11 @@ const nextConfig: NextConfig = {
   compress: true,
 
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "api.qrserver.com",
-      },
-      {
-        protocol: "https",
-        hostname: "cloud.appwrite.io",
-      },
-      {
-        protocol: "https",
-        hostname: "*.cloud.appwrite.io",
-      },
-    ],
+    // Cloudflare Workers (via @opennextjs/cloudflare) não executa o otimizador
+    // de imagens do Next.js sem configuração adicional (Cloudflare Images).
+    // `unoptimized` garante que avatares/banners/QR funcionam em produção
+    // (serve o src original; remotePatterns é irrelevante neste modo).
+    unoptimized: true,
   },
 
 

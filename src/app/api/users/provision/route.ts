@@ -3,7 +3,7 @@ import { ID, Permission, Query, Role } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
 
@@ -21,6 +21,18 @@ export async function POST(request: NextRequest) {
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit("user_provision", auth.user.$id + ":" + ip, {
+    maxRequests: 5,
+    windowMs: 60 * 1000,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
+  }
 
   try {
     const { databases } = createServerClient();
@@ -48,12 +60,12 @@ export async function POST(request: NextRequest) {
         },
         [Permission.read(Role.user(userId))]
       );
-      return NextResponse.json({
-        profile: mapProfile(repaired),
-      });
+      return NextResponse.json(
+        { profile: mapProfile(repaired) },
+        { headers: mergeRateLimitHeaders(undefined, rate) },
+      );
     }
 
-    const ip = getClientIp(request);
     const geo = await resolveGeo(ip, request).catch(() => ({ country: "", countryCode: "" }));
     const countryCode = geo.countryCode?.toUpperCase() ?? "";
     const profile = await databases.createDocument(
@@ -73,7 +85,10 @@ export async function POST(request: NextRequest) {
       [Permission.read(Role.user(userId))]
     );
 
-    return NextResponse.json({ profile: mapProfile(profile) }, { status: 201 });
+    return NextResponse.json(
+      { profile: mapProfile(profile) },
+      { status: 201, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
       ? (error as { status: number }).status

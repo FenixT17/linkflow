@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { GlassButton } from "@/components/ui/glass-button";
 import { useCsrfAction } from "@/components/ui/csrf-form";
-import { account as appwriteAccount } from "@/lib/appwrite";
 import { fetchWithCsrf } from "@/hooks/use-csrf";
 import { Save, Globe, Bell, Shield, Trash2, Mail, Lock, Smartphone, Loader2 } from "lucide-react";
 
@@ -38,11 +37,8 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage("");
     try {
-      await appwriteAccount.updateName(name.trim());
-      const jwt = await appwriteAccount.createJWT();
       const res = await fetchWithCsrf("/api/users/profile", {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${jwt.jwt}` },
         body: JSON.stringify({ displayName: name.trim() }),
       });
       if (!res.ok) throw new Error("Profile update failed");

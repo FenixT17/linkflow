@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { requireAuth } from "@/lib/auth.server";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/activity/ip
  *
- * Devolve o IP real do cliente (derivado dos headers do servidor, nunca do
- * body). Usado pelo registo de "Atividades recentes": o client SDK escreve a
- * atividade no Appwrite, mas só o servidor conhece o IP real do utilizador.
- *
- * Privacidade: o IP é do próprio dono da conta (as suas próprias ações) e
- * nunca é exposto a terceiros — apenas aparece no cartão "Atividades recentes"
- * do próprio utilizador.
+ * O endpoint permanece protegido por sessão e por rate limiting distribuído.
+ * Só devolve o IP ao próprio utilizador autenticado, para manter a atividade
+ * da conta compatível sem expor este dado publicamente.
  */
 export async function GET(request: NextRequest) {
-  const ip = getClientIp(request);
+  const auth = await requireAuth(request);
+  if (auth instanceof NextResponse) return auth;
 
-  // Rate limit: 30 leituras/min por IP é mais que suficiente.
-  const rate = checkRateLimit("activity_ip", ip, {
+  const ip = getClientIp(request);
+  const rate = await checkRateLimit("activity_ip", `${auth.user.$id}:${ip}`, {
     maxRequests: 30,
     windowMs: 60 * 1000,
   });
   if (!rate.allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
   }
 
-  return NextResponse.json({ ip });
+  return NextResponse.json(
+    { ip },
+    { headers: mergeRateLimitHeaders(undefined, rate) },
+  );
 }

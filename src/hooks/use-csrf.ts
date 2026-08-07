@@ -10,7 +10,8 @@
  */
 
 const CSRF_HEADER_NAME = "x-csrf-token";
-const CSRF_COOKIE_NAME = "csrf-token";
+const CSRF_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-linkflow-csrf" : "csrf-token";
 
 /**
  * Lê o token CSRF diretamente da cookie do navegador.
@@ -19,8 +20,9 @@ const CSRF_COOKIE_NAME = "csrf-token";
  */
 export function getCsrfCookieFromDocument(): string | null {
   if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(^| )${CSRF_COOKIE_NAME}=([^;]+)`));
-  return match ? decodeURIComponent(match[2]) : null;
+  const escapedName = CSRF_COOKIE_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapedName}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 /**

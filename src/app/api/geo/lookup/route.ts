@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
 
@@ -19,28 +19,34 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
 
-  const rate = checkRateLimit("geo_lookup", ip, {
+  const rate = await checkRateLimit("geo_lookup", ip, {
     maxRequests: 30,
     windowMs: 60 * 1000,
   });
   if (!rate.allowed) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rate) });
   }
 
   try {
     const geo = await resolveGeo(ip, request);
     const countryCode = geo.countryCode?.toUpperCase() ?? "";
-    return NextResponse.json({
-      country: geo.country ?? "",
-      countryCode,
-      currency: currencyForCountry(countryCode),
-    });
+    return NextResponse.json(
+      {
+        country: geo.country ?? "",
+        countryCode,
+        currency: currencyForCountry(countryCode),
+      },
+      { headers: mergeRateLimitHeaders(undefined, rate) },
+    );
   } catch {
     // Sem GeoIP disponível → fallback neutro (EUR)
-    return NextResponse.json({
-      country: "",
-      countryCode: "",
-      currency: "EUR",
-    });
+    return NextResponse.json(
+      {
+        country: "",
+        countryCode: "",
+        currency: "EUR",
+      },
+      { headers: mergeRateLimitHeaders(undefined, rate) },
+    );
   }
 }

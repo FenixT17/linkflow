@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
 import { recordAnalyticsEvent } from "@/lib/analytics";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { detectDeviceType, detectBrowser, detectOS } from "@/lib/device-detect";
 
@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: max 10 views per IP per minute to prevent metric spam
     const ip = getClientIp(request);
-    const rateLimit = checkRateLimit("view", ip, { maxRequests: 10, windowMs: 60 * 1000 });
+    const rateLimit = await checkRateLimit("view", ip, { maxRequests: 10, windowMs: 60 * 1000 });
     if (!rateLimit.allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
     }
 
     const { databases } = createServerClient();
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       deviceName,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.error("[api/view] error:", error);
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
