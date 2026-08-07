@@ -35,6 +35,13 @@ describe("DashboardLayout auth guard", () => {
 
   beforeEach(() => {
     vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard");
+    vi.spyOn(Navigation, "useRouter").mockReturnValue({
+      replace: mockReplace,
+      push: vi.fn(),
+      refresh: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+    } as unknown as ReturnType<typeof Navigation.useRouter>);
   });
 
   afterEach(() => {
@@ -77,9 +84,10 @@ describe("DashboardLayout auth guard", () => {
     expect(screen.queryByTestId("content")).not.toBeInTheDocument();
   });
 
-  it("renders children when user is authenticated", () => {
+  it("renders children when user is authenticated with a page", () => {
     mockUseAuth.mockReturnValue({
       account: { displayName: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
@@ -92,6 +100,68 @@ describe("DashboardLayout auth guard", () => {
     );
 
     expect(screen.getByTestId("content")).toBeInTheDocument();
+  });
+
+  it("redirects to /dashboard/create when authenticated without a page", () => {
+    mockReplace.mockClear();
+    mockUseAuth.mockReturnValue({
+      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      page: null,
+      isLoading: false,
+    } as unknown as ReturnType<typeof AuthContext.useAuth>);
+
+    render(
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Conteúdo protegido</div>
+        </DashboardLayout>
+      </ThemeProvider>
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/create");
+    expect(screen.queryByTestId("content")).not.toBeInTheDocument();
+  });
+
+  it("does not redirect on /dashboard/create when authenticated without a page", () => {
+    mockReplace.mockClear();
+    vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard/create");
+    mockUseAuth.mockReturnValue({
+      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      page: null,
+      isLoading: false,
+    } as unknown as ReturnType<typeof AuthContext.useAuth>);
+
+    render(
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Criar página</div>
+        </DashboardLayout>
+      </ThemeProvider>
+    );
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("content")).toBeInTheDocument();
+  });
+
+  it("redirects to /dashboard from /dashboard/create when the user already has a page", () => {
+    mockReplace.mockClear();
+    vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard/create");
+    mockUseAuth.mockReturnValue({
+      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
+      isLoading: false,
+    } as unknown as ReturnType<typeof AuthContext.useAuth>);
+
+    render(
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Criar página</div>
+        </DashboardLayout>
+      </ThemeProvider>
+    );
+
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard");
+    expect(screen.queryByTestId("content")).not.toBeInTheDocument();
   });
 });
 
