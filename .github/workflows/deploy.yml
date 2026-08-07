@@ -100,11 +100,13 @@ jobs:
       # dashboard do Cloudflare (Workers & Pages → linkflow → Settings →
       # Variables and Secrets).
       #
-      # IMPORTANTE: os secrets entram via `env:` do step (variáveis de shell)
-      # e NÃO interpolados no script. Se um `${{ secrets.X }}` não existir, o
-      # GitHub Actions REMOVE a linha do script — o que partia a sintaxe dos
-      # blocos `if` ("Syntax error: expecting fi"). Com variáveis de ambiente
-      # o script é sempre válido e os guards avisam quando um secret falta.
+      # IMPORTANTE: o wrangler-action executa os postCommands LINHA A LINHA
+      # (getMultilineInput + for/execShell no src/wranglerAction.ts) — cada
+      # linha é um `/bin/sh -c` individual. Por isso blocos multi-linha
+      # if/then/fi partem com "Syntax error: expecting fi". Cada comando tem
+      # de ser uma ÚNICA linha POSIX (com `;`). Os secrets entram via `env:`
+      # do step (variáveis de shell) — nunca `${{ secrets.X }}` interpolado,
+      # porque o GitHub Actions remove linhas com secrets não definidos.
       - name: Deploy para Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         env:
@@ -116,18 +118,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
           postCommands: |
-            if [ -n "$CF_APPWRITE_API_KEY" ]; then
-              echo "$CF_APPWRITE_API_KEY" | npx wrangler secret put APPWRITE_API_KEY
-            else
-              echo "⚠️ APPWRITE_API_KEY não definido no GitHub — definir no dashboard da Cloudflare (Workers → linkflow → Settings → Variables and Secrets)."
-            fi
-            if [ -n "$CF_UPSTASH_REDIS_REST_URL" ]; then
-              echo "$CF_UPSTASH_REDIS_REST_URL" | npx wrangler secret put UPSTASH_REDIS_REST_URL
-            else
-              echo "⚠️ UPSTASH_REDIS_REST_URL não definido no GitHub."
-            fi
-            if [ -n "$CF_UPSTASH_REDIS_REST_TOKEN" ]; then
-              echo "$CF_UPSTASH_REDIS_REST_TOKEN" | npx wrangler secret put UPSTASH_REDIS_REST_TOKEN
-            else
-              echo "⚠️ UPSTASH_REDIS_REST_TOKEN não definido no GitHub."
-            fi
+            if [ -n "$CF_APPWRITE_API_KEY" ]; then echo "$CF_APPWRITE_API_KEY" | npx wrangler secret put APPWRITE_API_KEY; else echo "⚠️ APPWRITE_API_KEY não definido no GitHub — definir no dashboard Cloudflare (Workers → linkflow → Settings → Variables and Secrets)."; fi
+            if [ -n "$CF_UPSTASH_REDIS_REST_URL" ]; then echo "$CF_UPSTASH_REDIS_REST_URL" | npx wrangler secret put UPSTASH_REDIS_REST_URL; else echo "⚠️ UPSTASH_REDIS_REST_URL não definido no GitHub."; fi
+            if [ -n "$CF_UPSTASH_REDIS_REST_TOKEN" ]; then echo "$CF_UPSTASH_REDIS_REST_TOKEN" | npx wrangler secret put UPSTASH_REDIS_REST_TOKEN; else echo "⚠️ UPSTASH_REDIS_REST_TOKEN não definido no GitHub."; fi
