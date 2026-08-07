@@ -1864,3 +1864,19 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 **Validação:** typecheck ✅ · 195/195 testes ✅ · deploys verdes (runs 31220259767 e 31220729191) · rotas core 200 · callback: sem params → `/login?error=oauth_missing`; credenciais inválidas → `/login?error=user_invalid_token` (prova o endpoint correto). O happy path completo (autorizar no provider) só pode ser testado com uma conta real GitHub/Google.
 
 **Estado:** commits `1f51013` (callback + start) e `e0c4404` (endpoint `/account/sessions/token` + gitignore) pushados para `main` e deployados em https://linkflow.editsttk43.workers.dev .
+
+**Sessão 53 — 7 Agosto 2026 — Fix OAuth Google/GitHub definitivo: fluxo TOKEN (createOAuth2Token)**
+
+**Problema:** os botões Google/GitHub levavam ao provider mas, após autorizar, aparecia erro (mensagem na página de login). Os security_logs mostraram `oauth_missing` — o Appwrite Cloud não anexava `userId`+`secret` ao success URL.
+
+**Causa raiz definitiva:** o fluxo usado era o **session flow** (`GET /account/sessions/oauth2/{provider}` = createOAuth2Session). Neste fluxo, o Appwrite guarda a sessão num cookie `a_session_*` no domínio do Appwrite (nyc.cloud.appwrite.io) e o browser completa a recuperação via cookieFallback/x-fallback-cookies — bloqueado por 3P cookie blocking num domínio separado (workers.dev). Teste empírico confirmou: o fetch cross-site devolvia 200 mas **sem** header `x-fallback-cookies`, logo o SDK nunca obtinha o secret.
+
+**Fix:** usar o **token flow** (`GET /account/tokens/oauth2/{provider}` = createOAuth2Token) — mecanismo documentado do Appwrite para web apps em domínios separados. Neste fluxo o Appwrite **anexa `userId`+`secret` ao success URL**, que o callback (`/api/auth/oauth/callback`) já trocava por uma sessão real via `POST /account/sessions/token` e definia o cookie HttpOnly da app.
+
+**Alterações:**
+- `src/app/api/auth/oauth/start/route.ts`: `/account/sessions/oauth2/{provider}` → `/account/tokens/oauth2/{provider}` (comentário atualizado).
+- `src/app/api/auth/oauth/callback/route.ts`: mantido (troca userId+secret via POST /account/sessions/token, verificado ao vivo: 401 `user_invalid_token` com credenciais falsas = endpoint certo).
+
+**Validação live:** start github → Location `https://nyc.cloud.appwrite.io/v1/account/tokens/oauth2/github?...` ✅ · rotas core 200 ✅ · /api/auth/me 401 sem sessão ✅ · typecheck ✅ · 195/195 testes ✅ · deploy verde run 31224789549 (commit 3b540a0).
+
+**Contexto da sessão:** também corrigido o bug `ReferenceError: __name is not defined` (script inline de tema do next-themes quebrado pelo minifier no worker deployado) — substituído por provider próprio (commit 990bef2). Login email/password verificado a funcionar num browser real (register → logout → login → dashboard).
