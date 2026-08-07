@@ -7,14 +7,33 @@ import {
 
 describe("email templates", () => {
   it("escapes user-controlled names in HTML while keeping text readable", () => {
-    const content = renderVerificationEmail(
-      { name: "<script>alert('xss')</script>" },
-      "https://linkflow-web.netlify.app/verify?token=abc"
-    );
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow.workers.dev");
+    try {
+      const content = renderVerificationEmail(
+        { name: "<script>alert('xss')</script>" },
+        "https://linkflow.workers.dev/verify?token=abc"
+      );
 
-    expect(content.html).not.toContain("<script>alert");
-    expect(content.html).toContain("&lt;script&gt;");
-    expect(content.text).toContain("<script>alert('xss')</script>");
+      expect(content.html).not.toContain("<script>alert");
+      expect(content.html).toContain("&lt;script&gt;");
+      expect(content.text).toContain("<script>alert('xss')</script>");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("falls back to the workers.dev origin when NEXT_PUBLIC_SITE_URL is empty (CI without secrets)", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+    try {
+      const content = renderVerificationEmail(
+        { name: "Ana" },
+        "https://linkflow.workers.dev/verify?token=abc"
+      );
+      expect(content.subject).toBe("Confirme o seu email — LinkFlow");
+      expect(content.html).toContain("https://linkflow.workers.dev/verify?token=abc");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("renders verification subject, action and fallback URL", () => {

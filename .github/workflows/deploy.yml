@@ -46,6 +46,41 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Fail-fast: se faltar algum secret obrigatório, falha AQUI com uma
+      # mensagem clara em vez de um "TypeError: Invalid URL. Input: ''"
+      # críptico durante o build (o Actions injeta secrets não configurados
+      # como STRING VAZIA, que quebrava o metadataBase → /_not-found).
+      #
+      # O código tem fallbacks seguros (normalizeEnvUrl), por isso o build
+      # NÃO volta a quebrar — mas sem estes secrets o deploy publicaria um
+      # site com URLs canónicos/Appwrite placeholder, por isso é melhor
+      # falhar cedo e explicitamente.
+      - name: Validar secrets obrigatórios
+        shell: bash
+        env:
+          NEXT_PUBLIC_APPWRITE_ENDPOINT: ${{ secrets.NEXT_PUBLIC_APPWRITE_ENDPOINT }}
+          NEXT_PUBLIC_APPWRITE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_PROJECT_ID }}
+          NEXT_PUBLIC_APPWRITE_DATABASE_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_DATABASE_ID }}
+          NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID }}
+          NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID }}
+          NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID: ${{ secrets.NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=""
+          for var in NEXT_PUBLIC_APPWRITE_ENDPOINT NEXT_PUBLIC_APPWRITE_PROJECT_ID NEXT_PUBLIC_APPWRITE_DATABASE_ID NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID NEXT_PUBLIC_SITE_URL CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!var}" ]; then
+              missing="$missing $var"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            # Remove o espaço inicial acumulado ("$missing" começa com ' ')
+            echo "::error::GitHub Secrets em falta (criar em Settings → Secrets and variables → Actions):${missing# }"
+            exit 1
+          fi
+          echo "✅ Todos os secrets obrigatórios estão definidos."
+
       # NEXT_PUBLIC_* são inlined no bundle em build time pelo Next.js.
       - name: Build (OpenNext Cloudflare)
         env:

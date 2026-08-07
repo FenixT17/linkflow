@@ -1,6 +1,10 @@
 import { Client, Databases, Storage, Users } from "node-appwrite";
+import { normalizeEnvUrl } from "@/lib/utils";
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+const endpoint = normalizeEnvUrl(
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+  "https://cloud.appwrite.io/v1"
+);
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const apiKey = process.env.APPWRITE_API_KEY ?? "";
 const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "linkflow";

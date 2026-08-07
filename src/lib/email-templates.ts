@@ -1,3 +1,5 @@
+import { normalizeEnvUrl } from "@/lib/utils";
+
 export interface EmailTemplateContent {
   subject: string;
   html: string;
@@ -37,8 +39,10 @@ function assertSafeActionUrl(actionUrl: string): string {
     throw new Error("O endereço da ação do email deve usar HTTPS em produção.");
   }
 
-  const configuredSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://linkflow-web.netlify.app";
+  const configuredSiteUrl = normalizeEnvUrl(
+    process.env.NEXT_PUBLIC_SITE_URL,
+    "https://linkflow.workers.dev"
+  );
   try {
     const expectedOrigin = new URL(configuredSiteUrl).origin;
     if (parsed.origin !== expectedOrigin) {

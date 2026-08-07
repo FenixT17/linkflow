@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuthProvider } from "node-appwrite";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
+import { normalizeEnvUrl } from "@/lib/utils";
 
-const APPWRITE_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+const APPWRITE_ENDPOINT = normalizeEnvUrl(
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+  "https://cloud.appwrite.io/v1"
+);
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const PROVIDERS: Record<string, string> = {
   google: OAuthProvider.Google,

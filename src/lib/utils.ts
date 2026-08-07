@@ -5,6 +5,45 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// ---------- URL de ambiente (build-safe) ----------
+
+/**
+ * Normaliza uma URL absoluta http(s) lida de uma variável de ambiente,
+ * devolvendo um fallback seguro quando a variável está ausente, vazia,
+ * ou contém um valor inválido/não-http(s).
+ *
+ * MOTIVO: o GitHub Actions injeta secrets não configurados como STRING VAZIA
+ * (""), e `process.env.X ?? fallback` NÃO captura strings vazias — só
+ * null/undefined. `new URL("")` lança `TypeError: Invalid URL`, o que
+ * quebrava o `next build` no metadataBase do root layout (erro
+ * "Failed to collect page data for /_not-found").
+ *
+ * Esta função NUNCA devolve uma string vazia nem uma URL inválida.
+ *
+ * NOTA: recebe o VALOR já lido (ex.: `process.env.NEXT_PUBLIC_SITE_URL`),
+ * não o nome — assim o acesso estático à variável é preservado para o
+ * Next.js inline os valores NEXT_PUBLIC_* nos bundles do cliente.
+ */
+export function normalizeEnvUrl(
+  value: string | undefined,
+  fallback: string
+): string {
+  const raw = value?.trim();
+  if (raw) {
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        // Remove trailing slashes para concatenações `${url}/path` não
+        // gerarem `//path` duplicado (aceita múltiplos, ex.: "https://x//").
+        return parsed.toString().replace(/\/+$/, "");
+      }
+    } catch {
+      // URL inválida — cai no fallback abaixo
+    }
+  }
+  return fallback;
+}
+
 // ---------- Color helpers ----------
 // Usado pelos color pickers do tema glass (borda, acento, texto).
 // O <input type="color"> só aceita hex, mas a aparência guarda cores

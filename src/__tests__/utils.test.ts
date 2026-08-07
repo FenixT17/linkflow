@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, escapeCsv } from "@/lib/utils";
+import { cn, escapeCsv, normalizeEnvUrl } from "@/lib/utils";
 
 describe("cn (className utility)", () => {
   it("merges class names", () => {
@@ -66,5 +66,49 @@ describe("escapeCsv (proteção contra formula injection)", () => {
     const result = escapeCsv("  =SUM(A1:A2)");
     expect(result).toMatch(/^"?'/); // neutralizado apesar do espaço inicial
     expect(result).toContain("SUM(A1:A2)");
+  });
+});
+
+describe("normalizeEnvUrl (build-safe URL de ambiente)", () => {
+  it("devolve o fallback quando o valor é undefined (variável ausente)", () => {
+    expect(normalizeEnvUrl(undefined, "https://linkflow.workers.dev")).toBe(
+      "https://linkflow.workers.dev"
+    );
+  });
+
+  it("devolve o fallback quando o valor é STRING VAZIA — o caso do CI sem secrets", () => {
+    // O GitHub Actions injeta secrets não configurados como "" (não como
+    // undefined). `?? fallback` NÃO captura isto — daí o normalizeEnvUrl.
+    expect(normalizeEnvUrl("", "https://linkflow.workers.dev")).toBe(
+      "https://linkflow.workers.dev"
+    );
+    expect(normalizeEnvUrl("   ", "https://linkflow.workers.dev")).toBe(
+      "https://linkflow.workers.dev"
+    );
+  });
+
+  it("devolve o fallback para valores inválidos ou não-http(s)", () => {
+    expect(normalizeEnvUrl("not-a-url", "https://fallback.dev")).toBe("https://fallback.dev");
+    expect(normalizeEnvUrl("javascript:alert(1)", "https://fallback.dev")).toBe("https://fallback.dev");
+    expect(normalizeEnvUrl("ftp://example.com", "https://fallback.dev")).toBe("https://fallback.dev");
+    expect(normalizeEnvUrl("https://", "https://fallback.dev")).toBe("https://fallback.dev");
+  });
+
+  it("normaliza URLs válidas (trim + sem trailing slash)", () => {
+    expect(normalizeEnvUrl("  https://example.com  ", "https://fallback.dev")).toBe(
+      "https://example.com"
+    );
+    expect(normalizeEnvUrl("https://example.com/", "https://fallback.dev")).toBe(
+      "https://example.com"
+    );
+    expect(normalizeEnvUrl("https://example.com/v1", "https://fallback.dev")).toBe(
+      "https://example.com/v1"
+    );
+  });
+
+  it("preserva o valor quando a URL já está normalizada", () => {
+    expect(normalizeEnvUrl("https://linkflow.workers.dev", "https://fallback.dev")).toBe(
+      "https://linkflow.workers.dev"
+    );
   });
 });

@@ -1,8 +1,12 @@
 import { Client, Account, Databases, Storage, Models } from "node-appwrite";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeEnvUrl } from "@/lib/utils";
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+const endpoint = normalizeEnvUrl(
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+  "https://cloud.appwrite.io/v1"
+);
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 
 /**

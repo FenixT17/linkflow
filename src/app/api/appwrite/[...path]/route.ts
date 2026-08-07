@@ -4,8 +4,15 @@ import {
   getAuthSessionSecret,
   setAuthSessionCookie,
 } from "@/lib/auth.server";
+import { normalizeEnvUrl } from "@/lib/utils";
 
-const APPWRITE_ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+// `normalizeEnvUrl` garante que APPWRITE_ENDPOINT nunca é vazia nem inválida
+// (o CI injeta secrets não configurados como string vazia, o que faria
+// `new URL(APPWRITE_ENDPOINT)` abaixo lançar TypeError em runtime).
+const APPWRITE_ENDPOINT = normalizeEnvUrl(
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+  "https://cloud.appwrite.io/v1"
+);
 const APPWRITE_PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);
 const MAX_PROXY_BODY_BYTES = 10 * 1024 * 1024;

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { Query } from "node-appwrite";
 import { createServerClient, databaseId, filesBucketId } from "./appwrite.server";
+import { normalizeEnvUrl } from "./utils";
 import {
   Appearance,
   LinkItem,
@@ -142,7 +143,10 @@ async function getPublicBadges(userId: string, rawBadges: unknown): Promise<stri
 }
 
 function getFileUrl(fileId: string) {
-  const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+  const endpoint = normalizeEnvUrl(
+    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
+    "https://cloud.appwrite.io/v1"
+  );
   const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
   return `${endpoint}/storage/buckets/${filesBucketId}/files/${fileId}/view?project=${projectId}`;
 }
