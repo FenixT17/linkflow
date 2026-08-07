@@ -1908,3 +1908,23 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 **Nota técnica:** o `border-radius` do `rounded-full` no Tailwind v4 é `calc(infinity * 1px)` (3.4e38px) — o browser faz clamp ao tamanho do elemento e o resultado visual é a pílula correta. Não é bug.
 
 **Nota:** o bio não foi gravado no teste porque o preenchimento do textarea via CDP usou o setter de input (falha do teste, não da app — o autosave do perfil grava o bio).
+
+**Sessão 56 — 8 Agosto 2026 — Guard centralizado da primeira página (dashboard/layout.tsx)**
+
+**Problema:** o check `!page → /dashboard/create` existia só em 4 das 11 rotas do dashboard (dashboard, qrcode, pages, appearance) — um utilizador logado sem página podia remover `/create` do URL e usar o dashboard à vontade (links, perfil, definições...). Além disso, `/dashboard/create` continuava acessível para utilizadores QUE JÁ TÊM página (bastava colar /create no URL).
+
+**Fix:** guard centralizado no `src/app/dashboard/layout.tsx` (aplica-se a TODAS as rotas /dashboard/*):
+- Sem página: qualquer rota (incl. /dashboard por URL direto) → redireciona para /dashboard/create.
+- Com página: /dashboard/create → redireciona para /dashboard.
+- Sem flash: renderiza o loader enquanto o redirect corre.
+
+**Alterações:** `src/app/dashboard/layout.tsx` (guard + usePathname/useRouter), `src/__tests__/auth-redirects.test.tsx` (+4 testes: sem página redireciona, /create sem página fica, /create com página redireciona, autenticado com página renderiza).
+
+**Validação:** typecheck ✅ · ESLint ✅ · 198/198 testes ✅ · deploy verde run 31228075479 (commit 4ebe9ad).
+
+**E2E browser real (headless Chrome):**
+- Conta COM página → /dashboard/create → /dashboard ✅
+- Conta SEM página → /dashboard, /dashboard/links, /dashboard/settings → todos /dashboard/create ✅
+- /dashboard/create sem página → formulário acessível ✅
+
+Nota: as contas de teste antigas (@teste.pt) tinham passwords inválidas para reutilizar; criada guardb1786146672387@teste.pt para o cenário B.
