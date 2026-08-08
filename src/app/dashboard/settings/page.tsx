@@ -260,9 +260,7 @@ export default function SettingsPage() {
                     Eliminar conta?
                   </h2>
                   <p className="mt-1.5 text-sm leading-relaxed text-white/55">
-                    Esta ação apaga permanentemente a sua conta, página, links,
-                    fotos, visitantes, IPs, analytics, atividades e restantes
-                    dados. Não pode ser desfeita.
+                    A sua conta será apagada permanentemente.
                   </p>
                 </div>
                 <button
