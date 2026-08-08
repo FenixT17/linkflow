@@ -2022,3 +2022,18 @@ Commit `3080d72` · deploy run `31272752454` verde · https://linkflow.editsttk4
 **Nota:** a aba Aparência está agora vazia (só o título) — opção natural: remover o item do sidebar/página ou redirecionar para /dashboard/profile.
 
 Commit `beb912b` · deploy run `31273301693` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 63 — 8 Agosto 2026 — Remover a aba Aparência (sidebar + página)**
+
+**Problema:** após mover o cartão "Foto e banner" para o Perfil (Sessão 62), a aba Aparência ficou vazia. O utilizador pediu para removê-la.
+
+**Fix:**
+- `src/components/dashboard/sidebar.tsx`: removido o item `{ label: "Aparência", href: "/dashboard/appearance", icon: Brush }` e o import do ícone `Brush` (ficou sem uso).
+- Eliminada a página `src/app/dashboard/appearance/page.tsx` (e a pasta). A rota /dashboard/appearance passa a 404.
+- Nota: os erros iniciais de tsc vinham de `.next/types/` gerados (desatualizados) — regenerados no build do CI; limpos localmente (exit 0). O teste do sidebar itera o export `nav`, adapta-se automaticamente (8/8).
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** sidebar com 10 itens sem "Aparência" (`hasAparencia:false`); `/dashboard/appearance` → 404 ✅.
+
+Commit `1b05981` · deploy run `31273749037` verde · https://linkflow.editsttk43.workers.dev
