@@ -1928,3 +1928,22 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 - /dashboard/create sem página → formulário acessível ✅
 
 Nota: as contas de teste antigas (@teste.pt) tinham passwords inválidas para reutilizar; criada guardb1786146672387@teste.pt para o cenário B.
+
+**Sessão 57 — 8 Agosto 2026 — Esconder o sidebar de navegação quando o utilizador não tem página**
+
+**Problema:** o utilizador autenticado sem página (em /dashboard/create) via o sidebar com todos os links de navegação (Dashboard, Links, Perfil, Definições, etc.) e a barra mobile — links que não fazem sentido sem página (e que o guard centralizado da Sessão 56 redireciona para /dashboard/create à mesma).
+
+**Fix:** em `src/app/dashboard/layout.tsx`, o `<DashboardSidebar />` só é renderizado quando `page` existe (`hasPage`). Sem página, o /dashboard/create mostra apenas o formulário de criação em largura total:
+- Sem `lg:pl-[var(--sidebar-width,15rem)]` no wrapper (largura total).
+- Sem o padding da barra mobile; apenas `pt-[calc(env(safe-area-inset-top,0px)+2rem)]`.
+- O guard centralizado (Sessão 56) mantém-se intacto.
+
+**Testes:** `auth-redirects.test.tsx` (+2: sidebar escondido em /dashboard/create sem página; sidebar visível com página). Typecheck ✅ · ESLint ✅ · 199/199 testes ✅.
+
+**Validação E2E (browser real, worker deployado):**
+- Conta SEM página → /dashboard/create: `hasDesktopAside:false`, `hasMainNav:false`, `hasMobileMenuBtn:false`, `hasSidebarWidthPad:false`, formulário visível ✅
+- Conta COM página → /dashboard: `hasDesktopAside:true`, `hasMainNav:true`, `hasMobileMenuBtn:true`, `hasSidebarWidthPad:true` ✅
+
+**Nota:** as contas de teste antigas (guardb/pub/audit) foram eliminadas do Appwrite (só restava o utilizador owner `editsttk43@gmail.com`) — os logins de teste passaram a falhar com 401 `user_invalid_credentials`. Criadas contas de teste novas via API: `sideno*` (sem página) e `sideyes*` (com página) em `.tmpcheck/`.
+
+Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow.editsttk43.workers.dev
