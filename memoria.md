@@ -2037,3 +2037,18 @@ Commit `beb912b` · deploy run `31273301693` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** sidebar com 10 itens sem "Aparência" (`hasAparencia:false`); `/dashboard/appearance` → 404 ✅.
 
 Commit `1b05981` · deploy run `31273749037` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 64 — 8 Agosto 2026 — Validação E2E do upload de foto/banner na aba Perfil**
+
+**Objetivo:** testar o cartão "Foto e banner" (movido da Aparência na Sessão 62) de ponta a ponta com upload de imagem real.
+
+**Validação (browser real + worker deployado):**
+- Upload de avatar (PNG 1x1 real via DataTransfer no input file): imagem visível, src real `https://nyc.cloud.appwrite.io/v1/storage/buckets/files/files/...`, botão Remover aparece ✅
+- Upload de banner: imagem visível com src real do Appwrite ✅
+- Toggle "Mostrar avatar": `true -> false` (e restaurado) ✅
+- Remoção de avatar e banner: imagens e botões Remover desaparecem ✅
+- `uploadFile` usa o SDK do Appwrite no cliente (storage.createFile com permissões por ficheiro — Sessão 36) — sem CSRF/API route envolvida.
+
+Sem alterações de código — fluxo 100% funcional. Conta de teste: `sideyes*`.
+
+Commit: apenas registro do relatório (memoria.md). https://linkflow.editsttk43.workers.dev
