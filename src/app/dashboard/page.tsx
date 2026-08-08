@@ -136,14 +136,6 @@ function parseActivityDetails(details?: string): string | undefined {
   }
 }
 
-function maskIp(ip?: string): string | undefined {
-  if (!ip || ip === "unknown" || ip.includes("::")) return undefined;
-  const parts = ip.split(".");
-  if (parts.length !== 4) return ip;
-  // Privacidade: oculta o último octeto
-  return `${parts[0]}.${parts[1]}.${parts[2]}.x`;
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const { page, analytics, links, account, refreshAnalytics, activities, refreshActivities } = useAuth();
@@ -492,7 +484,6 @@ export default function DashboardPage() {
               const meta = ACTIVITY_META[activity.action] ?? { label: activity.action, icon: Activity };
               const Icon = meta.icon;
               const detail = parseActivityDetails(activity.details);
-              const maskedIp = maskIp(activity.ipAddress);
               return (
                 <div
                   key={activity.$id}
@@ -506,10 +497,11 @@ export default function DashboardPage() {
                       {meta.label}
                       {detail && <span className="text-white/40 font-normal"> · {detail}</span>}
                     </p>
+                    {/* Privacidade: o IP não é mostrado ao utilizador. */}
                     <p className="text-xs text-white/40 truncate">
-                      {maskedIp && <span className="tabular-nums">{maskedIp} · </span>}
                       {formatVisitTime(activity.createdAt)}
                     </p>
+
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
                     <Clock className="h-3 w-3" />
