@@ -1994,3 +1994,15 @@ Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasBannerText:false`, `hasAlterarBanner:false`, sem cartão gigante (só o formulário), `hasNomePublico:true`, `hasBio:true`, `hasPublish:true` ✅.
 
 Commit `22a6919` · deploy run `31271952953` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 61 — 8 Agosto 2026 — Remover os campos Nome público e Bio da aba Perfil**
+
+**Problema:** o utilizador pediu para remover os dois campos do formulário da aba Perfil (Nome público e Bio).
+
+**Fix:** em `src/app/dashboard/profile/page.tsx`, removidos os campos Nome público e Bio, o estado `displayName`/`bio`, o `saveProfile` e o helper `useAutoSave` (ficou sem uso). A página tem agora só o SectionHeader "Perfil" (badge Publicado/Não publicado, Pré-visualizar, Publicar/Despublicar) + toast. O estado `username` mantém-se (fallback do Pré-visualizar).
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** /dashboard/profile → `hasNomePublico:false`, `hasBio:false`, `hasPerfilTitle:true`, `hasPublish:true`, `hasPreview:true`, `hasStatus:true` ✅.
+
+Commit `3080d72` · deploy run `31272752454` verde · https://linkflow.editsttk43.workers.dev
