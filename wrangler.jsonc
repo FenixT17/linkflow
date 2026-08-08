@@ -25,7 +25,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "linkflow",
-  "main": ".open-next/worker.js",
+  // main = wrapper (worker-entry.js) que delega no worker OpenNext
+  // (.open-next/worker.js, gerado pelo build) e força
+  // `Cache-Control: no-store` nas respostas HTML/RSC — sem isto o OpenNext
+  // envia `s-maxage=31536000` (1 ano) no HTML e o Chrome cacheia a página
+  // durante um ano, servindo versões antigas do site (ver worker-entry.js).
+  "main": "./worker-entry.js",
   "compatibility_date": "2026-08-07",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": true,
