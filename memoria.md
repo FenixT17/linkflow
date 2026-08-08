@@ -1947,3 +1947,17 @@ Nota: as contas de teste antigas (@teste.pt) tinham passwords inválidas para re
 **Nota:** as contas de teste antigas (guardb/pub/audit) foram eliminadas do Appwrite (só restava o utilizador owner `editsttk43@gmail.com`) — os logins de teste passaram a falhar com 401 `user_invalid_credentials`. Criadas contas de teste novas via API: `sideno*` (sem página) e `sideyes*` (com página) em `.tmpcheck/`.
 
 Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 58 — 8 Agosto 2026 — Privacidade: remover exibição de IP na interface**
+
+**Problema:** o feed "Atividades recentes" do dashboard mostrava o IP (mascarado: `1.2.3.x`) de cada atividade — o utilizador não deve ver IPs na interface.
+
+**Auditoria da interface:** a única superfície que mostrava IP era o feed de atividades do dashboard (`maskIp(activity.ipAddress)` em `src/app/dashboard/page.tsx`). Verificado que NENHUM outro local mostra IP: visitantes recentes (analytics e dashboard) mostram apenas país/navegador/SO; exportação CSV sem IPs; "Detetar país" da Faturação mostra apenas o país; world-map mostra países; nenhuma UI consome `/api/security/logs`.
+
+**Fix:** removidos a função `maskIp` e o `<span>` com o IP mascarado do feed de atividades (`src/app/dashboard/page.tsx`). O registo interno de IP (activity_logs, /api/activity/ip) mantém-se — é invisível ao utilizador e serve para auditoria/segurança.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** login → /dashboard com atividade "Início de sessão" no feed: `hasMaskedIp:false`, `hasRawIpv4:false`, `hasRawIpv6:false` ✅.
+
+Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow.editsttk43.workers.dev
