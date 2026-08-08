@@ -118,11 +118,11 @@ function ConfirmEmailForm() {
               <MailCheck className="h-6 w-6 text-white/80" />
             </div>
 
-            <h2 className="mt-5 text-lg font-semibold text-white/90">Enviámos um email para</h2>
+            <h2 className="mt-5 text-lg font-semibold text-white/90">Enviámos um email de confirmação para</h2>
             <p className="mt-1 text-sm font-medium text-white/70 break-all">{email || "o teu endereço"}</p>
             <p className="mt-3 text-sm text-white/55">
-              Confirma o teu email para terminar o registo. Se não vires a mensagem,
-              verifica a pasta de spam.
+              Abre o email e clica em «Confirmar email» para ativar a tua conta.
+              Se não vires a mensagem, verifica a pasta de spam.
             </p>
 
             {!sentAutomatically && (
