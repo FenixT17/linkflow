@@ -44,8 +44,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ sent: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.warn("[Verify] Falha ao enviar email de verificação:", error);
+    // O `code` é não-sensível (NOT_CONFIGURED/UNAUTHORIZED/INVALID_PAYLOAD/
+    // RATE_LIMITED/SEND_FAILED) e ajuda a diagnosticar sem expor secrets.
+    const code =
+      typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : "";
     return NextResponse.json(
-      { error: "Não foi possível enviar o email de verificação. Tente novamente mais tarde." },
+      {
+        error: "Não foi possível enviar o email de verificação. Tente novamente mais tarde.",
+        ...(code ? { code } : {}),
+      },
       { status: 502, headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
   }
