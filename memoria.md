@@ -2006,3 +2006,19 @@ Commit `22a6919` · deploy run `31271952953` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasNomePublico:false`, `hasBio:false`, `hasPerfilTitle:true`, `hasPublish:true`, `hasPreview:true`, `hasStatus:true` ✅.
 
 Commit `3080d72` · deploy run `31272752454` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 62 — 8 Agosto 2026 — Mover o cartão "Foto e banner" da Aparência para o Perfil**
+
+**Problema:** o utilizador queria o cartão "Foto e banner" (foto de perfil, banner, toggles Mostrar avatar/Mostrar bio) na aba Perfil. Confirmado via ask_user: **mover** (remover da Aparência), aceitando que a Aparência fica só com o título.
+
+**Fix:**
+- `src/app/dashboard/profile/page.tsx`: adicionado o cartão "Foto e banner" (upload/remoção de foto e banner com validação JPG/PNG/WEBP ≤5MB, previews NextImage, toggles Mostrar avatar/Mostrar bio via `updateAppearance`). Reutilizada a lógica exata da página Aparência (uploadFile/updatePageAvatar/updatePageBanner/removePageAvatar/removePageBanner + Buckets.files).
+- `src/app/dashboard/appearance/page.tsx`: removido o cartão e todo o código associado (Section, Toggle, handlers, refs, estado de upload, imports de services) — a página fica só com o título "Aparência" (decisão do utilizador).
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** Perfil → `hasFotoBanner:true`, `hasFotoPerfil:true`, `hasBanner:true`, `hasMostrarAvatar:true`, `hasMostrarBio:true`; Aparência → todos `false` (só o título) ✅.
+
+**Nota:** a aba Aparência está agora vazia (só o título) — opção natural: remover o item do sidebar/página ou redirecionar para /dashboard/profile.
+
+Commit `beb912b` · deploy run `31273301693` verde · https://linkflow.editsttk43.workers.dev
