@@ -2162,3 +2162,33 @@ Commit `8d399e8` · https://linkflow.editsttk43.workers.dev
 **Ação do utilizador (para o email ser bonito):** colar `scripts/appwrite-verification-template.html` na consola do Appwrite (Branding → Email Templates → Verification) e definir o campo URL como https://linkflow.editsttk43.workers.dev/verify-email. O envio do email não depende disto (o Appwrite envia o template por defeito), mas o template default é genérico.
 
 Commit `6beacd4` · https://linkflow.editsttk43.workers.dev
+
+**Sessão 71 — 8 Agosto 2026 — Auditoria + correção definitiva do fluxo de confirmação de email**
+
+**Pedido:** auditoria completa do fluxo de confirmação (registo → email Appwrite → link → emailVerification=true) e correção definitiva, sem esconder o problema.
+
+**Causas exatas encontradas:**
+1. **O código-fonte estava correto e o API do Appwrite funciona** (createVerification → 201, token válido 1h; updateVerification aceita userId+secret) — verificado empiricamente com pedidos diretos ao Appwrite (nyc.cloud.appwrite.io).
+2. **Entrega do email — o problema real:** o email de verificação NÃO chega aos utilizadores com a infraestrutura partilhada por defeito do Appwrite Cloud (baixa entregabilidade → spam/bloqueio; confirmado: email não chegou em 2 providers descartáveis, mail.tm e GuerrillaMail, após 5 min). A correção definitiva de entregabilidade é configurar SMTP próprio na consola (Settings → SMTP).
+3. **Gaps de UX/estado (corrigidos em código):** /api/auth/me não devolvia emailVerification (a app não sabia o estado); depois do registo o utilizador ia direto para o dashboard (sem página "confirma o teu email"); não havia "Já confirmei" nem verificação automática; o stub sendEmailVerification estava desligado; a página de verificação não libertava utilizadores logados.
+
+**Fix (código):**
+- `/api/auth/me` → devolve `emailVerification` (do Appwrite, nunca do cliente).
+- `POST /api/auth/register` → devolve `verificationSent` (best-effort do envio).
+- Nova página `/verify-email/sent`: "Enviámos um email para {email}" + "Confirma o teu email para terminar o registo", botão Reenviar com cooldown 30s (sucesso/erro), botão "Já confirmei o meu email" (lê emailVerification via /api/auth/me → dashboard se verificado; 401 → entra na conta), auto-poll a cada 10s (até 3 min, para quando verificado/sem sessão) que reencaminha para /dashboard, e voltar ao login.
+- Página de registo → redireciona para `/verify-email/sent?email=..&sent=1|0`.
+- `/verify-email` (clique no link) → sucesso auto-redireciona para /dashboard se logado+verificado; senão mostra "Entrar".
+- `getEmailVerificationStatus()` no services (distingue 401 de erros de rede — mensagens corretas).
+- `sendEmailVerification` deixou de ser stub (já na Sessão 70); registo + reenvio protegidos (CSRF + rate limit 5/10min + requireAuth).
+
+**Segurança:** emailVerification só vem do Appwrite (server); updateVerification exige token Appwrite; reenvio autenticado+limitado; sem secrets no frontend. Decisão: NÃO bloquear o acesso ao dashboard por email não verificado (não alterar funcionalidades não relacionadas) — o estado é preciso e a UI guia o utilizador; gating pode ser adicionado se pedido.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅ · deploy run 31279554921 verde.
+
+**Worker deployado:** /api/auth/me com emailVerification ✅ · /verify-email/sent HTTP 200 ✅ · E2E browser real: registo → redireciona para /verify-email/sent com email, Reenviar (envio + cooldown 30s), "Já confirmei" (ainda não verificado) ✅.
+
+**AÇÃO MANUAL OBRIGATÓRIA (consola Appwrite) — entregabilidade:**
+1. Settings → SMTP → ligar Custom SMTP server (ex.: Resend: smtp.resend.com, porta 465/587, user/pass da API key; From: algo@teudominio) — SEM isto o email partilhado do Appwrite vai para spam/bloqueio.
+2. Branding → Email Templates → Verification → colar `scripts/appwrite-verification-template.html` (variáveis {{project}}/{{name}}/{{url}}/{{expire}}); o URL do link é o passado na API: https://linkflow.editsttk43.workers.dev/verify-email.
+
+Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
