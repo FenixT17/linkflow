@@ -8,8 +8,6 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   uploadFile,
-  updatePageAvatar,
-  removePageAvatar,
   updatePageBanner,
   removePageBanner,
 } from "@/lib/services";
@@ -17,7 +15,6 @@ import {
   Camera,
   Upload,
   Trash2,
-  User,
   AlertCircle,
   Globe2,
   Eye,
@@ -72,7 +69,6 @@ function compressImage(
 }
 
 type Toast = { text: string; type: "success" | "error" } | null;
-type UploadTarget = "avatar" | "banner";
 
 function useAutoSave(save: () => Promise<void>, deps: unknown[]) {
   const [saving, setSaving] = useState(false);
@@ -105,16 +101,11 @@ export default function ProfilePage() {
   const [bio, setBio] = useState(page?.bio || "");
   const [username, setUsername] = useState(page?.username || "");
 
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState<Record<UploadTarget, boolean>>({
-    avatar: false,
-    banner: false,
-  });
+  const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
 
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -125,10 +116,9 @@ export default function ProfilePage() {
 
   useEffect(() => {
     return () => {
-      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       if (bannerPreview) URL.revokeObjectURL(bannerPreview);
     };
-  }, [avatarPreview, bannerPreview]);
+  }, [bannerPreview]);
 
   const showToast = useCallback((text: string, type: "success" | "error") => {
     setToast({ text, type });
@@ -136,7 +126,7 @@ export default function ProfilePage() {
   }, []);
 
   const handleFileUpload = useCallback(
-    async (file: File, target: UploadTarget) => {
+    async (file: File) => {
       if (!pageId) return;
 
       if (!VALID_TYPES.includes(file.type)) {
@@ -148,16 +138,11 @@ export default function ProfilePage() {
         return;
       }
 
-      const isAvatar = target === "avatar";
-      const setPreview = isAvatar ? setAvatarPreview : setBannerPreview;
-      const updateFn = isAvatar ? updatePageAvatar : updatePageBanner;
-      const name = isAvatar ? "foto" : "banner";
       let previewUrl: string | null = null;
-
-      setUploading((prev) => ({ ...prev, [target]: true }));
+      setUploading(true);
       try {
         previewUrl = URL.createObjectURL(file);
-        setPreview(previewUrl);
+        setBannerPreview(previewUrl);
 
         const compressed = await compressImage(file);
         const compressedFile = new File([compressed], file.name, {
@@ -165,62 +150,44 @@ export default function ProfilePage() {
         });
 
         const uploaded = await uploadFile("files", compressedFile);
-        await updateFn(pageId, uploaded.$id);
+        await updatePageBanner(pageId, uploaded.$id);
         await refreshPage();
 
-        showToast(
-          `${name.charAt(0).toUpperCase() + name.slice(1)} atualizada.`,
-          "success"
-        );
+        showToast("Banner atualizado.", "success");
       } catch {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
-        setPreview(null);
-        showToast(`Erro ao fazer upload da ${name}.`, "error");
+        setBannerPreview(null);
+        showToast("Erro ao fazer upload do banner.", "error");
       } finally {
-        setUploading((prev) => ({ ...prev, [target]: false }));
+        setUploading(false);
       }
     },
     [pageId, showToast, refreshPage]
   );
 
   const handleDrop = useCallback(
-    async (e: React.DragEvent<HTMLDivElement>, target: UploadTarget) => {
+    async (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       const file = e.dataTransfer.files?.[0];
-      if (file) await handleFileUpload(file, target);
+      if (file) await handleFileUpload(file);
     },
     [handleFileUpload]
   );
 
-  const handleRemove = useCallback(
-    async (target: UploadTarget) => {
-      if (!pageId) return;
-      const isAvatar = target === "avatar";
-      const current = isAvatar ? page?.avatar : page?.banner;
-      if (!current) return;
-
-      setUploading((prev) => ({ ...prev, [target]: true }));
-      try {
-        if (isAvatar) {
-          await removePageAvatar(pageId);
-          setAvatarPreview(null);
-        } else {
-          await removePageBanner(pageId);
-          setBannerPreview(null);
-        }
-        await refreshPage();
-        showToast(
-          isAvatar ? "Foto removida." : "Banner removido.",
-          "success"
-        );
-      } catch {
-        showToast("Erro ao remover.", "error");
-      } finally {
-        setUploading((prev) => ({ ...prev, [target]: false }));
-      }
-    },
-    [page, pageId, refreshPage, showToast]
-  );
+  const handleRemove = useCallback(async () => {
+    if (!pageId || !page?.banner) return;
+    setUploading(true);
+    try {
+      await removePageBanner(pageId);
+      setBannerPreview(null);
+      await refreshPage();
+      showToast("Banner removido.", "success");
+    } catch {
+      showToast("Erro ao remover.", "error");
+    } finally {
+      setUploading(false);
+    }
+  }, [page, pageId, refreshPage, showToast]);
 
   const saveProfile = useCallback(async () => {
     if (!pageId) return;
@@ -232,10 +199,9 @@ export default function ProfilePage() {
 
   useAutoSave(saveProfile, [displayName, bio]);
 
-  const currentAvatar = avatarPreview || page?.avatar;
   const currentBanner = bannerPreview || page?.banner;
 
-  const isUploading = uploading.avatar || uploading.banner;
+  const isUploading = uploading;
 
   const handlePublish = useCallback(async () => {
     if (!pageId || !page) return;
@@ -353,7 +319,7 @@ export default function ProfilePage() {
       <PremiumCard className="p-0 overflow-hidden" strong>
           <div
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, "banner")}
+            onDrop={handleDrop}
             className="relative h-48 sm:h-56 bg-[var(--background)] overflow-hidden group"
           >
             {currentBanner ? (
@@ -377,7 +343,7 @@ export default function ProfilePage() {
             <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => bannerInputRef.current?.click()}
-                disabled={uploading.banner || isUploading}
+                disabled={isUploading}
                 className="glass-btn !h-9 !px-3 text-xs flex items-center gap-1.5"
                 aria-label="Alterar banner"
               >
@@ -385,8 +351,8 @@ export default function ProfilePage() {
               </button>
               {currentBanner && (
                 <button
-                  onClick={() => handleRemove("banner")}
-                  disabled={uploading.banner || isUploading}
+                  onClick={handleRemove}
+                  disabled={isUploading}
                   className="glass-btn !h-9 !w-9 !p-0 flex items-center justify-center text-red-400"
                   aria-label="Remover banner"
                 >
@@ -401,11 +367,11 @@ export default function ProfilePage() {
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) void handleFileUpload(file, "banner");
+                if (file) void handleFileUpload(file);
                 e.target.value = "";
               }}
             />
-            {uploading.banner && (
+            {isUploading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                 <Skeleton className="h-8 w-8 rounded-full" />
               </div>
@@ -413,80 +379,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="p-6">
-            <div className="flex items-end gap-5 -mt-16 sm:-mt-20 relative z-[1]">
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => handleDrop(e, "avatar")}
-                className="relative"
-              >
-                <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full glass border-2 border-white/[0.08] flex items-center justify-center overflow-hidden ring-2 ring-white/[0.06] ring-offset-2 ring-offset-[var(--background)] bg-[var(--background)]">
-                  {currentAvatar ? (
-                    <Image
-                      src={currentAvatar}
-                      alt=""
-                      fill
-                      className="rounded-full object-cover"
-                      sizes="(max-width: 640px) 96px, 112px"
-                    />
-                  ) : (
-                    <User className="h-10 w-10 text-white/30" />
-                  )}
-                </div>
-                <button
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploading.avatar || isUploading}
-                  className="absolute -bottom-1 -right-1 glass-btn !h-8 !w-8 !p-0 flex items-center justify-center rounded-full"
-                  aria-label="Alterar foto de perfil"
-                >
-                  <Upload className="h-4 w-4" />
-                </button>
-                {uploading.avatar && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full">
-                    <Skeleton className="h-6 w-6 rounded-full" />
-                  </div>
-                )}
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleFileUpload(file, "avatar");
-                    e.target.value = "";
-                  }}
-                />
-              </div>
-
-              <div className="pb-1 flex-1 min-w-0">
-                <p className="text-lg font-semibold text-white/90 truncate">
-                  {displayName || "O seu nome"}
-                </p>
-                <p className="text-sm text-white/50">
-                  @{username || "username"}
-                </p>
-                <div className="flex gap-3 mt-2">
-                  <button
-                    onClick={() => avatarInputRef.current?.click()}
-                    disabled={uploading.avatar || isUploading}
-                    className="text-xs text-white/70 hover:text-white transition-colors"
-                  >
-                    Alterar foto
-                  </button>
-                  {currentAvatar && (
-                    <button
-                      onClick={() => handleRemove("avatar")}
-                      disabled={uploading.avatar || isUploading}
-                      className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      Remover
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 space-y-4">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <label
                   htmlFor="displayName"
