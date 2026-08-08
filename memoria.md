@@ -2106,3 +2106,13 @@ Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow.editsttk4
 **Ação do utilizador (1x):** como o browser dele já guardou o HTML antigo com validade de 1 ano, precisa de um **hard refresh** (Ctrl+Shift+R / Cmd+Shift+R) ou limpar a cache do site UMA vez. A partir daí o `no-store` impede qualquer versão antiga.
 
 Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 68 — 8 Agosto 2026 — Simplificar o aviso de eliminação de conta**
+
+**Pedido:** o aviso do modal de eliminação de conta não devia listar todos os dados apagados ("Esta ação apaga permanentemente a sua conta, página, links, fotos, visitantes, IPs, analytics, atividades e restantes dados. Não pode ser desfeita.") — só devia avisar que a conta será apagada permanentemente.
+
+**Fix:** em `src/app/dashboard/settings/page.tsx`, o texto do modal passou a: "A sua conta será apagada permanentemente."
+
+**Validação:** Typecheck ✅ · deploy run 31276642616 verde · bundle servido no Worker: texto antigo=0, texto novo=1 (`"A sua conta ser\xe1 apagada permanentemente."`), modal "Eliminar conta?" mantido ✅.
+
+Commit `ea5d95f` · https://linkflow.editsttk43.workers.dev
