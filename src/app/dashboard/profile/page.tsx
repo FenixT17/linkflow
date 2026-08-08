@@ -8,60 +8,21 @@ import { cn } from "@/lib/utils";
 
 type Toast = { text: string; type: "success" | "error" } | null;
 
-function useAutoSave(save: () => Promise<void>, deps: unknown[]) {
-  const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
-  const trigger = useCallback(async () => {
-    setSaving(true);
-    try {
-      await save();
-      setLastSaved(new Date());
-    } finally {
-      setSaving(false);
-    }
-  }, [save]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void trigger();
-    }, 800);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-
-  return { saving, lastSaved };
-}
-
 export default function ProfilePage() {
   const { page, pageId, updatePage, refreshPage } = useAuth();
-  const [displayName, setDisplayName] = useState(page?.displayName || "");
-  const [bio, setBio] = useState(page?.bio || "");
   const [username, setUsername] = useState(page?.username || "");
 
   const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
 
   useEffect(() => {
-    setDisplayName(page?.displayName || "");
-    setBio(page?.bio || "");
     setUsername(page?.username || "");
-  }, [page?.displayName, page?.bio, page?.username]);
+  }, [page?.username]);
 
   const showToast = useCallback((text: string, type: "success" | "error") => {
     setToast({ text, type });
     setTimeout(() => setToast(null), 5000);
   }, []);
-
-  const saveProfile = useCallback(async () => {
-    if (!pageId) return;
-    await updatePage({
-      displayName: displayName.trim(),
-      bio: bio.trim(),
-    });
-  }, [pageId, displayName, bio, updatePage]);
-
-  useAutoSave(saveProfile, [displayName, bio]);
 
   const handlePublish = useCallback(async () => {
     if (!pageId || !page) return;
@@ -175,37 +136,6 @@ export default function ProfilePage() {
           {toast.text}
         </div>
       )}
-
-      <div className="max-w-xl space-y-4">
-        <div className="space-y-1.5">
-          <label
-            htmlFor="displayName"
-            className="text-sm font-medium text-white/80"
-          >
-            Nome público
-          </label>
-          <input
-            id="displayName"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="O seu nome"
-            className="glass-input w-full px-4 py-2.5 text-sm"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="bio" className="text-sm font-medium text-white/80">
-            Bio
-          </label>
-          <textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Escreva algo sobre si..."
-            rows={4}
-            className="glass-input w-full px-4 py-2.5 text-sm resize-none"
-          />
-        </div>
-      </div>
     </div>
   );
 }
