@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { ID } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { createEmailPasswordSessionResolved, createPublicAuthClient, setAuthSessionCookie } from "@/lib/auth.server";
+import {
+  createEmailPasswordSessionResolved,
+  createPublicAuthClient,
+  requestEmailVerification,
+  setAuthSessionCookie,
+} from "@/lib/auth.server";
 import { isValidEmail, isValidPassword, sanitizeDisplayName } from "@/lib/sanitize";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -66,6 +71,18 @@ export async function POST(request: NextRequest) {
     const { account } = createPublicAuthClient();
     const user = await account.create(ID.unique(), email, password, name);
     const session = await createEmailPasswordSessionResolved(email, password);
+
+    // Envia o email de verificação do Appwrite (best-effort): a criação da
+    // conta nunca falha por causa do email. O utilizador pode reenviar a
+    // partir de /verify-email (POST /api/auth/verify).
+    try {
+      const verification = createPublicAuthClient();
+      verification.client.setSession(session.secret);
+      await requestEmailVerification(verification.account);
+    } catch (error) {
+      console.warn("[Register] Falha ao enviar email de verificação:", error);
+    }
+
     const response = NextResponse.json(
       { user: { $id: user.$id, email: user.email, name: user.name, $createdAt: user.$createdAt } },
       { status: 201, headers: mergeRateLimitHeaders(undefined, rateLimit) },

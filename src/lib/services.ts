@@ -125,11 +125,15 @@ export async function registerUser(email: string, password: string, name: string
 }
 
 /**
- * Fluxos de email mantidos como preparação futura, mas deliberadamente
- * desativados. Não chamar o Appwrite enquanto o envio estiver desligado.
+ * Reenvia o email de verificação de email (Appwrite) para o utilizador
+ * autenticado — POST /api/auth/verify (CSRF + rate limit no servidor).
  */
-export async function sendEmailVerification(): Promise<never> {
-  throw new Error("A verificação por email está temporariamente desativada.");
+export async function sendEmailVerification(): Promise<{ sent: boolean }> {
+  const response = await fetchWithCsrf("/api/auth/verify", { method: "POST" });
+  if (!response.ok) {
+    throw new Error("Não foi possível enviar o email de verificação.");
+  }
+  return { sent: true };
 }
 
 export async function requestPasswordReset(_email: string): Promise<never> {
