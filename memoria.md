@@ -2079,3 +2079,30 @@ Commit `7507104` · deploy run `31275131607` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** `confirmCalled:0` (window.confirm NUNCA chamado), modal `role=dialog` com "Eliminar conta?" + aviso, Cancelar fecha e restaura o scroll ✅.
 
 Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 67 — 8 Agosto 2026 — Causa raiz: HTML cacheado 1 ano (s-maxage) — utilizadores viam versões antigas**
+
+**Problema:** mesmo depois do fix do modal (Sessão 66), o utilizador continuava a ver o `window.confirm` nativo na eliminação de conta (reportou a mensagem antiga 4x).
+
+**Causa raiz (investigada a fundo):**
+- O OpenNext (`fixCacheHeaderForHtmlPages` em `node_modules/@opennextjs/aws/dist/core/routing/util.js`) define `Cache-Control: s-maxage=31536000` (1 ANO) em TODAS as páginas HTML pré-renderizadas.
+- Como o header não tem `max-age`, o Chrome trata o `s-maxage` como `max-age` (interop conhecido) → o browser guarda o HTML durante 1 ano.
+- O HTML antigo referencia os chunks antigos → o browser continuava a carregar o bundle antigo (com o `window.confirm`) mesmo após novos deploys. O código-fonte e o Worker já estavam corretos (window.confirm=0 no bundle novo); era o browser do utilizador a servir a versão antiga.
+- O `next.config.ts` não resolve: o OpenNext sobrepõe o Cache-Control DEPOIS dos headers do Next.js (a resposta final tinha só `s-maxage`).
+
+**Fix:**
+- Criado `worker-entry.js` (wrapper que é agora o `main` do wrangler.jsonc): importa o worker OpenNext (`.open-next/worker.js`), delega o fetch e força `Cache-Control: no-store` em respostas `text/html` e `text/x-component` (RSC). Assets estáticos com hash mantêm o cache próprio (immutable).
+- `wrangler.jsonc`: `"main": "./worker-entry.js"`.
+
+**Validação:** build local ✅ · `wrangler deploy --dry-run` ✅ (177 assets, bundle OK).
+
+**Verificação no Worker deployado (run 31276044626):**
+- `/` → `Cache-Control: no-store` ✅
+- `/login` → `no-store` ✅
+- `/dashboard/settings` → `no-store` ✅
+- Chunk estático → mantém cache (`public, max-age=0, must-revalidate`, CF-Cache-Status HIT) ✅
+- Bundle settings: `window.confirm`=0, modal "Eliminar conta?"=1 ✅
+
+**Ação do utilizador (1x):** como o browser dele já guardou o HTML antigo com validade de 1 ano, precisa de um **hard refresh** (Ctrl+Shift+R / Cmd+Shift+R) ou limpar a cache do site UMA vez. A partir daí o `no-store` impede qualquer versão antiga.
+
+Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow.editsttk43.workers.dev
