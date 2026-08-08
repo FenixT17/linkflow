@@ -479,8 +479,11 @@ export default function DashboardPage() {
           </GlassButton>
         </div>
         {activities.length > 0 ? (
-          <div className="mt-5 space-y-2.5">
-            {activities.slice(0, 8).map((activity) => {
+          /* Altura fixa + scroll: o cartão nunca cresce com o nº de atividades.
+             max-h + overflow-y-auto mantém o cabeçalho visível; overscroll-contain
+             evita que o scroll do cartão "contagie" a página (bug de scroll em cadeia). */
+          <div className="mt-5 max-h-80 overflow-y-auto overscroll-contain glass-scrollbar space-y-2.5 pr-1">
+            {activities.slice(0, 15).map((activity) => {
               const meta = ACTIVITY_META[activity.action] ?? { label: activity.action, icon: Activity };
               const Icon = meta.icon;
               const detail = parseActivityDetails(activity.details);
