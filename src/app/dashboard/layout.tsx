@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { isLoading, account, page } = useAuth();
@@ -12,6 +13,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   const isCreateRoute = pathname === "/dashboard/create";
+  // Sem página, a única rota do dashboard acessível é /dashboard/create
+  // (guard abaixo) — nesse estado o sidebar de navegação fica escondido e só
+  // o formulário de criação é mostrado, em largura total.
+  const hasPage = Boolean(page);
 
   // Guard centralizado de "primeira página" — aplica-se a TODAS as rotas do
   // dashboard (não só a algumas páginas):
@@ -57,12 +62,27 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-[#030303] text-white/90">
-        <DashboardSidebar />
-        <div className="min-h-dvh lg:pl-[var(--sidebar-width,15rem)] transition-all duration-300">
-          <main className="min-h-dvh pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-0 pb-24 lg:pb-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto py-6 lg:py-8">{children}</div>
-          </main>
-        </div>
+      {/* O sidebar (links de navegação + barra mobile) só existe para
+          utilizadores que já têm página — no /dashboard/create o utilizador
+          vê apenas o formulário de criação, em largura total. */}
+      {hasPage && <DashboardSidebar />}
+      <div
+        className={cn(
+          "min-h-dvh transition-all duration-300",
+          hasPage && "lg:pl-[var(--sidebar-width,15rem)]"
+        )}
+      >
+        <main
+          className={cn(
+            "min-h-dvh pb-24 lg:pb-8 px-4 sm:px-6 lg:px-8",
+            hasPage
+              ? "pt-[calc(3.5rem+env(safe-area-inset-top,0px))] lg:pt-0"
+              : "pt-[calc(env(safe-area-inset-top,0px)+2rem)]"
+          )}
+        >
+          <div className="max-w-7xl mx-auto py-6 lg:py-8">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

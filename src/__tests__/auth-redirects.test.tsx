@@ -141,6 +141,30 @@ describe("DashboardLayout auth guard", () => {
 
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByTestId("content")).toBeInTheDocument();
+    // Sem página, o sidebar de navegação fica escondido — só o formulário
+    // de criação é mostrado.
+    expect(screen.queryByLabelText("Navegação principal")).not.toBeInTheDocument();
+  });
+
+  it("shows the sidebar only when the user already has a page", () => {
+    mockReplace.mockClear();
+    vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard");
+    mockUseAuth.mockReturnValue({
+      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
+      isLoading: false,
+    } as unknown as ReturnType<typeof AuthContext.useAuth>);
+
+    render(
+      <ThemeProvider>
+        <DashboardLayout>
+          <div data-testid="content">Conteúdo protegido</div>
+        </DashboardLayout>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByTestId("content")).toBeInTheDocument();
+    expect(screen.getByLabelText("Navegação principal")).toBeInTheDocument();
   });
 
   it("redirects to /dashboard from /dashboard/create when the user already has a page", () => {
