@@ -1978,3 +1978,19 @@ Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasAlterarFoto:false`, `hasAvatarBtn:false`, `hasBannerUpload:true`, `hasNomePublico:true`, `hasBio:true`, `hasAlterarBannerBtn:true` ✅.
 
 Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 60 — 8 Agosto 2026 — Remover o cartão inteiro da aba Perfil (banner + wrapper)**
+
+**Problema:** após remover o cabeçalho (Sessão 59), o utilizador pediu para remover o cartão de banner E o "quadrado gigante" — confirmado via ask_user: "O cartão inteiro" (banner + PremiumCard).
+
+**Fix:** reescrito `src/app/dashboard/profile/page.tsx`:
+- Removido o PremiumCard inteiro (banner upload + wrapper).
+- Removido todo o código de banner: `handleFileUpload`, `handleDrop`, `handleRemove`, `bannerPreview`, `uploading`, `bannerInputRef`, `compressImage`, `MAX_FILE_SIZE`, `VALID_TYPES` e imports (`Image`, `PremiumCard`, `Skeleton`, `Camera`, `Upload`, `Trash2`, `useRef`, services de banner).
+- Mantidos: SectionHeader "Perfil" (Publicar/Despublicar/Pré-visualizar), toast, campos Nome público e Bio em formulário simples (`max-w-xl`), auto-save.
+- Nota: `updatePageBanner`/`removePageBanner` continuam em services.ts (usados na página Aparência). O @username já não aparece na página (Sessão 59); o estado `username` só serve para o preview.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** /dashboard/profile → `hasBannerText:false`, `hasAlterarBanner:false`, sem cartão gigante (só o formulário), `hasNomePublico:true`, `hasBio:true`, `hasPublish:true` ✅.
+
+Commit `22a6919` · deploy run `31271952953` verde · https://linkflow.editsttk43.workers.dev
