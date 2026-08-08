@@ -174,38 +174,6 @@ export async function completeEmailVerification(userId: string, secret: string) 
   return account.updateEmailVerification(userId, secret);
 }
 
-/**
- * Confirma o email a partir do link do email (MailerSend) — POST
- * /api/auth/verify-email com `{ userId, token }`. NÃO usa CSRF de propósito:
- * quem clica num link de email pode estar num browser novo, sem cookie CSRF;
- * o próprio token (single-use, hashed, com expiração) é a credencial. Lança
- * um erro com `code` ("invalid_link" | "expired_link" | "unavailable").
- */
-export async function confirmVerificationToken(
-  userId: string,
-  token: string
-): Promise<{ verified: boolean }> {
-  const response = await fetch("/api/auth/verify-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ userId, token }),
-  });
-  const data = (await response.json().catch(() => ({}))) as {
-    verified?: boolean;
-    error?: string;
-    code?: string;
-  };
-  if (!response.ok || data.verified !== true) {
-    const error = new Error(
-      data.error || "Não foi possível confirmar o email."
-    ) as Error & { code?: string };
-    error.code = data.code;
-    throw error;
-  }
-  return { verified: true };
-}
-
 export async function completePasswordReset(userId: string, secret: string, password: string) {
   return account.updateRecovery(userId, secret, password);
 }

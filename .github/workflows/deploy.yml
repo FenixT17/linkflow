@@ -13,9 +13,6 @@
 #   NEXT_PUBLIC_SITE_URL          → URL público final (workers.dev ou domínio)
 #   APPWRITE_API_KEY              → Server API key do Appwrite
 #   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN → rate limiting
-#   MAILERSEND_API_TOKEN (opcional) → email de verificação (se definido no
-#       GitHub, o workflow sincroniza-o como secret do Worker em cada deploy;
-#       se não, definir uma vez no dashboard Cloudflare)
 # ============================================================================
 name: Deploy LinkFlow → Cloudflare Workers
 
@@ -116,7 +113,6 @@ jobs:
           CF_APPWRITE_API_KEY: ${{ secrets.APPWRITE_API_KEY }}
           CF_UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           CF_UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
-          CF_MAILERSEND_API_TOKEN: ${{ secrets.MAILERSEND_API_TOKEN }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -125,4 +121,3 @@ jobs:
             if [ -n "$CF_APPWRITE_API_KEY" ]; then echo "$CF_APPWRITE_API_KEY" | npx wrangler secret put APPWRITE_API_KEY; else echo "⚠️ APPWRITE_API_KEY não definido no GitHub — definir no dashboard Cloudflare (Workers → linkflow → Settings → Variables and Secrets)."; fi
             if [ -n "$CF_UPSTASH_REDIS_REST_URL" ]; then echo "$CF_UPSTASH_REDIS_REST_URL" | npx wrangler secret put UPSTASH_REDIS_REST_URL; else echo "⚠️ UPSTASH_REDIS_REST_URL não definido no GitHub."; fi
             if [ -n "$CF_UPSTASH_REDIS_REST_TOKEN" ]; then echo "$CF_UPSTASH_REDIS_REST_TOKEN" | npx wrangler secret put UPSTASH_REDIS_REST_TOKEN; else echo "⚠️ UPSTASH_REDIS_REST_TOKEN não definido no GitHub."; fi
-            if [ -n "$CF_MAILERSEND_API_TOKEN" ]; then echo "$CF_MAILERSEND_API_TOKEN" | npx wrangler secret put MAILERSEND_API_TOKEN; else echo "⚠️ MAILERSEND_API_TOKEN não definido no GitHub — definir no dashboard Cloudflare (Workers → linkflow → Settings → Variables and Secrets)."; fi

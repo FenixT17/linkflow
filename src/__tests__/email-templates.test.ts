@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   escapeEmailHtml,
-  renderMailerSendVerificationEmail,
   renderPasswordResetEmail,
   renderVerificationEmail,
 } from "@/lib/email-templates";
@@ -49,50 +48,6 @@ describe("email templates", () => {
     expect(content.html).toContain("Confirmar email");
     expect(content.html).toContain("https://example.com/verify?token=abc");
     expect(content.text).toContain("https://example.com/verify?token=abc");
-  });
-
-  it("MailerSend verification: subject, button, fallback link and PT-PT copy", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow.example");
-    const content = renderMailerSendVerificationEmail(
-      { name: "Ana" },
-      "https://linkflow.example/verify-email?userId=u1&token=abc123"
-    );
-    vi.unstubAllEnvs();
-
-    expect(content.subject).toBe("Confirma o teu email — LinkFlow");
-    expect(content.html).toContain("Confirmar email");
-    expect(content.html).toContain("Bem-vindo ao LinkFlow, Ana.");
-    expect(content.html).toContain(
-      "https://linkflow.example/verify-email?userId=u1&amp;token=abc123"
-    );
-    expect(content.html).toContain("Se não foste tu que criaste esta conta");
-    expect(content.text).toContain("https://linkflow.example/verify-email?userId=u1&token=abc123");
-    expect(content.text).toContain("podes ignorar este email");
-  });
-
-  it("MailerSend verification: escapes user-controlled names (no HTML injection)", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow.example");
-    try {
-      const content = renderMailerSendVerificationEmail(
-        { name: "<script>alert(1)</script>" },
-        "https://linkflow.example/verify-email?userId=u1&token=abc"
-      );
-      expect(content.html).not.toContain("<script>alert");
-      expect(content.html).toContain("&lt;script&gt;");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it("MailerSend verification: rejects URLs outside the configured site origin", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow.example");
-    try {
-      expect(() =>
-        renderMailerSendVerificationEmail({}, "https://attacker.example/verify")
-      ).toThrow("O endereço da ação do email não pertence ao LinkFlow.");
-    } finally {
-      vi.unstubAllEnvs();
-    }
   });
 
   it("renders password reset content with the safety notice", () => {

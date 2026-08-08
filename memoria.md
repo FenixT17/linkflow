@@ -2193,34 +2193,18 @@ Commit `6beacd4` · https://linkflow.editsttk43.workers.dev
 
 Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
 
-**Sessão 72 — 8/9 Agosto 2026 — Confirmação de email via MailerSend (Appwrite mantém o estado)**
+**Sessão 73 — 9 Agosto 2026 — Reversão: sair do MailerSend, voltar ao fluxo nativo do Appwrite**
 
-**Pedido:** substituir o envio do email de confirmação pelo MailerSend (domínio de teste verificado `test-69oxl5ekp92l785k.mlsender.net`, remetente `info@test-69oxl5ekp92l785k.mlsender.net`), lendo o token SÓ via `env.MAILERSEND_API_TOKEN` no Worker. Nunca no código/frontend/Git.
+**Pedido:** remover tudo do MailerSend e voltar ao Appwrite para a confirmação de email.
 
-**Investigação empírica (decisiva):**
-- `POST /account/verification` devolve o `secret` **REDIGIDO** (`"secret":""`) — o secret só existe dentro do email que o próprio Appwrite envia.
-- Não existe endpoint admin para criar o token sem o email do Appwrite: `POST /users/{id}/verification` → 404; SDK Users não tem createVerification/updatePrefs/updateEmailVerification (versão 1.9.6).
-- Conclusão: impossível enviar o link REAL via MailerSend usando o token oficial do Appwrite. Design: token próprio de 256 bits (base64url), guardado SÓ como hash SHA-256 + expiração nas prefs do utilizador (admin REST `PATCH /users/{id}/prefs`), e o estado final `emailVerification=true` é marcado pelo endpoint ADMIN oficial `PATCH /users/{id}/verification` (testado: 200).
+**Feito:** revertida a Sessão 72 na totalidade:
+- Apagados: `src/lib/mailersend.server.ts`, `src/lib/verification.server.ts`, `src/app/api/auth/verify-email/route.ts`, `src/__tests__/verification-token.test.ts`.
+- Restaurado o fluxo nativo do Appwrite: `requestEmailVerification` (createVerification) de volta a `auth.server.ts`; register e verify routes voltam a chamá-lo (best-effort, sem o `code` extra no 502); `/verify-email` volta ao caminho `?userId=&secret=` (completeEmailVerification); `services.ts` sem `confirmVerificationToken`; removidos `renderMailerSendVerificationEmail` + testes associados de `email-templates*`.
+- Config: deploy.yml/wrangler.jsonc/.env.example sem qualquer referência a `MAILERSEND_API_TOKEN`.
+- O secret `MAILERSEND_API_TOKEN` deixou de ser usado pelo código — pode ser apagado do Cloudflare (Workers → linkflow → Settings → Variables and Secrets) e do GitHub (se existir).
 
-**Implementação (ficheiros novos):**
-- `src/lib/verification.server.ts` — token/hash/validade + helpers admin REST (prefs, marcar verificado, estado), `issueEmailVerification` (orquestra: token → prefs → email MailerSend) e `confirmVerificationToken` (valida hash+expiração single-use → marca verificado; idempotente se já verificado; 404 do utilizador → invalid_link; erros do provider nunca expostos ao cliente).
-- `src/lib/mailersend.server.ts` — `env.MAILERSEND_API_TOKEN` via `getCloudflareContext().env` (fallback `process.env` SÓ fora do Worker: next dev/vitest); fetch direto a `https://api.mailersend.com/v1/email`; sucesso só com 2xx + `x-message-id`; erros tipados (NOT_CONFIGURED/UNAUTHORIZED/INVALID_PAYLOAD/RATE_LIMITED/SEND_FAILED); nunca loga o token.
-- `src/app/api/auth/verify-email/route.ts` — POST {userId, token}: rate limit 20/10min por IP, SEM CSRF de propósito (link de email abre em browser novo; o token single-use de alta entropia é a credencial — mesmo modelo do PUT /account/verification do Appwrite).
-- `email-templates.ts`: `renderMailerSendVerificationEmail` (dark/gray premium, pt-PT, assunto "Confirma o teu email — LinkFlow", botão "Confirmar email" + link em texto).
+**Estado final (igual à Sessão 71):** Appwrite cria o token e envia o seu email (`/verify-email?userId=..&secret=..`); a página confirma via `account.updateEmailVerification`; reenvio protegido (CSRF + rate limit); `/api/auth/me` devolve `emailVerification`; página "Confirma o teu email" com Reenviar/cooldown/Já confirmei/auto-poll.
 
-**Alterados:** register + verify routes usam `issueEmailVerification` (best-effort — registo nunca falha por causa do email); `requestEmailVerification` removido de auth.server.ts; `/verify-email` trata `?token=` (novo) e mantém o caminho legado `?secret=`; `/verify-email/sent` copy "Abre o email e clica em «Confirmar email»"; services.ts `confirmVerificationToken`; deploy.yml postCommands sincronizam `MAILERSEND_API_TOKEN` (se existir no GitHub) e documentam o secret; wrangler.jsonc/.env.example atualizados.
+**Nota (entregabilidade):** o email do Appwrite Cloud usa a infraestrutura partilhada — em testes reais NÃO chegou (spam/bloqueio). Para o email chegar a utilizadores reais é preciso configurar SMTP na consola do Appwrite (Settings → Auth → SMTP ou Branding → Email Templates → Verification com template próprio em `scripts/appwrite-verification-template.html`).
 
-**Validação:** tsc ✅ · eslint ✅ · 209/209 testes ✅ · revisão ✅ · deploys verdes (runs 31281701262 e 31282280409).
-
-**E2E no Worker deployado (email REAL mail.tm):**
-- Reenvio `/api/auth/verify` → 200 {sent:true}; email entregue em **8 segundos** do remetente certo com assunto certo e link real (`/verify-email?userId=..&token=..`).
-- Confirmar com o link do email entregue → `{verified:true}` 200; repetir → 200 (idempotente); token inválido → 400 `invalid_link`.
-- `emailVerification=true` confirmado no Appwrite (admin) e via `/api/auth/me` (login 200).
-- Nenhum bundle JS servido referencia MailerSend; nenhum valor de secret no Git (.tmpcheck gitignored).
-
-**⚠️ AÇÃO MANUAL OBRIGATÓRIA (MailerSend) — entregabilidade real:** o domínio de TESTE do MailerSend só envia para **~2 destinatários únicos** (erro `#MS42225`) e o plano trial tem limites de quota/API. Para o LinkFlow enviar a utilizadores reais:
-1. MailerSend → Domains → verificar um domínio REAL (SPF/DKIM) — ex.: um subdomínio `mail.<teudominio>`.
-2. Atualizar `MAILERSEND_FROM_EMAIL` no Worker para `info@<domínio verificado>` (a nossa default é o domínio de teste).
-3. Se mantiver o plano trial, esperar aprovação/limites; para produção sem fricção, plano pago.
-
-Commits: `6e8a9f2` (integração) + `a1aa205` (code de erro no 502 para diagnóstico) · https://linkflow.editsttk43.workers.dev
+Commit: `%REVERT_COMMIT%` · https://linkflow.editsttk43.workers.dev

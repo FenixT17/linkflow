@@ -93,67 +93,6 @@ export function renderVerificationEmail(
   };
 }
 
-function renderMailerSendLayout(title: string, content: string, actionUrl: string, actionLabel: string): string {
-  const safeActionUrl = assertSafeActionUrl(actionUrl);
-  return `<!doctype html>
-<html lang="pt-PT">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-  </head>
-  <body style="margin:0;padding:0;background:#0a0c11;color:#f2f4f7;font-family:Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.6">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0c11">
-      <tr>
-        <td align="center" style="padding:48px 16px">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-            <tr>
-              <td style="font-size:20px;font-weight:700;letter-spacing:-.02em;color:#f2f4f7;padding-bottom:24px">LinkFlow</td>
-            </tr>
-            <tr>
-              <td style="background:#151922;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:36px 32px">
-                <h1 style="font-size:24px;line-height:1.25;margin:0 0 14px;color:#ffffff;font-weight:700">${title}</h1>
-                <div style="font-size:15px;color:rgba(242,244,247,.78)">${content}</div>
-                <p style="margin:30px 0 0">
-                  <a href="${escapeEmailHtml(safeActionUrl)}" style="display:inline-block;background:#f2f4f7;color:#0d0f14;text-decoration:none;font-weight:700;font-size:15px;border-radius:12px;padding:14px 24px">${escapeEmailHtml(actionLabel)}</a>
-                </p>
-                <p style="font-size:12px;color:rgba(242,244,247,.5);word-break:break-all;margin:22px 0 0">Se o botão não funcionar, copia e cola este endereço no navegador:<br>${escapeEmailHtml(safeActionUrl)}</p>
-                <p style="font-size:12px;color:rgba(242,244,247,.45);margin:26px 0 0;border-top:1px solid rgba(255,255,255,.08);padding-top:20px">Se não foste tu que criaste esta conta, podes ignorar este email.</p>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="font-size:11px;color:rgba(242,244,247,.35);padding-top:22px">LinkFlow — a tua página de links, num só lugar.</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-}
-
-/**
- * Email de confirmação enviado pelo MailerSend (o Appwrite mantém-se dono da
- * verificação; este email transporta o link real do LinkFlow). Tema escuro/cinza,
- * premium e responsivo — sem roxo, em português de Portugal.
- */
-export function renderMailerSendVerificationEmail(
-  identity: EmailTemplateIdentity,
-  verificationUrl: string
-): EmailTemplateContent {
-  const name = normalizeName(identity.name);
-  const safeName = escapeEmailHtml(name);
-  const title = "Confirma o teu email";
-  const content = `<p style="margin:0 0 12px">Bem-vindo ao LinkFlow, ${safeName}.</p><p style="margin:0">Para terminar a criação da tua conta, confirma o teu endereço de email clicando no botão abaixo.</p>`;
-
-  return {
-    subject: "Confirma o teu email — LinkFlow",
-    html: renderMailerSendLayout(title, content, verificationUrl, "Confirmar email"),
-    text: `Bem-vindo ao LinkFlow, ${name}.\n\nPara terminar a criação da tua conta, confirma o teu endereço de email clicando no link abaixo:\n${assertSafeActionUrl(
-      verificationUrl
-    )}\n\nSe não foste tu que criaste esta conta, podes ignorar este email.`,
-  };
-}
-
 export function renderPasswordResetEmail(
   identity: EmailTemplateIdentity,
   resetUrl: string

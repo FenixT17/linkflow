@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { requireAuth } from "@/lib/auth.server";
-import { issueEmailVerification } from "@/lib/verification.server";
+import { requestEmailVerification, requireAuth } from "@/lib/auth.server";
 
 /**
- * POST /api/auth/verify — reenvia o email de verificação de email (MailerSend)
- * para o utilizador autenticado (best-effort). Usado a partir das páginas
- * /verify-email e /verify-email/sent ("Reenviar email").
+ * POST /api/auth/verify — reenvia o email de verificação de email do Appwrite
+ * para o utilizador autenticado (best-effort). Usado a partir da página
+ * /verify-email ("Reenviar email") e por futuras UIs de conta.
  */
 export async function POST(request: NextRequest) {
   const csrfCheck = csrfGuard(request);
@@ -36,25 +35,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await issueEmailVerification({
-      userId: auth.user.$id,
-      email: auth.user.email,
-      name: auth.user.name,
-    });
+    await requestEmailVerification(auth.account);
     return NextResponse.json({ sent: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.warn("[Verify] Falha ao enviar email de verificação:", error);
-    // O `code` é não-sensível (NOT_CONFIGURED/UNAUTHORIZED/INVALID_PAYLOAD/
-    // RATE_LIMITED/SEND_FAILED) e ajuda a diagnosticar sem expor secrets.
-    const code =
-      typeof error === "object" && error !== null && "code" in error
-        ? String((error as { code?: unknown }).code ?? "")
-        : "";
     return NextResponse.json(
-      {
-        error: "Não foi possível enviar o email de verificação. Tente novamente mais tarde.",
-        ...(code ? { code } : {}),
-      },
+      { error: "Não foi possível enviar o email de verificação. Tente novamente mais tarde." },
       { status: 502, headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
   }

@@ -16,12 +16,10 @@
 // - NEXT_PUBLIC_*            → inlined em build time pelo Next.js (definidas
 //                              no CI — ver .github/workflows/deploy.yml).
 // - Segredos do servidor     → APPWRITE_API_KEY, UPSTASH_REDIS_REST_URL,
-//   (APPWRITE_API_KEY,         UPSTASH_REDIS_REST_TOKEN,
-//   UPSTASH_REDIS_*,           MAILERSEND_API_TOKEN (email de verificação —
-//   MAILERSEND_API_TOKEN)      lido no Worker via env.MAILERSEND_API_TOKEN).
-//                              NUNCA commitados. Definir no dashboard do
-//                              Cloudflare (Workers & Pages → linkflow →
-//                              Settings → Variables and Secrets) ou via
+//   (APPWRITE_API_KEY,         UPSTASH_REDIS_REST_TOKEN. NUNCA commitados.
+//   UPSTASH_REDIS_*, ...)      Definir no dashboard do Cloudflare
+//                              (Workers & Pages → linkflow → Settings →
+//                              Variables and Secrets) ou via
 //                              `npx wrangler secret put NOME`.
 // ============================================================================
 {

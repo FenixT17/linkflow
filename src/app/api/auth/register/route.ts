@@ -5,9 +5,9 @@ import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-l
 import {
   createEmailPasswordSessionResolved,
   createPublicAuthClient,
+  requestEmailVerification,
   setAuthSessionCookie,
 } from "@/lib/auth.server";
-import { issueEmailVerification } from "@/lib/verification.server";
 import { isValidEmail, isValidPassword, sanitizeDisplayName } from "@/lib/sanitize";
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -72,12 +72,14 @@ export async function POST(request: NextRequest) {
     const user = await account.create(ID.unique(), email, password, name);
     const session = await createEmailPasswordSessionResolved(email, password);
 
-    // Envia o email de verificação via MailerSend (best-effort): a criação da
+    // Envia o email de verificação do Appwrite (best-effort): a criação da
     // conta nunca falha por causa do email. O utilizador pode reenviar a
     // partir da página "Confirma o teu email" (POST /api/auth/verify).
     let verificationSent = false;
     try {
-      await issueEmailVerification({ userId: user.$id, email: user.email, name: user.name });
+      const verification = createPublicAuthClient();
+      verification.client.setSession(session.secret);
+      await requestEmailVerification(verification.account);
       verificationSent = true;
     } catch (error) {
       console.warn("[Register] Falha ao enviar email de verificação:", error);
