@@ -2207,4 +2207,4 @@ Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
 
 **Nota (entregabilidade):** o email do Appwrite Cloud usa a infraestrutura partilhada — em testes reais NÃO chegou (spam/bloqueio). Para o email chegar a utilizadores reais é preciso configurar SMTP na consola do Appwrite (Settings → Auth → SMTP ou Branding → Email Templates → Verification com template próprio em `scripts/appwrite-verification-template.html`).
 
-Commit: `%REVERT_COMMIT%` · https://linkflow.editsttk43.workers.dev
+Commit: `9669436` · https://linkflow.editsttk43.workers.dev
