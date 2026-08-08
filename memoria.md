@@ -2064,3 +2064,18 @@ Commit: apenas registro do relatório (memoria.md). https://linkflow.editsttk43.
 **E2E (browser real, worker deployado):** `clientHeight:320` (fixo), `scrollHeight:1070` (15 atividades), `hasOverflow:true`, `scrollable:true` (scrollTop 0→200), cabeçalho e "Ver tudo" visíveis ✅.
 
 Commit `7507104` · deploy run `31275131607` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 66 — 8 Agosto 2026 — Confirmação de eliminação de conta DENTRO da app (sem window.confirm nativo)**
+
+**Problema:** ao eliminar a conta, o browser mostrava o `window.confirm` nativo ("Tem a certeza? Esta ação apaga permanentemente..."). O utilizador queria o aviso dentro do SaaS.
+
+**Fix:** em `src/app/dashboard/settings/page.tsx`, substituído o `window.confirm` por um modal de confirmação na app:
+- Botão "Eliminar conta" abre o modal (limpa erros anteriores).
+- Modal framer-motion (AnimatePresence): título "Eliminar conta?", aviso completo, botões Cancelar + Eliminar conta (vermelho, com estado de carregamento).
+- Acessibilidade/UX: `role=dialog` + `aria-modal` + `aria-labelledby`, Escape fecha (respeitando `deleting` via `deletingRef` — não fecha durante a eliminação), overlay click fecha, scroll do body bloqueado, focus no Cancelar, erro mostrado dentro do modal (em falha o modal fica aberto para tentar de novo).
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅ (corrigido: Escape não respeitava `deleting`).
+
+**E2E (browser real, worker deployado):** `confirmCalled:0` (window.confirm NUNCA chamado), modal `role=dialog` com "Eliminar conta?" + aviso, Cancelar fecha e restaura o scroll ✅.
+
+Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow.editsttk43.workers.dev
