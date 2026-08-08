@@ -68,7 +68,7 @@ interface AuthContextValue {
     name: string,
     email: string,
     password: string
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; verificationSent?: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   createPage: (profile: Omit<PageProfile, "published">) => Promise<void>;
@@ -439,7 +439,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metadata: { displayName: name },
       });
 
-      const { account: newAccount, geo } = await registerUser(email, password, name);
+      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name);
 
       // Registo de atividade: conta criada
       void logActivity("register", { displayName: name });
@@ -474,7 +474,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         $createdAt: new Date().toISOString(),
       } as Models.User<Models.Preferences>);
 
-      return { success: true };
+      return { success: true, verificationSent };
     } catch (error: unknown) {
       // Log failure
       createSecurityLog({

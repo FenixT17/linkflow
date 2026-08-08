@@ -2,14 +2,15 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Logo } from "@/components/ui/logo";
-import { completeEmailVerification, sendEmailVerification } from "@/lib/services";
+import { completeEmailVerification, getEmailVerificationStatus, sendEmailVerification } from "@/lib/services";
 import { ArrowLeft, CheckCircle2, Loader2, MailCheck, XCircle } from "lucide-react";
 
 function VerifyEmailForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get("userId") || "";
   const secret = searchParams.get("secret") || "";
@@ -25,6 +26,23 @@ function VerifyEmailForm() {
       .then(() => setStatus("success"))
       .catch(() => setStatus("error"));
   }, [userId, secret]);
+
+  // Após confirmar no Appwrite, se o utilizador estiver logado e o estado
+  // emailVerification = true, segue direto para o dashboard (não fica preso).
+  useEffect(() => {
+    if (status !== "success") return;
+    let alive = true;
+    getEmailVerificationStatus()
+      .then((s) => {
+        if (alive && s.verified) router.replace("/dashboard");
+      })
+      .catch(() => {
+        // Sem sessão — mostra o botão "Entrar".
+      });
+    return () => {
+      alive = false;
+    };
+  }, [status, router]);
 
   const handleResend = async () => {
     setResend("sending");

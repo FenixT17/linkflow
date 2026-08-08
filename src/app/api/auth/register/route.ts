@@ -74,17 +74,22 @@ export async function POST(request: NextRequest) {
 
     // Envia o email de verificação do Appwrite (best-effort): a criação da
     // conta nunca falha por causa do email. O utilizador pode reenviar a
-    // partir de /verify-email (POST /api/auth/verify).
+    // partir da página "Confirma o teu email" (POST /api/auth/verify).
+    let verificationSent = false;
     try {
       const verification = createPublicAuthClient();
       verification.client.setSession(session.secret);
       await requestEmailVerification(verification.account);
+      verificationSent = true;
     } catch (error) {
       console.warn("[Register] Falha ao enviar email de verificação:", error);
     }
 
     const response = NextResponse.json(
-      { user: { $id: user.$id, email: user.email, name: user.name, $createdAt: user.$createdAt } },
+      {
+        user: { $id: user.$id, email: user.email, name: user.name, $createdAt: user.$createdAt },
+        verificationSent,
+      },
       { status: 201, headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
     setAuthSessionCookie(response, session.secret, session.expire);

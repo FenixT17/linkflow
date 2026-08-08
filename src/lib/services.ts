@@ -97,6 +97,7 @@ export async function registerUser(email: string, password: string, name: string
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
+    verificationSent?: boolean;
     error?: string;
   };
   if (!response.ok || !data.user) {
@@ -121,7 +122,13 @@ export async function registerUser(email: string, password: string, name: string
         currency: provisionData.profile.currency,
       }
     : {};
-  return { account: data.user, geo };
+  return {
+    account: data.user,
+    geo,
+    // O servidor indica se o email de verificação foi pedido ao Appwrite
+    // (best-effort) — usado para avisar o utilizador na página de confirmação.
+    verificationSent: data.verificationSent === true,
+  };
 }
 
 /**
@@ -134,6 +141,29 @@ export async function sendEmailVerification(): Promise<{ sent: boolean }> {
     throw new Error("Não foi possível enviar o email de verificação.");
   }
   return { sent: true };
+}
+
+/**
+ * Estado de verificação de email do utilizador autenticado — lido do Appwrite
+ * via /api/auth/me (o servidor devolve emailVerification; nunca é confiável
+ * no cliente). Lança erro se não estiver autenticado.
+ */
+export async function getEmailVerificationStatus(): Promise<{ verified: boolean }> {
+  const response = await fetch("/api/auth/me", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    // Distingue "sem sessão" (401) de falhas de rede/transientes, para a UI
+    // mostrar a mensagem certa em cada caso.
+    const error = new Error("Unauthorized") as Error & { isUnauthorized?: boolean };
+    error.isUnauthorized = true;
+    throw error;
+  }
+  const data = (await response.json().catch(() => ({}))) as {
+    user?: { emailVerification?: boolean };
+  };
+  return { verified: data.user?.emailVerification === true };
 }
 
 export async function requestPasswordReset(_email: string): Promise<never> {

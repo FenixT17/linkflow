@@ -98,7 +98,14 @@ function RegisterForm() {
     setLoading(true);
     const result = await register(name.trim(), email.trim(), password);
     if (result.success) {
-      router.push("/dashboard");
+      // Encaminha para a página "Confirma o teu email" (o Appwrite envia o
+      // email de verificação). Se o envio automático falhou, a página avisa e
+      // oferece o reenvio.
+      const params = new URLSearchParams({
+        email: email.trim(),
+        sent: result.verificationSent === true ? "1" : "0",
+      });
+      router.push(`/verify-email/sent?${params.toString()}`);
     } else {
       setError(result.error ?? "Ocorreu um erro ao criar a conta.");
       setLoading(false);
