@@ -2116,3 +2116,27 @@ Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow.editsttk4
 **Validação:** Typecheck ✅ · deploy run 31276642616 verde · bundle servido no Worker: texto antigo=0, texto novo=1 (`"A sua conta ser\xe1 apagada permanentemente."`), modal "Eliminar conta?" mantido ✅.
 
 Commit `ea5d95f` · https://linkflow.editsttk43.workers.dev
+
+**Sessão 69 — 8 Agosto 2026 — Sessão persistente após fechar/reabrir o browser**
+
+**Pedido:** o utilizador deve continuar logado depois de fechar o site e voltar a abrir.
+
+**Investigação:**
+- O cookie `__Host-linkflow-session` do login email/password JÁ era persistente (Appwrite devolve `expire` ~1 ano → `Max-Age=31535999`). Verificado via curl e E2E (fecho gracioso E forçado do Chrome com o mesmo perfil → sessão mantida).
+- BUG real encontrado: a rota de migração OAuth `/api/auth/session` chamava `setAuthSessionCookie(response, secret)` SEM `expires` → criava um cookie de sessão (sem Max-Age) que SUBSTITUÍA o cookie persistente e o browser apagava ao fechar → utilizadores OAuth deslogados após fechar.
+- O checkbox "Lembrar-me" da página de login era decorativo (sem estado, sem efeito).
+
+**Fix:**
+- `src/lib/auth.server.ts`: `setAuthSessionCookie(response, secret, expires?, persistent=true)` — quando persistente, usa o `expire` do Appwrite ou um fallback de 30 dias (`SESSION_COOKIE_FALLBACK_MAX_AGE_SECONDS`) se ausente. `persistent=false` → cookie de sessão (some ao fechar). Isto corrige também a migração OAuth.
+- `src/app/api/auth/login/route.ts`: lê `remember` do body (só booleano `false` explícito desativa; default true).
+- `src/lib/services.ts` + `src/context/AuthContext.tsx`: `loginUser`/`login` aceitam `remember`.
+- `src/app/login/page.tsx`: checkbox "Lembrar-me" controlado, LIGADO por defeito, passado ao login.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅ · deploy run 31277364520 verde.
+
+**Verificação no Worker deployado:**
+- Login default → `Max-Age=31535999` (persistente) ✅
+- Login `remember:false` → sem Max-Age (cookie de sessão) ✅
+- E2E browser real: login → fechar Chrome (gracioso e forçado) → reabrir com o mesmo perfil → `/dashboard` (continua logado) ✅
+
+Commit `8d399e8` · https://linkflow.editsttk43.workers.dev
