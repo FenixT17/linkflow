@@ -18,6 +18,8 @@ function LoginForm() {
   const { login, loginWithGoogle, loginWithGitHub } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // "Lembrar-me" ligado por defeito: a sessão persiste após fechar o browser.
+  const [remember, setRemember] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState("");
@@ -82,7 +84,7 @@ function LoginForm() {
       return;
     }
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, remember);
     if (result.success) {
       router.push("/dashboard");
     } else {
@@ -200,6 +202,8 @@ function LoginForm() {
                 <label className="flex items-center gap-2 text-white/50 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
                     disabled={loading}
                     className="glass-input h-4 w-4 !p-0"
                   />

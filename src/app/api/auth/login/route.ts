@@ -40,13 +40,21 @@ export async function POST(request: NextRequest) {
     }
     const body = (() => {
       try {
-        return JSON.parse(rawBody) as { email?: unknown; password?: unknown };
+        return JSON.parse(rawBody) as {
+          email?: unknown;
+          password?: unknown;
+          remember?: unknown;
+        };
       } catch {
         return null;
       }
     })();
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
+    // "Lembrar-me" — default true: a sessão persiste após fechar o browser.
+    // Só um booleano `false` explícito desativa a persistência (evita que
+    // valores como "false"/0/null sejam tratados como persistentes).
+    const remember = typeof body?.remember === "boolean" ? body.remember : true;
     if (!email || email.length > MAX_EMAIL_LENGTH || password.length < 1 || password.length > MAX_PASSWORD_LENGTH) {
       return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
     }
@@ -72,7 +80,7 @@ export async function POST(request: NextRequest) {
       { user: { $id: session.userId, email } },
       { headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
-    setAuthSessionCookie(response, session.secret, session.expire);
+    setAuthSessionCookie(response, session.secret, session.expire, remember);
     return response;
   } catch (error) {
     const status = typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 429

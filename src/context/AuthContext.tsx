@@ -63,7 +63,7 @@ interface AuthContextValue {
   activities: ActivityEntry[];
   refreshActivities: () => Promise<void>;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   register: (
     name: string,
     email: string,
@@ -357,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadUserData, pathname, router]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, remember?: boolean) => {
     try {
       // Detect suspicious input
       const suspicious = detectSuspiciousInput(email);
@@ -379,7 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       });
 
-      await loginUser(email, password);
+      await loginUser(email, password, remember);
       const session = await getCurrentSession();
 
       // Registo de atividade: login bem-sucedido

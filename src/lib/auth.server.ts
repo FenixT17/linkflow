@@ -176,12 +176,36 @@ export async function createSessionClient(request?: NextRequest) {
   };
 }
 
-/** Apply the secure application session cookie to a response. */
-export function setAuthSessionCookie(response: NextResponse, secret: string, expires?: string): void {
+/**
+ * Duração padrão do cookie de sessão quando o Appwrite não devolve um
+ * `expire` (ex.: migração do fallback OAuth em /api/auth/session). 30 dias,
+ * alinhado com a duração típica das sessões do Appwrite.
+ */
+export const SESSION_COOKIE_FALLBACK_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+
+/**
+ * Apply the secure application session cookie to a response.
+ *
+ * `persistent` (default: true) define se o cookie sobrevive a fechar o browser:
+ * - true  → Max-Age/Expires usando o `expire` do Appwrite; se o Appwrite não
+ *   o devolver, usa um fallback de 30 dias. Garante que o utilizador continua
+ *   logado ao reabrir o site — incluindo a migração OAuth em /api/auth/session,
+ *   que antes criava um cookie de sessão (sem Max-Age) que o browser apagava
+ *   ao fechar, deslogando utilizadores mesmo com sessão Appwrite válida.
+ * - false → cookie de sessão (sem Max-Age): some ao fechar o browser
+ *   (checkbox "Lembrar-me" desmarcado no login).
+ */
+export function setAuthSessionCookie(
+  response: NextResponse,
+  secret: string,
+  expires?: string,
+  persistent = true,
+): void {
   const expiresAt = expires ? Date.parse(expires) : NaN;
-  const maxAge = Number.isFinite(expiresAt)
+  const appwriteMaxAge = Number.isFinite(expiresAt)
     ? Math.max(1, Math.floor((expiresAt - Date.now()) / 1000))
-    : undefined;
+    : SESSION_COOKIE_FALLBACK_MAX_AGE_SECONDS;
+  const maxAge = persistent ? appwriteMaxAge : undefined;
 
   response.cookies.set(AUTH_SESSION_COOKIE_NAME, secret, {
     httpOnly: true,
@@ -189,7 +213,14 @@ export function setAuthSessionCookie(response: NextResponse, secret: string, exp
     // Lax permits the OAuth provider's top-level redirect back to LinkFlow.
     sameSite: "lax",
     path: "/",
-    ...(maxAge ? { maxAge, expires: new Date(expiresAt) } : {}),
+    ...(maxAge
+      ? {
+          maxAge,
+          expires: Number.isFinite(expiresAt)
+            ? new Date(expiresAt)
+            : new Date(Date.now() + maxAge * 1000),
+        }
+      : {}),
   });
 }
 

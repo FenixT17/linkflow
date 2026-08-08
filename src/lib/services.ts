@@ -144,10 +144,10 @@ export async function completePasswordReset(userId: string, secret: string, pass
   return account.updateRecovery(userId, secret, password);
 }
 
-export async function loginUser(email: string, password: string) {
+export async function loginUser(email: string, password: string, remember = true) {
   const response = await fetchWithCsrf("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, remember }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
