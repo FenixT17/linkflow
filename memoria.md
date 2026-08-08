@@ -2052,3 +2052,15 @@ Commit `1b05981` · deploy run `31273749037` verde · https://linkflow.editsttk4
 Sem alterações de código — fluxo 100% funcional. Conta de teste: `sideyes*`.
 
 Commit: apenas registro do relatório (memoria.md). https://linkflow.editsttk43.workers.dev
+
+**Sessão 65 — 8 Agosto 2026 — Cartão "Atividades recentes" com altura fixa + scroll**
+
+**Problema:** o cartão "Atividades recentes" do dashboard crescia com o nº de atividades; o utilizador queria altura fixa com scroll sem bugs.
+
+**Fix:** em `src/app/dashboard/page.tsx`, a lista de atividades passou a `max-h-80 overflow-y-auto overscroll-contain glass-scrollbar space-y-2.5 pr-1` e mostra as 15 atividades buscadas (`slice(0, 15)` em vez de 8). O cabeçalho ("Atividades recentes" + botão "Ver tudo") fica fixo — só a lista rola. `overscroll-contain` evita scroll em cadeia (a página não rola quando o cartão chega ao fim). `glass-scrollbar` (4px, já existente no globals.css) dá a scrollbar fina do tema.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** `clientHeight:320` (fixo), `scrollHeight:1070` (15 atividades), `hasOverflow:true`, `scrollable:true` (scrollTop 0→200), cabeçalho e "Ver tudo" visíveis ✅.
+
+Commit `7507104` · deploy run `31275131607` verde · https://linkflow.editsttk43.workers.dev
