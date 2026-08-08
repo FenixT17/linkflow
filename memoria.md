@@ -2140,3 +2140,25 @@ Commit `ea5d95f` · https://linkflow.editsttk43.workers.dev
 - E2E browser real: login → fechar Chrome (gracioso e forçado) → reabrir com o mesmo perfil → `/dashboard` (continua logado) ✅
 
 Commit `8d399e8` · https://linkflow.editsttk43.workers.dev
+
+**Sessão 70 — 8 Agosto 2026 — Email de verificação no registo (Appwrite)**
+
+**Pedido:** ao criar conta, o Appwrite deve enviar um email para confirmar o email do utilizador; se possível, bonito.
+
+**InvestigaÃ§Ã£o:** o projeto jÃ¡ tinha infra pronta mas desligada (stub `sendEmailVerification` com comentÃ¡rio "preparaÃ§Ã£o futura, deliberadamente desativado"): Resend (`email.server.ts`), template bonito (`renderVerificationEmail`), pÃ¡gina `/verify-email`. Teste empÃ­rico do `POST /account/verification`: HTTP 201, mas o `secret` do token NÃ£O vem no body — vai apenas no email que o Appwrite envia (createVerification envia SEMPRE o email do Appwrite, sem forma de suprimir). ConclusÃ£o: fluxo correto = email nativo do Appwrite; o link aterra na nossa pÃ¡gina bonita /verify-email.
+
+**Fix:**
+- `src/lib/auth.server.ts`: helper `requestEmailVerification(account)` — `account.createVerification(SITE_URL/verify-email)`.
+- `src/app/api/auth/register/route.ts`: apÃ³s criar a conta + sessÃ£o, chama o helper best-effort (try/catch — nunca quebra o registo).
+- Nova rota `POST /api/auth/verify` (CSRF + rate limit 5/10min + requireAuth) — reenvia o email.
+- `src/app/verify-email/page.tsx`: estado de erro ganha botÃ£o "Reenviar email" (+ aviso de envio/falha).
+- `src/lib/services.ts`: `sendEmailVerification` deixou de ser stub — POST /api/auth/verify.
+- `scripts/appwrite-verification-template.html` (novo): template HTML bonito (escuro/glass, variÃ¡veis {{project}}/{{name}}/{{url}}/{{expire}}) para colar na consola do Appwrite (Branding â Email Templates â Verification) + campo URL = /verify-email.
+
+**ValidaÃ§Ã£o:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅ · deploy run 31277907361 verde.
+
+**Worker deployado:** registo â 201 (email disparado) ✅ · /api/auth/verify com sessÃ£o â 200 {sent:true} ✅ · sem sessÃ£o â 403 (CSRF) ✅ · /verify-email â HTTP 200 ✅ · E2E browser: estado de erro com botÃ£o Reenviar email + aviso de falha sem sessÃ£o ✅.
+
+**AÃ§Ã£o do utilizador (para o email ser bonito):** colar `scripts/appwrite-verification-template.html` na consola do Appwrite (Branding â Email Templates â Verification) e definir o campo URL como https://linkflow.editsttk43.workers.dev/verify-email. O envio do email nÃ£o depende disto (o Appwrite envia o template por defeito), mas o template default Ã© genÃ©rico.
+
+Commit `6beacd4` · https://linkflow.editsttk43.workers.dev
