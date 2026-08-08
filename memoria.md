@@ -1961,3 +1961,20 @@ Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow.editsttk4
 **E2E (browser real, worker deployado):** login → /dashboard com atividade "Início de sessão" no feed: `hasMaskedIp:false`, `hasRawIpv4:false`, `hasRawIpv6:false` ✅.
 
 Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow.editsttk43.workers.dev
+
+**Sessão 59 — 8 Agosto 2026 — Remover o cabeçalho do perfil da aba Perfil**
+
+**Problema:** o utilizador queria remover o cartão do cabeçalho do perfil (foto de perfil, nome, @username e os links "Alterar foto"/"Remover") da aba Perfil.
+
+**Fix:** em `src/app/dashboard/profile/page.tsx`, removido o bloco do cabeçalho (avatar + nome + handle + links) e todo o código associado:
+- Estado/refs: `avatarPreview`, `avatarInputRef`, `uploading` simplificado para boolean.
+- Handlers `handleFileUpload`/`handleDrop`/`handleRemove` simplificados para banner-only.
+- Imports: removidos `updatePageAvatar`, `removePageAvatar`, ícone `User`, tipo `UploadTarget`.
+- Mantidos: banner (upload/remover), campos Nome público e Bio, Publicar/Despublicar.
+- Nota: `updatePageAvatar`/`removePageAvatar` continuam a ser usados na página Aparência — não removidos de services.ts.
+
+**Validação:** Typecheck ✅ · ESLint ✅ · 199/199 testes ✅ · review ✅.
+
+**E2E (browser real, worker deployado):** /dashboard/profile → `hasAlterarFoto:false`, `hasAvatarBtn:false`, `hasBannerUpload:true`, `hasNomePublico:true`, `hasBio:true`, `hasAlterarBannerBtn:true` ✅.
+
+Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow.editsttk43.workers.dev
