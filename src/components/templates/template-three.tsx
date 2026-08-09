@@ -50,9 +50,9 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
         <ShareActions publicUrl={publicUrl} />
       </div>
 
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-xl flex-col px-3 py-7 sm:px-6 sm:py-12">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 py-7 sm:px-6 sm:py-12">
         <div
-          className="relative overflow-hidden shadow-[0_30px_90px_-40px_rgba(0,0,0,0.95)]"
+          className="relative flex min-h-[calc(100dvh-7rem)] flex-col overflow-hidden shadow-[0_30px_90px_-40px_rgba(0,0,0,0.95)] sm:min-h-[min(82dvh,820px)]"
           style={{
             borderRadius: radius,
             border: `${borderWidth}px solid ${borderColor}`,
@@ -96,7 +96,7 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
             )}
           </div>
 
-          <div className="relative px-5 pb-8 sm:px-8 sm:pb-10">
+          <div className="relative flex flex-1 flex-col px-5 pb-9 sm:px-7 sm:pb-12">
             {appearance.showAvatar !== false && (
               <div className="-mt-14 flex justify-center sm:-mt-16">
                 <TemplateAvatar
@@ -127,7 +127,7 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
               )}
             </header>
 
-            <nav className="mt-8 flex flex-col gap-3" aria-label="Links">
+            <nav className="mt-8 flex flex-col gap-3 sm:flex-1" aria-label="Links">
               {links.length === 0 && (
                 <p className="py-8 text-center text-sm" style={{ color: muted }}>
                   Ainda não há links.

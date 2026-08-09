@@ -64,5 +64,9 @@ describe("TemplateThree — Página 3 Liquid Glass", () => {
     expect(screen.getByTestId("platform-icon")).toBeInTheDocument();
     expect(container.querySelector('img[src="/api/media/banner-1"]')).not.toBeNull();
     expect(container.querySelector('a[href="https://instagram.com/maria"]')).not.toBeNull();
+
+    const layout = container.querySelector(".max-w-md");
+    expect(layout).not.toBeNull();
+    expect(container.querySelector(".min-h-\\[calc\\(100dvh-7rem\\)\\]")).not.toBeNull();
   });
 });
