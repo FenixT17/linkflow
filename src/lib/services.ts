@@ -20,6 +20,7 @@ import {
 import { defaultAppearance, emptyAnalytics } from "./defaults";
 import { isBadgeId } from "./badges";
 import { isStaffApplicationApproved, normalizeStaffApplicationMessage } from "./staff-security";
+import { safeThemeColor, safeThemeFont, validateThemeField } from "./theme-validation";
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
 
@@ -90,10 +91,10 @@ export async function fetchUserGeo(): Promise<{
   }
 }
 
-export async function registerUser(email: string, password: string, name: string) {
+export async function registerUser(email: string, password: string, name: string, captchaToken?: string) {
   const response = await fetchWithCsrf("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, password, name, captchaToken }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
@@ -166,8 +167,14 @@ export async function getEmailVerificationStatus(): Promise<{ verified: boolean 
   return { verified: data.user?.emailVerification === true };
 }
 
-export async function requestPasswordReset(_email: string): Promise<never> {
-  throw new Error("A recuperação por email está temporariamente desativada.");
+export async function requestPasswordReset(email: string): Promise<{ sent: boolean }> {
+  const response = await fetchWithCsrf("/api/auth/password-reset", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json().catch(() => ({})) as { sent?: boolean; error?: string };
+  if (!response.ok) throw new Error(data.error || "Não foi possível solicitar a recuperação.");
+  return { sent: data.sent === true };
 }
 
 export async function completeEmailVerification(userId: string, secret: string) {
@@ -178,10 +185,10 @@ export async function completePasswordReset(userId: string, secret: string, pass
   return account.updateRecovery(userId, secret, password);
 }
 
-export async function loginUser(email: string, password: string, remember = true) {
+export async function loginUser(email: string, password: string, remember = true, captchaToken?: string) {
   const response = await fetchWithCsrf("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, remember }),
+    body: JSON.stringify({ email, password, remember, captchaToken }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
@@ -628,11 +635,11 @@ export async function getThemeByPageId(pageId: string): Promise<Appearance & { $
     blur: Number(doc.blur),
     rounded: Number(doc.rounded),
     linkOpacity: Number(doc.linkOpacity),
-    backgroundColor: doc.backgroundColor ? String(doc.backgroundColor) : undefined,
-    cardColor: doc.cardColor ? String(doc.cardColor) : undefined,
-    textColor: doc.textColor ? String(doc.textColor) : undefined,
-    accentColor: doc.accentColor ? String(doc.accentColor) : undefined,
-    fontFamily: doc.fontFamily ? String(doc.fontFamily) : undefined,
+    backgroundColor: safeThemeColor(doc.backgroundColor, "#0a0a0a"),
+    cardColor: safeThemeColor(doc.cardColor, "rgba(255,255,255,0.03)"),
+    textColor: safeThemeColor(doc.textColor, "#fafafa"),
+    accentColor: safeThemeColor(doc.accentColor, "#fafafa"),
+    fontFamily: safeThemeFont(doc.fontFamily),
     fontSize: Number(doc.fontSize),
     buttonRadius: Number(doc.buttonRadius),
     buttonWidth: String(doc.buttonWidth) as Appearance["buttonWidth"],
@@ -666,7 +673,11 @@ export async function updateTheme(themeId: string, appearance: Appearance) {
   const safePayload: Record<string, unknown> = {};
   for (const field of THEME_SAFE_FIELDS) {
     if (field in appearance) {
-      safePayload[field] = (appearance as unknown as Record<string, unknown>)[field];
+      const value = (appearance as unknown as Record<string, unknown>)[field];
+      if (!validateThemeField(field, value)) {
+        throw new Error(`Valor de tema inválido: ${field}.`);
+      }
+      safePayload[field] = value;
     }
   }
 

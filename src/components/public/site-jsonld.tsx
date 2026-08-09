@@ -1,3 +1,6 @@
+"use client";
+
+import { useNonce } from "@/components/ui/nonce-provider";
 import { faqPageJsonLd, webPageJsonLd, siteUrl, renderJsonLd } from "@/lib/seo";
 import { faqs } from "@/data/faqs";
 
@@ -12,9 +15,12 @@ const pageJsonLd = webPageJsonLd(
 const jsonLdData = [pageJsonLd, faqJsonLd];
 
 export function SiteJsonLd() {
+  const nonce = useNonce();
+
   return (
     <script
       type="application/ld+json"
+      nonce={nonce}
       dangerouslySetInnerHTML={renderJsonLd(jsonLdData)}
     />
   );

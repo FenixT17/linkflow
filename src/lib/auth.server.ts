@@ -8,6 +8,7 @@ const endpoint = normalizeEnvUrl(
   "https://cloud.appwrite.io/v1"
 );
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
+const apiKey = process.env.APPWRITE_API_KEY ?? "";
 
 /**
  * The application owns this cookie. It contains only the Appwrite session
@@ -72,6 +73,15 @@ export function createPublicAuthClient(): { client: Client; account: Account } {
     throw new Error("Appwrite is not configured.");
   }
   const client = new Client().setEndpoint(endpoint).setProject(projectId);
+  return { client, account: new Account(client) };
+}
+
+/** Create an Appwrite server client for operations that require the API key. */
+export function createServerAuthClient(): { client: Client; account: Account } {
+  if (!endpoint || !projectId || !apiKey) {
+    throw new Error("Appwrite server authentication is not configured.");
+  }
+  const client = new Client().setEndpoint(endpoint).setProject(projectId).setKey(apiKey);
   return { client, account: new Account(client) };
 }
 

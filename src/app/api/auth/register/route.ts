@@ -9,6 +9,7 @@ import {
   setAuthSessionCookie,
 } from "@/lib/auth.server";
 import { isValidEmail, isValidPassword, sanitizeDisplayName } from "@/lib/sanitize";
+import { CaptchaError, checkCaptchaRateLimit, verifyHCaptcha } from "@/lib/captcha";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_NAME_LENGTH = 128;
@@ -41,6 +42,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let captchaRateLimit;
+  try {
+    captchaRateLimit = await checkCaptchaRateLimit(request);
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
+  if (!captchaRateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Muitas verificações anti-bot. Aguarde antes de tentar novamente." },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, captchaRateLimit) },
+    );
+  }
+
   try {
     const rawBody = await request.text();
     if (rawBody.length > MAX_BODY_BYTES) {
@@ -48,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
     const body = (() => {
       try {
-        return JSON.parse(rawBody) as { email?: unknown; password?: unknown; name?: unknown };
+        return JSON.parse(rawBody) as { email?: unknown; password?: unknown; name?: unknown; captchaToken?: unknown };
       } catch {
         return null;
       }
@@ -56,6 +70,15 @@ export async function POST(request: NextRequest) {
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
     const name = typeof body?.name === "string" ? sanitizeDisplayName(body.name) : "";
+
+    try {
+      await verifyHCaptcha(request, body?.captchaToken);
+    } catch (error) {
+      if (error instanceof CaptchaError) {
+        return NextResponse.json({ error: "Conclua a verificação anti-bot e tente novamente." }, { status: error.status });
+      }
+      throw error;
+    }
 
     if (
       !isValidEmail(email) ||

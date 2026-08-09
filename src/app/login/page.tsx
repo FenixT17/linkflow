@@ -11,6 +11,7 @@ import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
 import { getLastKnownEmail, rememberEmail } from "@/lib/email-hint";
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, ArrowLeft } from "lucide-react";
+import { HCaptchaWidget } from "@/components/ui/hcaptcha-widget";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,6 +25,9 @@ function LoginForm() {
   const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const captchaSiteKey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? "";
   const passwordRef = useRef<HTMLInputElement>(null);
 
   // Hint quando o registo redireciona para o login (reason=oauth_exists):
@@ -84,10 +88,14 @@ function LoginForm() {
       return;
     }
     setLoading(true);
-    const result = await login(email, password, remember);
+    const result = await login(email, password, remember, captchaToken);
     if (result.success) {
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
       router.push("/dashboard");
     } else {
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
       setError(result.error ?? "Ocorreu um erro ao entrar.");
       setLoading(false);
     }
@@ -221,6 +229,12 @@ function LoginForm() {
                 <p className="text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
                   Já tem uma conta neste serviço — introduza a sua palavra-passe para entrar.
                 </p>
+              )}
+
+              {captchaSiteKey && (
+                <div className="overflow-hidden rounded-lg" aria-live="polite">
+                  <HCaptchaWidget key={captchaReset} siteKey={captchaSiteKey} onToken={setCaptchaToken} />
+                </div>
               )}
 
               {error && (

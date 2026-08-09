@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 import {
   getPublicPageByUsername,
@@ -10,6 +11,7 @@ import { PageTemplate } from "@/components/templates";
 import { LinkItem } from "@/lib/types";
 import { siteUrl, profilePageJsonLd, renderJsonLd, webPageJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
 import { isPageTemplate, DEFAULT_PAGE_TEMPLATE } from "@/lib/page-templates";
+import { PrivacyConsent } from "@/components/public/privacy-consent";
 
 interface PublicProfilePageProps {
   params: Promise<{ username: string }>;
@@ -67,6 +69,7 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
     notFound();
   }
 
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const visibleLinks = links.filter((link: LinkItem) => link.visible && link.active);
   const publicUrl = `${siteUrl}/u/${page.username}`;
   const pageTemplate = isPageTemplate(page.pageTemplate) ? page.pageTemplate : DEFAULT_PAGE_TEMPLATE;
@@ -90,8 +93,9 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-[var(--background)]">
-      <script type="application/ld+json" dangerouslySetInnerHTML={renderJsonLd([pageWebPageJsonLd, profileJsonLd, breadcrumbJsonLd])} />
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={renderJsonLd([pageWebPageJsonLd, profileJsonLd, breadcrumbJsonLd])} />
       <ViewTracker pageId={page.$id} />
+      <PrivacyConsent />
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />

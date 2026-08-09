@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { ZoomBlocker } from "@/components/zoom-blocker";
+import { NonceProvider } from "@/components/ui/nonce-provider";
 import { organizationJsonLd, websiteJsonLd, softwareApplicationJsonLd, renderJsonLd, siteUrl, siteName, siteTagline, defaultDescription } from "@/lib/seo";
 import { THEME_SCRIPT, THEME_SANITIZER_SCRIPT } from "@/lib/theme-security";
 
@@ -98,37 +100,44 @@ export const metadata: Metadata = {
 
 const structuredData = [organizationJsonLd(), websiteJsonLd(), softwareApplicationJsonLd()];
 
-export default function RootLayout({
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Sanitização pré-hidratação: valida localStorage["theme"] contra a
             whitelist ANTES do script inline do next-themes o aplicar ao DOM
             (previne DOM XSS via secondary source — CWE-79). */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }} />
         {/* Aplica o tema antes da hidratação (substitui o script inline do
             next-themes — ver THEME_SCRIPT em lib/theme-security.ts). */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={renderJsonLd(structuredData)}
         />
       </head>
       <body
         className={`${inter.variable} ${geist.variable}`}
       >
-        <ThemeProvider defaultTheme="dark">
-          <ToastProvider>
-            <AuthProvider>
-              <ZoomBlocker />
-              {children}
-            </AuthProvider>
-          </ToastProvider>
-        </ThemeProvider>
+        <NonceProvider nonce={nonce}>
+          <ThemeProvider defaultTheme="dark">
+            <ToastProvider>
+              <AuthProvider>
+                <ZoomBlocker />
+                {children}
+              </AuthProvider>
+            </ToastProvider>
+          </ThemeProvider>
+        </NonceProvider>
       </body>
     </html>
   );

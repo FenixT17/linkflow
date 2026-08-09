@@ -44,31 +44,6 @@ const nextConfig: NextConfig = {
         key: "Permissions-Policy",
         value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
       },
-      {
-        key: "Content-Security-Policy",
-        value: [
-          "default-src 'self';",
-          // L3 (avaliado, adiado de propósito): a versão nonce-based
-          // (script-src 'self' 'nonce-XYZ' 'strict-dynamic') exige gerar um
-          // nonce por request no middleware e passá-lo ao script inline do
-          // next-themes + ao THEME_SANITIZER_SCRIPT no layout. Isso requer
-          // refactor coordenado (middleware + layout + theme-security.ts) e
-          // risco de quebrar a hidratação do tema. Mantém-se 'unsafe-inline'
-          // com a whitelist de valores do tema já validada à parte
-          // (theme-security.ts) — a superfície de XSS via localStorage foi
-          // eliminada por whitelist estrita, não por CSP.
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval';",
-          "frame-src 'self';",
-          "style-src 'self' 'unsafe-inline';",
-          "img-src 'self' data: https: blob:;",
-          "font-src 'self' data:;",
-          "connect-src 'self' https://cloud.appwrite.io https://*.cloud.appwrite.io;",
-          "base-uri 'self';",
-          "form-action 'self';",
-          "object-src 'none';",
-          "frame-ancestors 'none';",
-        ].join(" "),
-      },
     ];
 
     const rules: {

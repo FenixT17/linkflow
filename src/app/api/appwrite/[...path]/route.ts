@@ -5,6 +5,8 @@ import {
   setAuthSessionCookie,
 } from "@/lib/auth.server";
 import { normalizeEnvUrl } from "@/lib/utils";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
+import { validateThemePayload } from "@/lib/theme-validation";
 
 // `normalizeEnvUrl` garante que APPWRITE_ENDPOINT nunca é vazia nem inválida
 // (o CI injeta secrets não configurados como string vazia, o que faria
@@ -60,6 +62,24 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     return NextResponse.json({ error: "Appwrite not configured" }, { status: 503 });
   }
 
+  const sessionSecret = getAuthSessionSecret(request);
+  const rateLimitIdentifier = sessionSecret ? `user:${sessionSecret}` : `ip:${getClientIp(request)}`;
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit("api", rateLimitIdentifier, {
+      maxRequests: 120,
+      windowMs: 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Demasiados pedidos. Aguarde antes de tentar novamente." },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) },
+    );
+  }
+
   const { path } = await context.params;
   const target = targetUrl(path, request);
   if (!isAllowedTarget(target)) {
@@ -81,7 +101,6 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   });
   headers.set("X-Appwrite-Project", APPWRITE_PROJECT_ID);
 
-  const sessionSecret = getAuthSessionSecret(request);
   if (isAccountPath(path) && !sessionSecret && !isOAuthNavigation(path) && !isPublicAccountPath(path)) {
     // Login, registration, password/session creation, JWT issuance and all
     // other account mutations must use the Redis-protected app routes.
@@ -92,6 +111,30 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
   if (body && body.byteLength > MAX_PROXY_BODY_BYTES) {
     return NextResponse.json({ error: "Request too large" }, { status: 413 });
+  }
+
+  const isThemeDocumentMutation =
+    (request.method === "PUT" || request.method === "PATCH") &&
+    path[0] === "databases" &&
+    path[2] === "collections" &&
+    path[3] === "themes" &&
+    path[4] === "documents" &&
+    path.length === 6;
+  const isThemeDocumentCreate =
+    request.method === "POST" &&
+    path[0] === "databases" &&
+    path[2] === "collections" &&
+    path[3] === "themes" &&
+    path[4] === "documents" &&
+    path.length === 5;
+  if ((isThemeDocumentMutation || isThemeDocumentCreate) && body) {
+    try {
+      const payload = JSON.parse(new TextDecoder().decode(body)) as { data?: unknown };
+      const validationError = validateThemePayload(payload.data);
+      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
+    } catch {
+      return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+    }
   }
 
   const upstream = await fetch(target, {
@@ -118,7 +161,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
 
   const response = new NextResponse(upstream.body, {
     status: upstream.status,
-    headers: responseHeaders,
+    headers: mergeRateLimitHeaders(responseHeaders, rateLimit),
   });
 
   // Appwrite Cloud may return the browser SDK fallback cookie during OAuth.

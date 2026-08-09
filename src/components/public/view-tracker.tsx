@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { hasStudyConsent } from "@/lib/study-consent";
 
 interface ViewTrackerProps {
   pageId: string;
@@ -15,7 +16,7 @@ export function ViewTracker({ pageId }: ViewTrackerProps) {
     fetch("/api/view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId }),
+      body: JSON.stringify({ pageId, studyConsent: hasStudyConsent() }),
     }).catch((error) => {
       console.error("[ViewTracker] failed to record view:", error);
     });

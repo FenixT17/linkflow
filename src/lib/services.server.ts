@@ -12,6 +12,7 @@ import {
 } from "./types";
 
 import { defaultAppearance, emptyAnalytics } from "./defaults";
+import { safeThemeColor, safeThemeFont } from "./theme-validation";
 
 const Collections = {
   pages: "pages",
@@ -102,11 +103,11 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
     blur: Number(doc.blur),
     rounded: Number(doc.rounded),
     linkOpacity: Number(doc.linkOpacity),
-    backgroundColor: doc.backgroundColor ? String(doc.backgroundColor) : undefined,
-    cardColor: doc.cardColor ? String(doc.cardColor) : undefined,
-    textColor: doc.textColor ? String(doc.textColor) : undefined,
-    accentColor: doc.accentColor ? String(doc.accentColor) : undefined,
-    fontFamily: doc.fontFamily ? String(doc.fontFamily) : undefined,
+    backgroundColor: safeThemeColor(doc.backgroundColor, "#0a0a0a"),
+    cardColor: safeThemeColor(doc.cardColor, "rgba(255,255,255,0.03)"),
+    textColor: safeThemeColor(doc.textColor, "#fafafa"),
+    accentColor: safeThemeColor(doc.accentColor, "#fafafa"),
+    fontFamily: safeThemeFont(doc.fontFamily),
     fontSize: Number(doc.fontSize),
     buttonRadius: Number(doc.buttonRadius),
     buttonWidth: String(doc.buttonWidth) as Appearance["buttonWidth"],

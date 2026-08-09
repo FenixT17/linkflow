@@ -7,6 +7,7 @@ import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
 import { getLiquidGlassClasses } from "@/lib/themes";
 import { recordLinkClick } from "@/lib/utils";
+import { hasStudyConsent } from "@/lib/study-consent";
 
 interface TrackableLinkProps {
   link: LinkItem;
@@ -18,7 +19,7 @@ export function TrackableLink({ link, pageId, appearance }: TrackableLinkProps) 
   const theme = getLiquidGlassClasses();
 
   const handleClick = () => {
-    void recordLinkClick(pageId, link.id);
+    void recordLinkClick(pageId, link.id, hasStudyConsent());
   };
 
   return (

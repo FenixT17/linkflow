@@ -63,11 +63,12 @@ interface AuthContextValue {
   activities: ActivityEntry[];
   refreshActivities: () => Promise<void>;
   isLoading: boolean;
-  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, remember?: boolean, captchaToken?: string) => Promise<{ success: boolean; error?: string }>;
   register: (
     name: string,
     email: string,
-    password: string
+    password: string,
+    captchaToken?: string
   ) => Promise<{ success: boolean; verificationSent?: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
@@ -357,7 +358,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadUserData, pathname, router]);
 
-  const login = useCallback(async (email: string, password: string, remember?: boolean) => {
+  const login = useCallback(async (email: string, password: string, remember?: boolean, captchaToken?: string) => {
     try {
       // Detect suspicious input
       const suspicious = detectSuspiciousInput(email);
@@ -379,7 +380,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       });
 
-      await loginUser(email, password, remember);
+      await loginUser(email, password, remember, captchaToken);
       const session = await getCurrentSession();
 
       // Registo de atividade: login bem-sucedido
@@ -412,7 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadUserData]);
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, email: string, password: string, captchaToken?: string) => {
     try {
       // Detect suspicious input
       const emailCheck = detectSuspiciousInput(email);
@@ -439,7 +440,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metadata: { displayName: name },
       });
 
-      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name);
+      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name, captchaToken);
 
       // Registo de atividade: conta criada
       void logActivity("register", { displayName: name });

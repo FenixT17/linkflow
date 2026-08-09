@@ -3,6 +3,7 @@
 import { LinkItem } from "@/lib/types";
 import { sanitizeUrl } from "@/lib/sanitize";
 import { recordLinkClick } from "@/lib/utils";
+import { hasStudyConsent } from "@/lib/study-consent";
 
 interface TrackedLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   link: LinkItem;
@@ -17,7 +18,7 @@ interface TrackedLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement>
  */
 export function TrackedLink({ link, pageId, children, ...rest }: TrackedLinkProps) {
   const recordClick = () => {
-    void recordLinkClick(pageId, link.id);
+    void recordLinkClick(pageId, link.id, hasStudyConsent());
   };
 
   return (

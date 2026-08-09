@@ -4,12 +4,23 @@ import { recordAnalyticsEvent } from "@/lib/analytics";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { detectDeviceType, detectBrowser, detectOS } from "@/lib/device-detect";
+import { isSameOriginMediaReferrer } from "@/lib/media-security";
 
 // NOTA: Este endpoint é público e anónimo — regista visualizações de
 // visitantes não autenticados na página pública /u/[username]. Aplica
 // rate limiting por IP para evitar manipulação de métricas.
 export async function POST(request: NextRequest) {
   try {
+    const referer = request.headers.get("referer");
+    const origin = request.headers.get("origin");
+    const sameOrigin =
+      (!referer || isSameOriginMediaReferrer(request.url, referer)) &&
+      (!origin || origin === new URL(request.url).origin) &&
+      Boolean(referer || origin);
+    if (!sameOrigin) {
+      return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
+    }
+
     const body = await request.json();
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
@@ -18,6 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "pageId is required" }, { status: 400 });
     }
     const pageId = body.pageId.trim();
+    const studyConsent = body.studyConsent === true;
 
     // Rate limit: max 10 views per IP per minute to prevent metric spam
     const ip = getClientIp(request);
@@ -41,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const userAgent = request.headers.get("user-agent") ?? "";
-    const referer = request.headers.get("referer") ?? "";
+    const analyticsReferer = request.headers.get("referer") ?? "";
     // Nome do dispositivo via User-Agent Client Hints (ex: "Pixel 7",
     // "iPhone 15 Pro") — o header só existe quando o browser o envia.
     const deviceName = request.headers.get("sec-ch-ua-model") ?? "";
@@ -56,12 +68,13 @@ export async function POST(request: NextRequest) {
       type: "views",
       userAgent,
       ip,
-      referer,
+      referer: analyticsReferer,
       geo,
       device: detectDeviceType(userAgent),
       browser: detectBrowser(userAgent),
       os: detectOS(userAgent),
       deviceName,
+      studyConsent,
     });
 
     return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { GlassCard } from "@/components/ui/glass-card";
@@ -12,6 +12,7 @@ import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
 import { rememberEmail } from "@/lib/email-hint";
 import { Check, X } from "lucide-react";
+import { HCaptchaWidget } from "@/components/ui/hcaptcha-widget";
 
 function RegisterForm() {
   const router = useRouter();
@@ -23,6 +24,9 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const captchaSiteKey = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? "";
 
   // Real-time password strength checks (política L1: 12+ chars + símbolo)
   const passwordChecks = useMemo(() => {
@@ -77,6 +81,10 @@ function RegisterForm() {
     }
   }, [router, searchParams]);
 
+  const handleCaptchaToken = useCallback((token: string) => {
+    setCaptchaToken(token);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -96,8 +104,10 @@ function RegisterForm() {
     // user_already_exists (o Appwrite não devolve o email no erro).
     rememberEmail(email);
     setLoading(true);
-    const result = await register(name.trim(), email.trim(), password);
+    const result = await register(name.trim(), email.trim(), password, captchaToken);
     if (result.success) {
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
       // Encaminha para a página "Confirma o teu email" (o Appwrite envia o
       // email de verificação). Se o envio automático falhou, a página avisa e
       // oferece o reenvio.
@@ -107,6 +117,8 @@ function RegisterForm() {
       });
       router.push(`/verify-email/sent?${params.toString()}`);
     } else {
+      setCaptchaToken("");
+      setCaptchaReset((value) => value + 1);
       setError(result.error ?? "Ocorreu um erro ao criar a conta.");
       setLoading(false);
     }
@@ -195,6 +207,11 @@ function RegisterForm() {
                   </div>
                 )}
               </div>
+              {captchaSiteKey && (
+                <div className="overflow-hidden rounded-lg" aria-live="polite">
+                  <HCaptchaWidget key={captchaReset} siteKey={captchaSiteKey} onToken={handleCaptchaToken} />
+                </div>
+              )}
               {error && <p className="text-sm text-red-400">{error}</p>}
               <GlassButton
                 type="submit"

@@ -191,12 +191,12 @@ export function escapeCsv(value: string | number): string {
  * Partilhado entre os componentes de tracking (trackable-link e
  * tracked-link dos templates) para evitar duplicação.
  */
-export async function recordLinkClick(pageId: string, linkId: string) {
+export async function recordLinkClick(pageId: string, linkId: string, studyConsent = false) {
   try {
     await fetch("/api/click", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId, linkId }),
+      body: JSON.stringify({ pageId, linkId, studyConsent }),
     });
   } catch (error) {
     if (process.env.NODE_ENV === "development") {

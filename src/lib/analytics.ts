@@ -128,6 +128,7 @@ export interface RecordAnalyticsEventInput {
   linkId?: string;
   linkTitle?: string;
   linkUrl?: string;
+  studyConsent?: boolean;
 }
 
 /**
@@ -485,11 +486,13 @@ export async function recordAnalyticsEvent(
 
   // Tabela "Dados para Estudos": registo bruto por interação (IP, dispositivo,
   // coordenadas aproximadas). Decisão explícita do produto — ver memoria.md.
-  try {
-    await collectStudyData(databases, input);
-  } catch (studyError) {
+  if (input.studyConsent === true) {
+    try {
+      await collectStudyData(databases, input);
+    } catch (studyError) {
     // Nunca deve quebrar o tracking principal
-    console.error("[analytics] failed to collect study data:", studyError);
+      console.error("[analytics] failed to collect study data:", studyError);
+    }
   }
 }
 
