@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheck, ShieldCheck, HeartHandshake, Sparkles, Crown, Handshake, ChevronDown } from "lucide-react";
-import { sanitizeUrl } from "@/lib/sanitize";
+import { sanitizeMediaUrl } from "@/lib/sanitize";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
 import { BADGE_BY_ID, isBadgeId } from "@/lib/badges";
@@ -33,15 +33,21 @@ export function TemplateAvatar({
   badges?: string[];
 }) {
   const verified = Array.isArray(badges) && badges.includes("verified");
+  const safeSrc = src
+    ? (() => {
+        const sanitized = sanitizeMediaUrl(src);
+        return sanitized;
+      })()
+    : "";
   return (
     <div
       className={cn("relative shrink-0 rounded-full", className)}
       style={{ width: size, height: size }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-[inherit]">
-        {src ? (
+        {safeSrc ? (
           <Image
-            src={sanitizeUrl(src)}
+            src={safeSrc}
             alt={`Foto de perfil de ${name}`}
             width={size}
             height={size}

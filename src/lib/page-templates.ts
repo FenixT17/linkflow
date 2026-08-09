@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Smartphone, Palette } from "lucide-react";
+import { Smartphone, Palette, PanelsTopLeft } from "lucide-react";
 import type { PageTemplateId } from "./types";
 
 /**
@@ -15,7 +15,7 @@ import type { PageTemplateId } from "./types";
  *   4. Mapear o id no switcher components/templates/index.tsx.
  * Nada mais precisa de mudar — a arquitetura é extensível.
  */
-export type TemplateThumb = "template1" | "template2";
+export type TemplateThumb = "template1" | "template2" | "template3";
 
 export interface PageTemplateMeta {
   id: PageTemplateId;
@@ -51,6 +51,15 @@ export const PAGE_TEMPLATES: PageTemplateMeta[] = [
     accent: "#8b5cf6",
     gradient: "from-violet-500/30 via-purple-500/15 to-fuchsia-700/25",
     thumb: "template2",
+  },
+  {
+    id: "template3",
+    name: "Página 3",
+    description: "Liquid Glass: banner sobreposto, avatar em destaque e barras translúcidas premium.",
+    icon: PanelsTopLeft,
+    accent: "#cbd7eb",
+    gradient: "from-slate-300/30 via-slate-500/15 to-slate-900/40",
+    thumb: "template3",
   },
 ];
 

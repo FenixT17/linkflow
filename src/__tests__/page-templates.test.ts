@@ -7,9 +7,9 @@ import {
 } from "@/lib/page-templates";
 
 describe("page-templates — registro de templates (Sessão 32)", () => {
-  it("tem exatamente os 2 templates: template1 e template2", () => {
+  it("tem os 3 templates registados", () => {
     const ids = PAGE_TEMPLATES.map((t) => t.id).sort();
-    expect(ids).toEqual(["template1", "template2"]);
+    expect(ids).toEqual(["template1", "template2", "template3"]);
   });
 
   it("o template padrão para novos utilizadores é template1", () => {
@@ -25,6 +25,7 @@ describe("page-templates — registro de templates (Sessão 32)", () => {
   it("isPageTemplate aceita apenas valores válidos", () => {
     expect(isPageTemplate("template1")).toBe(true);
     expect(isPageTemplate("template2")).toBe(true);
+    expect(isPageTemplate("template3")).toBe(true);
     expect(isPageTemplate("minimal")).toBe(false);
     expect(isPageTemplate("creator")).toBe(false);
     expect(isPageTemplate(undefined)).toBe(false);
@@ -46,5 +47,7 @@ describe("page-templates — registro de templates (Sessão 32)", () => {
     const t2 = PAGE_TEMPLATE_BY_ID.template2;
     expect(t1.accent).not.toBe(t2.accent);
     expect(t2.accent.toLowerCase()).toBe("#8b5cf6");
+    expect(PAGE_TEMPLATE_BY_ID.template3.name).toBe("Página 3");
+    expect(PAGE_TEMPLATE_BY_ID.template3.thumb).toBe("template3");
   });
 });

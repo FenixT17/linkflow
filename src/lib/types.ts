@@ -56,7 +56,7 @@ export type PageType =
  * Cada valor corresponde a um componente de layout completamente diferente.
  * O default para novos utilizadores é "template1".
  */
-export type PageTemplateId = "template1" | "template2";
+export type PageTemplateId = "template1" | "template2" | "template3";
 
 export interface PageProfile {
   username: string;
@@ -109,9 +109,9 @@ export interface Appearance {
   /** Mostra secção de links sociais em destaque */
   showSocial: boolean;
   spacing: number;
-  /** Glass-specific: cor da borda das barras (ex: "rgba(255,255,255,0.06)") */
+  /** Glass-specific: cor da borda das barras (suportada em temas antigos) */
   borderColor?: string;
-  /** Glass-specific: espessura da borda em pixels */
+  /** Glass-specific: espessura da borda em pixels (suportada em temas antigos) */
   borderWidth?: number;
   /** Liquid Glass: opacidade global do vidro (0-100) */
   glassOpacity?: number;

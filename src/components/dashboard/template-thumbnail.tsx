@@ -3,7 +3,7 @@ import type { PageTemplateMeta } from "@/lib/page-templates";
 
 /**
  * Miniatura (mockup de telemóvel) de um template de página.
- * template1 = neutro premium; template2 = violeta vibrante.
+ * template1 = neutro premium; template2 = violeta vibrante; template3 = liquid glass.
  */
 export function TemplateThumbnail({ meta }: { meta: PageTemplateMeta }) {
   const { thumb, accent } = meta;
@@ -18,19 +18,21 @@ export function TemplateThumbnail({ meta }: { meta: PageTemplateMeta }) {
     />
   );
 
-  const pill = (i: number, violet = false) => (
+  const pill = (i: number, violet = false, liquid = false) => (
     <div
       key={i}
       className={cn(
         "flex w-full items-center gap-1.5 rounded-full px-2.5 py-2",
         violet
           ? "ring-1 ring-violet-500/30 bg-violet-500/[0.07]"
-          : "bg-white/[0.06] ring-1 ring-white/[0.08]"
+          : liquid
+            ? "bg-white/[0.08] ring-1 ring-slate-200/25 backdrop-blur-sm"
+            : "bg-white/[0.06] ring-1 ring-white/[0.08]"
       )}
     >
       <span
         className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full")}
-        style={{ backgroundColor: violet ? "rgba(139,92,246,0.25)" : "rgba(255,255,255,0.12)" }}
+        style={{ backgroundColor: violet ? "rgba(139,92,246,0.25)" : liquid ? "rgba(210,225,248,0.2)" : "rgba(255,255,255,0.12)" }}
       >
         <span
           className="block rounded-full"
@@ -39,7 +41,7 @@ export function TemplateThumbnail({ meta }: { meta: PageTemplateMeta }) {
       </span>
       <span className="flex-1" />
       <span
-        className={cn("block rounded-full", violet ? "bg-violet-400/70" : "bg-white/30")}
+        className={cn("block rounded-full", violet ? "bg-violet-400/70" : liquid ? "bg-slate-200/70" : "bg-white/30")}
         style={{ width: 4, height: 4 }}
       />
     </div>
@@ -59,16 +61,24 @@ export function TemplateThumbnail({ meta }: { meta: PageTemplateMeta }) {
   );
 
   const violet = thumb === "template2";
+  const liquid = thumb === "template3";
 
   return phoneFrame(
     <>
+      {liquid && (
+        <div className="relative -mx-4 -mt-7 mb-1 h-14 w-[calc(100%+2rem)] overflow-hidden bg-gradient-to-br from-slate-300/70 via-slate-700/70 to-slate-950">
+          <div className="absolute inset-0 bg-[linear-gradient(155deg,transparent_25%,rgba(255,255,255,0.35)_27%,transparent_48%),linear-gradient(20deg,transparent_42%,rgba(255,255,255,0.18)_44%,transparent_62%)]" />
+        </div>
+      )}
       {/* Avatar com brilho */}
       <div
         className={cn(
           "mt-2 flex h-9 w-9 items-center justify-center rounded-full",
-          violet
-            ? "ring-2 ring-violet-500/50 shadow-[0_0_16px_-2px_rgba(139,92,246,0.6)]"
-            : "ring-2 ring-white/20 shadow-[0_0_16px_-2px_rgba(255,255,255,0.3)]"
+          liquid
+            ? "-mt-6 ring-2 ring-slate-200/70 shadow-[0_0_16px_-2px_rgba(210,225,248,0.7)]"
+            : violet
+              ? "ring-2 ring-violet-500/50 shadow-[0_0_16px_-2px_rgba(139,92,246,0.6)]"
+              : "ring-2 ring-white/20 shadow-[0_0_16px_-2px_rgba(255,255,255,0.3)]"
         )}
       >
         <span className="block h-4 w-4 rounded-full" style={{ backgroundColor: accent }} />
@@ -76,7 +86,7 @@ export function TemplateThumbnail({ meta }: { meta: PageTemplateMeta }) {
       <div className="mt-2">{bar("w-14", 5, violet ? "bg-violet-300/80" : "bg-white/35")}</div>
       <div className="mt-1">{bar("w-9", 3, violet ? "bg-violet-400/50" : "bg-white/25")}</div>
       <div className="mt-2 w-full space-y-1.5">
-        {[0, 1, 2, 3].map((i) => pill(i, violet))}
+        {[0, 1, 2, 3].map((i) => pill(i, violet, liquid))}
       </div>
     </>
   );

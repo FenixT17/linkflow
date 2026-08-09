@@ -3,10 +3,12 @@ import type { PageTemplateId } from "@/lib/types";
 import type { TemplateProps } from "./types";
 import { TemplateOne } from "./template-one";
 import { TemplateTwo } from "./template-two";
+import { TemplateThree } from "./template-three";
 
 const TEMPLATES: Record<PageTemplateId, (props: TemplateProps) => ReactNode> = {
   template1: TemplateOne,
   template2: TemplateTwo,
+  template3: TemplateThree,
 };
 
 /**

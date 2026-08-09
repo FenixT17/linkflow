@@ -47,6 +47,23 @@ export function sanitizeUrl(input: string): string {
 }
 
 /**
+ * Sanitiza um URL usado como imagem. Ao contrário de links, imagens não
+ * precisam de mailto/tel nem de fragmentos: aceitamos apenas HTTP(S) ou os
+ * media proxies same-origin do LinkFlow.
+ */
+export function sanitizeMediaUrl(input: string): string {
+  const sanitized = sanitizeUrl(input);
+  if (!sanitized) return "";
+  if (sanitized.startsWith("/api/media/")) return sanitized;
+  try {
+    const protocol = new URL(sanitized).protocol;
+    return protocol === "http:" || protocol === "https:" ? sanitized : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Sanitiza um username: apenas letras minúsculas, números e underscores.
  */
 export function sanitizeUsername(input: string): string {

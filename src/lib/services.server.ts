@@ -117,6 +117,9 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
     showBio: Boolean(doc.showBio),
     showSocial: doc.showSocial !== undefined ? Boolean(doc.showSocial) : true,
     spacing: Number(doc.spacing),
+    glassOpacity: doc.glassOpacity !== undefined ? Number(doc.glassOpacity) : 35,
+    glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
+    glassStrength: doc.glassStrength !== undefined ? Number(doc.glassStrength) : 50,
   };
 }
 
