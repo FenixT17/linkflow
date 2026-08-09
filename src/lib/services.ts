@@ -1044,17 +1044,25 @@ export function getFilePreviewUrl(_bucketId: string, fileId: string) {
 }
 
 export async function uploadFile(bucketId: string, file: File) {
-  // Sessão 36 (least-privilege): o bucket NÃO tem update/delete: users() —
-  // define permissões POR FICHEIRO para o dono. Sem isto, o ficheiro herdaria
-  // apenas read(any) do bucket e o dono não conseguiria apagá-lo/substituí-lo;
-  // antes (bucket com update/delete users()) qualquer utilizador podia apagar
-  // ficheiros de terceiros.
-  const session = await getCurrentSession();
-  return storage.createFile(bucketId, ID.unique(), file, [
-    Permission.read(Role.user(session.$id)),
-    Permission.update(Role.user(session.$id)),
-    Permission.delete(Role.user(session.$id)),
-  ]);
+  // O upload passa por uma rota server-side para evitar que o multipart
+  // chunked do SDK seja corrompido pelo proxy genérico /api/appwrite.
+  const response = await fetchWithCsrf("/api/media/upload", {
+    method: "POST",
+    body: (() => {
+      const form = new FormData();
+      form.set("bucketId", bucketId);
+      form.set("file", file, file.name);
+      return form;
+    })(),
+  });
+  const data = await response.json().catch(() => ({})) as {
+    file?: { $id: string; name?: string; mimeType?: string; sizeOriginal?: number };
+    error?: string;
+  };
+  if (!response.ok || !data.file?.$id) {
+    throw new Error(data.error || "Não foi possível carregar a imagem.");
+  }
+  return data.file;
 }
 
 export async function deleteFile(bucketId: string, fileId: string) {
@@ -1065,18 +1073,28 @@ export async function deleteFile(bucketId: string, fileId: string) {
 
 export async function updatePageAvatar(pageId: string, fileId: string) {
   await requireOwnerOfPage(pageId);
+  const current = await databases.getDocument(databaseId, Collections.pages, pageId);
+  const previousFileId = String(current.avatarId ?? "");
   const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     avatarId: fileId,
   });
+  if (previousFileId && previousFileId !== fileId) {
+    await deleteFile(Buckets.files, previousFileId).catch(() => {});
+  }
   void logActivity("avatar_updated", { username: String(doc.username ?? "") });
   return doc;
 }
 
 export async function updatePageBanner(pageId: string, fileId: string) {
   await requireOwnerOfPage(pageId);
+  const current = await databases.getDocument(databaseId, Collections.pages, pageId);
+  const previousFileId = String(current.bannerId ?? "");
   const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     bannerId: fileId,
   });
+  if (previousFileId && previousFileId !== fileId) {
+    await deleteFile(Buckets.files, previousFileId).catch(() => {});
+  }
   void logActivity("banner_updated", { username: String(doc.username ?? "") });
   return doc;
 }

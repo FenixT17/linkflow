@@ -123,7 +123,19 @@ export async function fetchWithCsrf(
   const headers = new Headers(options.headers || {});
   headers.set(CSRF_HEADER_NAME, t);
   if (!headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+    // Never set application/json for browser-managed bodies. In particular,
+    // FormData must keep its multipart boundary; forcing JSON here makes
+    // request.formData() fail and breaks image uploads.
+    const body = options.body;
+    const browserManagedBody =
+      (typeof FormData !== "undefined" && body instanceof FormData) ||
+      (typeof Blob !== "undefined" && body instanceof Blob) ||
+      (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) ||
+      body instanceof ArrayBuffer ||
+      (typeof ReadableStream !== "undefined" && body instanceof ReadableStream);
+    if (!browserManagedBody) {
+      headers.set("Content-Type", "application/json");
+    }
   }
 
   return fetch(url, {

@@ -24,12 +24,12 @@ import {
 } from "@/lib/services";
 import { Buckets } from "@/lib/appwrite";
 import { cn } from "@/lib/utils";
+import { fetchWithCsrf } from "@/hooks/use-csrf";
 
 // Validação de upload: apenas imagens raster (JPG/PNG/WEBP) até 5MB.
-// O bucket `files` tem LEITURA PÚBLICA (avatares/banners são servidos a
-// visitantes anónimos), por isso nunca aceitamos HTML/SVG/ficheiros
-// arbitrários — um ficheiro malicioso servido do domínio Appwrite executaria
-// em qualquer browser que o abrisse (stored XSS).
+// O bucket `files` é privado e as imagens são servidas pelo proxy protegido.
+// Nunca aceitamos HTML/SVG/ficheiros arbitrários — um ficheiro malicioso
+// servido do domínio da aplicação poderia criar stored XSS.
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const VALID_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -143,13 +143,23 @@ export default function ProfilePage() {
     setUploadTarget(target);
     try {
       const uploaded = await uploadFile(Buckets.files, file);
-      if (target === "avatar") {
-        await updatePageAvatar(pageId, uploaded.$id);
-      } else {
-        await updatePageBanner(pageId, uploaded.$id);
+      try {
+        if (target === "avatar") {
+          await updatePageAvatar(pageId, uploaded.$id);
+        } else {
+          await updatePageBanner(pageId, uploaded.$id);
+        }
+      } catch (referenceError) {
+        // Avoid leaving an unreferenced private file when the page update fails.
+        await fetchWithCsrf(`/api/media/upload/${encodeURIComponent(uploaded.$id)}`, {
+          method: "DELETE",
+        }).catch(() => {});
+        throw referenceError;
       }
       await refreshPage();
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível carregar a imagem.";
+      setUploadError(message);
       console.error(`[ProfilePage] Failed to upload ${target}:`, error);
     } finally {
       setUploadTarget(null);
