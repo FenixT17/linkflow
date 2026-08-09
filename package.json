@@ -16,6 +16,7 @@
     "provision:security-logs": "tsx scripts/create-security-logs.ts",
     "migrate:staff-applications": "tsx scripts/migrate-staff-applications.ts",
     "migrate:users-permissions": "tsx scripts/migrate-users-permissions.ts",
+    "migrate:study-data": "tsx scripts/migrate-study-data.ts",
     "seo:audit": "tsx scripts/seo-audit.ts",
     "check:links": "tsx scripts/check-links.ts",
     "verify:account-deletion": "tsx --env-file=.env.local scripts/verify-account-deletion.ts",

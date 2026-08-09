@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildStudyDeviceName, formatCoordinates } from "@/lib/analytics";
+import {
+  buildStudyDeviceName,
+  formatCoordinates,
+  hasStudyDataForIp,
+  isStudyDataUniqueConflict,
+} from "@/lib/analytics";
 
 describe("buildStudyDeviceName", () => {
   it("usa o nome explícito do dispositivo (UA-CH sec-ch-ua-model) quando disponível", () => {
@@ -20,6 +25,24 @@ describe("buildStudyDeviceName", () => {
 
   it("nunca devolve string vazia", () => {
     expect(buildStudyDeviceName("", undefined, undefined, "")).toContain("desktop");
+  });
+});
+
+describe("study-data deduplication", () => {
+  it("reconhece um IP já presente sem depender do ID do documento", () => {
+    expect(
+      hasStudyDataForIp(
+        [{ ip: "203.0.113.8" }, { ip: "198.51.100.4" }],
+        "203.0.113.8"
+      )
+    ).toBe(true);
+    expect(hasStudyDataForIp([{ ip: "203.0.113.8" }], "192.0.2.9")).toBe(false);
+  });
+
+  it("trata conflitos do índice unique como duplicados e não como erro de tracking", () => {
+    expect(isStudyDataUniqueConflict({ code: 409 })).toBe(true);
+    expect(isStudyDataUniqueConflict({ message: "Duplicate value violates unique constraint" })).toBe(true);
+    expect(isStudyDataUniqueConflict({ code: 500, message: "database unavailable" })).toBe(false);
   });
 });
 

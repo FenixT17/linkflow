@@ -504,6 +504,24 @@ export async function recordAnalyticsEvent(
  * dados pessoais em texto bruto, requer aviso de privacidade/consentimento
  * adequado na página pública.
  */
+/** True when a study-data document for the normalized IP already exists. */
+export function hasStudyDataForIp(
+  documents: ReadonlyArray<unknown>,
+  ip: string
+): boolean {
+  return documents.some((document) => {
+    const record = document as { ip?: unknown } | null;
+    return String(record?.ip ?? "") === ip;
+  });
+}
+
+/** Appwrite response that indicates the unique IP constraint was hit. */
+export function isStudyDataUniqueConflict(error: unknown): boolean {
+  const candidate = error as { code?: number; message?: string } | null;
+  const message = candidate?.message?.toLowerCase() ?? "";
+  return candidate?.code === 409 || message.includes("already exists") || message.includes("unique");
+}
+
 async function collectStudyData(
   databases: Databases,
   input: RecordAnalyticsEventInput
@@ -512,7 +530,16 @@ async function collectStudyData(
   // IPs privados/locais (dev) nunca entram na tabela de estudos.
   if (!ip || isPrivateIp(ip)) return;
 
-  // País/cidade vêm do geo já resolvido na rota (headers Netlify — zero
+  // Evita o lookup de coordenadas e a escrita na maioria dos pedidos
+  // repetidos. A consulta não chega: o índice unique abaixo é a garantia
+  // definitiva contra duas requests concorrentes.
+  const existing = await databases.listDocuments(databaseId, "dados_para_estudos", [
+    Query.equal("ip", ip),
+    Query.limit(1),
+  ]);
+  if (hasStudyDataForIp(existing.documents, ip)) return;
+
+  // País/cidade vêm do geo já resolvido na rota (headers Cloudflare — zero
   // custo e mais preciso); as coordenadas aproximadas vêm do lookup ipwho.is
   // (cache 24h) — compatíveis com Google Maps.
   const coords = await lookupCoordinates(ip);
@@ -520,21 +547,28 @@ async function collectStudyData(
   const countryCode = input.geo?.countryCode || coords.countryCode || "";
   const city = input.geo?.city || coords.city || "";
 
-  await databases.createDocument(databaseId, "dados_para_estudos", ID.unique(), {
-    ip: ip.slice(0, 64), // IP em texto bruto (decisão explícita do produto)
-    deviceName: buildStudyDeviceName(input.deviceName, input.device, input.os, input.userAgent).slice(0, 255),
-    device: (input.device ?? detectDeviceType(input.userAgent)).slice(0, 32),
-    browser: (input.browser || "").slice(0, 64),
-    os: (input.os || "").slice(0, 64),
-    userAgent: input.userAgent.slice(0, 512),
-    country: country.slice(0, 128),
-    countryCode: countryCode.slice(0, 8),
-    city: city.slice(0, 128),
-    latitude: coords.latitude != null ? String(coords.latitude).slice(0, 32) : "",
-    longitude: coords.longitude != null ? String(coords.longitude).slice(0, 32) : "",
-    coordinates: formatCoordinates(coords.latitude, coords.longitude).slice(0, 64),
-    pageId: input.pageId.slice(0, 255),
-    referer: (input.referer || "").slice(0, 512),
-    createdAt: new Date().toISOString(),
-  });
+  try {
+    await databases.createDocument(databaseId, "dados_para_estudos", ID.unique(), {
+      ip: ip.slice(0, 64), // IP em texto bruto (decisão explícita do produto)
+      deviceName: buildStudyDeviceName(input.deviceName, input.device, input.os, input.userAgent).slice(0, 255),
+      device: (input.device ?? detectDeviceType(input.userAgent)).slice(0, 32),
+      browser: (input.browser || "").slice(0, 64),
+      os: (input.os || "").slice(0, 64),
+      userAgent: input.userAgent.slice(0, 512),
+      country: country.slice(0, 128),
+      countryCode: countryCode.slice(0, 8),
+      city: city.slice(0, 128),
+      latitude: coords.latitude != null ? String(coords.latitude).slice(0, 32) : "",
+      longitude: coords.longitude != null ? String(coords.longitude).slice(0, 32) : "",
+      coordinates: formatCoordinates(coords.latitude, coords.longitude).slice(0, 64),
+      pageId: input.pageId.slice(0, 255),
+      referer: (input.referer || "").slice(0, 512),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    // Se duas requests viram a coleção vazia ao mesmo tempo, só uma pode
+    // ganhar o índice unique. A outra já cumpriu a regra "não duplicar".
+    if (isStudyDataUniqueConflict(error)) return;
+    throw error;
+  }
 }

@@ -499,7 +499,12 @@ async function provision() {
     "countryCode", "city", "latitude", "longitude", "coordinates", "pageId",
     "referer", "createdAt",
   ]);
-  await createIndex("dados_para_estudos", "idx_study_ip", "key", ["ip"]);
+  // Uma linha por visitante/IP. O nome novo é intencional: instalações
+  // antigas podem já ter `idx_study_ip` como índice não-único; criar um
+  // índice separado permite aplicar a restrição sem depender de uma alteração
+  // de tipo que o Appwrite não suporta. Executa `npm run migrate:study-data`
+  // antes deste provisionamento quando já existem documentos duplicados.
+  await createIndex("dados_para_estudos", "idx_study_ip_unique", "unique", ["ip"]);
   await createIndex("dados_para_estudos", "idx_study_pageId", "key", ["pageId"]);
   await createIndex("dados_para_estudos", "idx_study_createdAt", "key", ["createdAt"]);
 
