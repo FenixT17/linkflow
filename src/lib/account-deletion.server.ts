@@ -111,16 +111,25 @@ async function deleteFile(storage: Storage, bucketId: string, fileId: string): P
 }
 
 /**
- * Permanently removes every resource attributable to one Appwrite user.
+ * Permanently removes every application resource attributable to one user.
  *
- * Appwrite has no cross-collection transaction, so all dependent resources
- * are deleted before the authentication identity. The operation is
- * idempotent and must be retried if a transient Appwrite error is returned.
+ * The Appwrite Auth identity is intentionally preserved so the user's email
+ * and name remain available in Auth. All active Auth sessions are revoked
+ * after the application data is removed. Appwrite has no cross-collection
+ * transaction, so the operation is idempotent and must be retried if a
+ * transient error is returned.
  */
 export async function deleteAccountData(userId: string, email: string): Promise<void> {
   if (!userId.trim()) throw new Error("Missing user id");
 
   const { databases, storage, users } = createServerClient();
+  const adminUsers = users as Users;
+
+  // Revoke sessions before starting the non-transactional cleanup. This
+  // closes the authenticated user's access immediately, even if a later
+  // collection or storage operation needs to be retried.
+  await adminUsers.deleteSessions(userId);
+
   const pageIds = new Set<string>();
   const fileIds = new Set<string>();
   const visitorHashes = new Set<string>();
@@ -264,10 +273,8 @@ export async function deleteAccountData(userId: string, email: string): Promise<
     }
   }
 
-  // Authentication identity is deliberately deleted last. If this fails,
-  // the endpoint returns an error and a retry can finish the remaining step.
-  const adminUsers = users as Users;
-  await adminUsers.delete(userId);
+  // The Appwrite Auth identity remains intact (email/name/password/OAuth and
+  // verification state). The route clears the browser cookie as well.
 }
 
 /** Exposed for focused tests without touching Appwrite. */

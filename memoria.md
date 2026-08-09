@@ -2208,3 +2208,18 @@ Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
 **Nota (entregabilidade):** o email do Appwrite Cloud usa a infraestrutura partilhada — em testes reais NÃO chegou (spam/bloqueio). Para o email chegar a utilizadores reais é preciso configurar SMTP na consola do Appwrite (Settings → Auth → SMTP ou Branding → Email Templates → Verification com template próprio em `scripts/appwrite-verification-template.html`).
 
 Commit: `9669436` · https://linkflow.editsttk43.workers.dev
+
+### Sessão 74 — 9 Agosto 2026 — Eliminação dos dados da aplicação com preservação da identidade Auth
+
+**Pedido:** quando o utilizador elimina a conta, apagar todos os dados guardados pelo LinkFlow no banco de dados, mantendo na área Auth do Appwrite o email e o nome.
+
+**Alterações:**
+- `src/lib/account-deletion.server.ts`: mantém a identidade Auth do Appwrite e substitui `users.delete(userId)` por `users.deleteSessions(userId)`; assim, email, nome, password, identidades OAuth e estado de verificação continuam no Auth, enquanto todas as coleções de dados da aplicação e ficheiros pertencentes ao utilizador são eliminados.
+- `scripts/verify-account-deletion.ts`: valida que o utilizador Auth continua disponível com o mesmo email/nome e que todas as sessões foram revogadas; mantém os checks das coleções, logs, IPs e ficheiros eliminados.
+- `src/__tests__/account-deletion.test.ts`: documentação do inventário atualizada para distinguir a coleção `users` (perfil da aplicação, apagado) da identidade Auth (preservada).
+
+**Segurança:** a eliminação continua protegida por autenticação + CSRF. O cookie da sessão é limpo pela rota após a operação; as sessões Appwrite são revogadas para impedir acesso aos dados removidos.
+
+**Validação:** teste focado 4/4 ✅ · TypeScript ✅ · ESLint ✅ · diff sem erros ✅.
+
+**Nota:** o email/nome preservados pertencem à identidade de autenticação do Appwrite, não à coleção `users` do banco de dados. O utilizador pode voltar a autenticar-se, mas terá de criar novamente os dados do LinkFlow.

@@ -2,8 +2,9 @@
  * Validação end-to-end da exclusão de conta (Sessão 43).
  *
  * Cria um utilizador de teste + dados em TODAS as coleções + um ficheiro no
- * bucket, executa deleteAccountData() e verifica que não sobra NADA:
- *   - Identidade Appwrite apagada (users.get → 404)
+ * bucket, executa deleteAccountData() e verifica que os dados da aplicação
+ * foram removidos, mas a identidade Auth foi preservada:
+ *   - Identidade Auth Appwrite preservada (email/nome continuam disponíveis)
  *   - Zero documentos por página (links, themes, analytics, visits, qr_codes,
  *     dados_para_estudos)
  *   - Zero documentos por utilizador (subscriptions, teams, notifications,
@@ -11,6 +12,9 @@
  *   - security_logs sem linhas do utilizador (userId / email-hash / metadata)
  *   - collected_ips sem o hash do visitante de teste
  *   - Ficheiro do bucket apagado
+ *
+ * A identidade Auth é mantida (email/nome/password/OAuth), mas as sessões
+ * são revogadas para impedir acesso aos dados apagados.
  *
  * Executar: npm run verify:account-deletion
  * (os imports de src/lib leem process.env ao carregar o módulo, por isso as
@@ -213,21 +217,29 @@ async function createData(uid: string): Promise<void> {
 async function verify(uid: string): Promise<Record<string, boolean>> {
   const results: Record<string, boolean> = {};
 
-  // 1. Identidade Appwrite apagada
+  // 1. Identidade Auth Appwrite preservada, incluindo email e nome.
   try {
-    await users.get(uid);
-    results.identidade_appwrite_apagada = false;
+    const authUser = await users.get(uid);
+    results.identidade_auth_preservada = authUser.email === email && authUser.name === name;
   } catch {
-    results.identidade_appwrite_apagada = true;
+    results.identidade_auth_preservada = false;
   }
 
-  // 2. Coleções por página
+  // 2. Todas as sessões devem ter sido revogadas sem apagar a identidade.
+  try {
+    const sessions = await users.listSessions(uid);
+    results.sessoes_auth_revogadas = sessions.total === 0;
+  } catch {
+    results.sessoes_auth_revogadas = false;
+  }
+
+  // 3. Coleções por página
   for (const coll of PAGE_SCOPED_COLLECTIONS) {
     const r = await databases.listDocuments(databaseId, coll, [Query.equal("pageId", pageId)]);
     results[`${coll}_limpa`] = r.total === 0;
   }
 
-  // 3. Coleções por utilizador (teams usa ownerId)
+  // 4. Coleções por utilizador (teams usa ownerId)
   const userOwnerFields: Record<string, string> = {
     [ACCOUNT_COLLECTIONS.subscriptions]: "userId",
     [ACCOUNT_COLLECTIONS.teams]: "ownerId",
@@ -240,11 +252,11 @@ async function verify(uid: string): Promise<Record<string, boolean>> {
     results[`${coll}_limpa`] = r.total === 0;
   }
 
-  // 4. Perfil na coleção users
+  // 5. Perfil na coleção users
   const userDocs = await databases.listDocuments(databaseId, "users", [Query.equal("userId", uid)]);
   results.users_perfil_limpo = userDocs.total === 0;
 
-  // 5. security_logs (userId / email-hash / metadata)
+  // 6. security_logs (userId / email-hash / metadata)
   const emailHash = await hashForLog(email);
   const securityLogs = await databases.listDocuments(databaseId, "security_logs");
   const leaked = securityLogs.documents.filter((d) => {
@@ -257,11 +269,11 @@ async function verify(uid: string): Promise<Record<string, boolean>> {
   });
   results.security_logs_limpos = leaked.length === 0;
 
-  // 6. collected_ips — o hash de teste só era usado pela página de teste
+  // 7. collected_ips — o hash de teste só era usado pela página de teste
   const ips = await databases.listDocuments(databaseId, "collected_ips", [Query.equal("visitorHash", visitorHash)]);
   results.collected_ips_limpos = ips.total === 0;
 
-  // 7. Ficheiro apagado
+  // 8. Ficheiro apagado
   try {
     await storage.getFile(filesBucketId, fileId);
     results.ficheiro_apagado = false;
@@ -301,6 +313,7 @@ async function forceCleanup(uid: string): Promise<void> {
       for (const d of r.documents) await databases.deleteDocument(databaseId, coll, d.$id);
     } catch {}
   }
+  try { await users.deleteSessions(uid); } catch {}
   try { await users.delete(uid); } catch {}
 }
 
@@ -327,7 +340,7 @@ async function main(): Promise<void> {
       if (!ok) allPass = false;
     }
     if (!allPass) {
-      // deleteAccountData correu mas sobrou algo — limpar para não poluir a BD
+      // deleteAccountData correu mas sobrou algo — limpar o teste para não poluir a BD.
       console.log("   → Limpeza dos resíduos...");
       if (userId) await forceCleanup(userId).catch(() => {});
     }

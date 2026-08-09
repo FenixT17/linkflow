@@ -9,6 +9,8 @@ import {
 
 describe("account deletion inventory", () => {
   it("includes personal, page, analytics, visitor and operational collections", () => {
+    // `users` é o perfil da aplicação e deve ser apagado. A identidade Auth
+    // (email/nome) vive fora destas coleções e é preservada no Appwrite.
     expect(USER_SCOPED_COLLECTIONS).toEqual(expect.arrayContaining([
       ACCOUNT_COLLECTIONS.users,
       ACCOUNT_COLLECTIONS.activityLogs,
