@@ -3,20 +3,12 @@ import { Query } from "node-appwrite";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { createServerClient, databaseId, filesBucketId } from "@/lib/appwrite.server";
 import { requireAuth } from "@/lib/auth.server";
-import { normalizeEnvUrl } from "@/lib/utils";
 import {
   isAllowedImageContentType,
   isSameOriginMediaReferrer,
   isValidMediaFileId,
   MEDIA_RATE_LIMIT,
 } from "@/lib/media-security";
-
-const APPWRITE_ENDPOINT = normalizeEnvUrl(
-  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://cloud.appwrite.io/v1"
-);
-const APPWRITE_PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID?.trim() ?? "";
-const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY?.trim() ?? "";
 
 async function isAuthorizedMediaFile(fileId: string, request: NextRequest): Promise<boolean> {
   const { databases } = createServerClient();
@@ -76,7 +68,7 @@ export async function GET(
 ) {
   const { fileId } = await params;
 
-  if (!isValidMediaFileId(fileId) || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
+  if (!isValidMediaFileId(fileId)) {
     return errorResponse(400, "Invalid media request.");
   }
 
@@ -111,78 +103,50 @@ export async function GET(
     return errorResponse(404, "Media unavailable.", rateHeaders);
   }
 
-  const target = new URL(
-    `${APPWRITE_ENDPOINT}/storage/buckets/${encodeURIComponent(filesBucketId)}/files/${encodeURIComponent(fileId)}/view`,
-  );
-  target.searchParams.set("project", APPWRITE_PROJECT_ID);
-
-  let upstream: Response;
+  const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
+  let file: { mimeType?: string; sizeOriginal?: number };
+  let bytes: ArrayBuffer;
   try {
-    upstream = await fetch(target, {
-      cache: "no-store",
-      redirect: "error",
-      headers: {
-        // The bucket is private; only this server-side proxy can read files.
-        "X-Appwrite-Project": APPWRITE_PROJECT_ID,
-        "X-Appwrite-Key": APPWRITE_API_KEY,
-      },
-    });
-  } catch {
+    // Use the Appwrite server SDK for both metadata and binary retrieval. A
+    // manual REST request to /view can be interpreted as a client request by
+    // Appwrite when the project is supplied in the query string, which caused
+    // valid private files to return 403/404 from the Worker.
+    const { storage } = createServerClient();
+    file = await storage.getFile(filesBucketId, fileId);
+    if (Number(file.sizeOriginal ?? 0) > MAX_MEDIA_BYTES) {
+      return errorResponse(413, "Media too large.", rateHeaders);
+    }
+    bytes = await storage.getFileView(filesBucketId, fileId);
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "code" in error && typeof (error as { code?: number }).code === "number"
+      ? (error as { code: number }).code
+      : typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
+        ? (error as { status: number }).status
+        : undefined;
+    if (status === 404) return errorResponse(404, "Media unavailable.", rateHeaders);
+    if (status === 503) return errorResponse(503, "Media service unavailable.", rateHeaders);
     return errorResponse(502, "Media service unavailable.", rateHeaders);
   }
 
-  if (!upstream.ok) {
-    return errorResponse(upstream.status === 404 ? 404 : 502, "Media unavailable.", rateHeaders);
+  if (bytes.byteLength > MAX_MEDIA_BYTES) {
+    return errorResponse(413, "Media too large.", rateHeaders);
   }
 
-  const contentType = upstream.headers.get("content-type");
+  const contentType = file.mimeType?.split(";", 1)[0].trim().toLowerCase() ?? "";
   if (!isAllowedImageContentType(contentType)) {
     return errorResponse(415, "Unsupported media type.", rateHeaders);
   }
 
-  const contentLength = Number(upstream.headers.get("content-length") ?? "0");
-  if (contentLength > 5 * 1024 * 1024) {
-    return errorResponse(413, "Media too large.", rateHeaders);
-  }
-
-  const MAX_MEDIA_BYTES = 5 * 1024 * 1024;
-  const reader = upstream.body?.getReader();
-  if (!reader) return errorResponse(502, "Media service unavailable.", rateHeaders);
-
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > MAX_MEDIA_BYTES) {
-        await reader.cancel();
-        return errorResponse(413, "Media too large.", rateHeaders);
-      }
-      chunks.push(value);
-    }
-  } catch {
-    await reader.cancel().catch(() => {});
-    return errorResponse(502, "Media service unavailable.", rateHeaders);
-  }
-
-  const bytes = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
   const responseHeaders = new Headers(rateHeaders);
-  responseHeaders.set("Content-Type", contentType!.split(";", 1)[0].trim().toLowerCase());
+  responseHeaders.set("Content-Type", contentType);
+  responseHeaders.set("Content-Length", String(bytes.byteLength));
   responseHeaders.set("Content-Disposition", "inline");
   responseHeaders.set("X-Content-Type-Options", "nosniff");
   responseHeaders.set("Referrer-Policy", "no-referrer");
   responseHeaders.set("Cross-Origin-Resource-Policy", "same-origin");
   responseHeaders.set("Cache-Control", "private, no-store, max-age=0");
 
-  return new NextResponse(bytes, {
+  return new NextResponse(new Uint8Array(bytes), {
     status: 200,
     headers: responseHeaders,
   });

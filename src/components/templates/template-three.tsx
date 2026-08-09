@@ -71,6 +71,7 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
                 alt={`Banner de ${profile.displayName}`}
                 fill
                 sizes="(max-width: 640px) 100vw, 576px"
+                unoptimized
                 className="object-cover"
                 priority
               />

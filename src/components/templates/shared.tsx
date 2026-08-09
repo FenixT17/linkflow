@@ -51,6 +51,7 @@ export function TemplateAvatar({
             alt={`Foto de perfil de ${name}`}
             width={size}
             height={size}
+            unoptimized
             className="object-cover w-full h-full"
             priority
           />
