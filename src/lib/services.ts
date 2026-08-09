@@ -1,6 +1,6 @@
 import { ID, Query, Models, OAuthProvider, Permission, Role } from "appwrite";
 
-import { account, databases, storage, databaseId, Collections, Buckets, endpoint, projectId, createOAuthAccount } from "./appwrite";
+import { account, databases, storage, databaseId, Collections, Buckets, projectId, createOAuthAccount } from "./appwrite";
 import { fetchWithCsrf } from "@/hooks/use-csrf";
 import {
   ActivityAction,
@@ -1036,8 +1036,11 @@ export async function getStaffApplicationStatus(): Promise<StaffApplication | nu
 
 // ---------- Storage ----------
 
-export function getFilePreviewUrl(bucketId: string, fileId: string) {
-  return `${endpoint}/storage/buckets/${bucketId}/files/${fileId}/view?project=${projectId}`;
+export function getFilePreviewUrl(_bucketId: string, fileId: string) {
+  // Public images go through the Worker proxy instead of exposing the
+  // Appwrite Storage URL directly. The proxy validates IDs, blocks hotlinks
+  // and applies distributed download limits.
+  return `/api/media/${encodeURIComponent(fileId)}`;
 }
 
 export async function uploadFile(bucketId: string, file: File) {
@@ -1048,7 +1051,7 @@ export async function uploadFile(bucketId: string, file: File) {
   // ficheiros de terceiros.
   const session = await getCurrentSession();
   return storage.createFile(bucketId, ID.unique(), file, [
-    Permission.read(Role.any()),
+    Permission.read(Role.user(session.$id)),
     Permission.update(Role.user(session.$id)),
     Permission.delete(Role.user(session.$id)),
   ]);

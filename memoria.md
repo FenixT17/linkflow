@@ -2223,3 +2223,21 @@ Commit: `9669436` · https://linkflow.editsttk43.workers.dev
 **Validação:** teste focado 4/4 ✅ · TypeScript ✅ · ESLint ✅ · diff sem erros ✅.
 
 **Nota:** o email/nome preservados pertencem à identidade de autenticação do Appwrite, não à coleção `users` do banco de dados. O utilizador pode voltar a autenticar-se, mas terá de criar novamente os dados do LinkFlow.
+
+### Sessão 75 — 9 Agosto 2026 — Proteção contra descarregamento automatizado de ficheiros
+
+**Pedido:** proteger os ficheiros públicos do site contra aplicações que tentem descarregar imagens em massa, sem impedir a visualização normal das páginas públicas.
+
+**Implementação:**
+- Nova rota `src/app/api/media/[fileId]/route.ts`: proxy same-origin para avatar, banner e imagens de links.
+- URLs diretos do Appwrite Storage foram removidos de `services.ts` e `services.server.ts`; páginas públicas usam `/api/media/[fileId]`.
+- O proxy valida o ID do ficheiro, rejeita hotlinking externo, aplica rate limiting distribuído por IP + ficheiro, aceita apenas JPEG/PNG/WEBP, limita o corpo a 5 MB e devolve `Content-Disposition: inline`, `nosniff`, `no-store` e `Cross-Origin-Resource-Policy: same-origin`.
+- A rota só serve ficheiros referenciados por páginas/links do LinkFlow; páginas publicadas são públicas e media de páginas não publicadas só é acessível ao proprietário autenticado.
+- `src/lib/media-security.ts` centraliza a validação e tem testes em `src/__tests__/media-security.test.ts`.
+- Bucket Appwrite `files` convertido para privado: sem `read(any)`. Ficheiros associados foram re-scoped por proprietário; órfãos ficaram sem permissões. A migração foi aplicada com `npm run fix:bucket` e confirmada novamente pelo `npm run provision`.
+- Índices Appwrite adicionados e confirmados: `pages.avatarId`, `pages.bannerId` e `links.imageId`.
+- Novos uploads passam a ter leitura apenas do proprietário; o proxy usa exclusivamente `APPWRITE_API_KEY` server-side.
+
+**Validação:** 204/204 testes ✅ · TypeScript ✅ · ESLint ✅ · build de produção com 47 rotas ✅ · diff sem erros ✅ · bucket privado e índices confirmados no Appwrite ✅.
+
+**Limitação importante:** nenhum site que permita visualizar uma imagem publicamente consegue impedir totalmente que um visitante guarde os bytes. Esta proteção bloqueia acesso direto ao Appwrite, reduz hotlinking e scraping básico e limita abuso; proteção mais forte exigiria autenticação, URLs assinados de curta duração ou Cloudflare Bot Management.

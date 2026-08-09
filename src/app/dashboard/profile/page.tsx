@@ -276,7 +276,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   ref={avatarInputRef}
                   onChange={(e) => handleFileChange(e, "avatar")}
                   className="hidden"
@@ -326,7 +326,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   ref={bannerInputRef}
                   onChange={(e) => handleFileChange(e, "banner")}
                   className="hidden"

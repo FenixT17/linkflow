@@ -2,14 +2,13 @@
  * Fix — Storage Bucket with Public Read
  *
  * Avatars, banners and link images are served on the public /u/[username]
- * page to anonymous visitors via direct storage URLs
- * (`/storage/buckets/files/.../view`). Buckets created with
- * `Permission.read(Role.users())` return 401 for anonymous requests → broken
- * images.
+ * page through the same-origin `/api/media/[fileId]` proxy. The Appwrite
+ * bucket must therefore remain private; the Worker reads files with its
+ * server API key.
  *
  * This script fixes an EXISTING bucket without touching databases:
- *   1. Updates the bucket permissions to public read (Role.any())
- *   2. Applies public read to all existing files
+ *   1. Removes bucket-level public read access
+ *   2. Scopes existing files to their owners (the proxy uses the API key)
  *
  * Usage:
  *   npm run fix:bucket
@@ -70,12 +69,12 @@ async function main() {
   }
 
   // Passa as databases para o backfill: os ficheiros existentes são
-  // re-scoped para permissões por dono (read público + update/delete do
-  // owner), removendo o update/delete: users() que herdavam do bucket.
+  // re-scoped para permissões por dono (sem leitura pública). O proxy usa
+  // a API key do Worker para servir as imagens na página pública.
   await ensureBucketWithPublicRead(storage, bucketId, bucketName, databases, databaseId);
 
-  console.log("\n✅ Done. Bucket: public read only (no update/delete for users).");
-  console.log("   Avatars/banners visible to anonymous visitors; files scoped to owners.");
+  console.log("\n✅ Done. Bucket: private (no public read).");
+  console.log("   Avatars/banners remain visible through the protected Worker proxy; files are scoped to owners.");
 }
 
 main().catch((error: unknown) => {

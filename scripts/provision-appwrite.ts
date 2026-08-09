@@ -343,6 +343,8 @@ async function provision() {
   await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "pageTemplate", "badges", "scheduledPublishAt", "scheduledUnpublishAt", "deleting"]);
   await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
   await createIndex("pages", "idx_pages_username", "unique", ["username"]);
+  await createIndex("pages", "idx_pages_avatarId", "key", ["avatarId"]);
+  await createIndex("pages", "idx_pages_bannerId", "key", ["bannerId"]);
 
   // 4. Links collection
   // Sessão 36: só create ao nível da coleção. O dono lê/edita/apaga os SEUS
@@ -378,6 +380,7 @@ async function provision() {
   ]);
   await createIndex("links", "idx_links_pageId", "key", ["pageId"]);
   await createIndex("links", "idx_links_pageId_order", "key", ["pageId", "order"]);
+  await createIndex("links", "idx_links_imageId", "key", ["imageId"]);
 
   // 5. Analytics collection
   // Sessão 36: só create. Analytics são privadas — só o dono lê as suas via
@@ -722,16 +725,15 @@ async function provision() {
   await createIndex("staff_applications", "idx_staff_userId_status", "key", ["userId", "status"]);
 
   // 13. Storage bucket (single bucket for all files to fit free plan)
-  // Public read (Role.any()) so avatars/banners/images are visible on the
-  // public page without authentication. Sessão 36: o bucket só tem
-  // read(any)+create(users) — SEM update/delete users() (qualquer utilizador
-  // podia apagar/substituir ficheiros de terceiros). O update/delete é
-  // concedido por ficheiro (Role.user(owner)), definido no uploadFile do
-  // client SDK.
+  // Private bucket: avatars/banners/images are served publicly through the
+  // same-origin `/api/media/[fileId]` Worker proxy, which authenticates to
+  // Appwrite with the server API key and applies anti-abuse controls. The
+  // bucket has no public read and no update/delete users(); file permissions
+  // are scoped to the owner by uploadFile.
   console.log("\n🗂️  Buckets");
-  await ensureBucketWithPublicRead(storage, "files", "Files");
+  await ensureBucketWithPublicRead(storage, "files", "Files", databases, databaseId);
   console.log(
-    "   ↳ NOTA: ficheiros já existentes no bucket só são re-scoped para permissões por dono com `npm run fix:bucket` (este script não tem acesso às databases para derivar os donos)."
+    "   ↳ Ficheiros existentes foram verificados e re-scoped para permissões privadas por dono; órfãos ficaram sem acesso."
   );
 
   console.log("\n✅ LinkFlow backend provisioned successfully!");

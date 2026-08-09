@@ -1,10 +1,11 @@
 /**
- * Shared helper — Storage bucket with public read (Role.any()).
+ * Shared helper — private Storage bucket for server-proxied public media.
  *
- * Avatars/banners/link images are served on the public /u/[username] page to
- * anonymous visitors via direct storage URLs. Buckets created with
- * Permission.read(Role.users()) return 401 for anonymous requests → broken
- * images.
+ * Avatars/banners/link images are served on the public /u/[username] page
+ * through `/api/media/[fileId]`. The Worker reads them with the server API
+ * key, so the Appwrite bucket no longer needs public read access. This makes
+ * direct bulk downloads from the Appwrite Storage endpoint impossible without
+ * the secret key.
  *
  * Sessão 36 (least-privilege): o bucket NÃO tem update/delete: users().
  * Antes, qualquer utilizador autenticado podia apagar/substituir ficheiros de
@@ -20,25 +21,23 @@
 import { Databases, Storage, Permission, Role, Query } from "node-appwrite";
 
 const BUCKET_PERMS = [
-  Permission.read(Role.any()),
   Permission.create(Role.users()),
 ];
 
 /** Permissões por ficheiro para o dono (update/delete restritos ao owner). */
 function filePermsForOwner(ownerId: string) {
   return [
-    Permission.read(Role.any()),
+    Permission.read(Role.user(ownerId)),
     Permission.update(Role.user(ownerId)),
     Permission.delete(Role.user(ownerId)),
   ];
 }
 
 /**
- * Backfill: aplica permissões por dono aos ficheiros existentes (criados
- * antes da Sessão 36, quando o bucket tinha update/delete: users() e os
- * ficheiros herdavam essas permissões). O dono de cada ficheiro é derivado
- * das coleções pages (avatarId/bannerId) — ficheiros órfãos ficam apenas
- * com read público e sem update/delete (ninguém os pode apagar/substituir).
+ * Backfill: aplica permissões por dono aos ficheiros existentes. O dono de
+ * cada ficheiro é derivado das coleções pages (avatarId/bannerId) e links
+ * (imageId). Ficheiros órfãos ficam sem permissões, para nunca permanecerem
+ * publicamente acessíveis depois da migração.
  */
 async function applyOwnerPermsToExistingFiles(
   storage: Storage,
@@ -97,9 +96,10 @@ async function applyOwnerPermsToExistingFiles(
     ]);
     for (const file of files) {
       const ownerId = ownerByFile.get(file.$id);
-      if (!ownerId) continue; // Órfão — mantém apenas read público (sem update/delete)
       try {
-        await storage.updateFile(bucketId, file.$id, file.name, filePermsForOwner(ownerId));
+        // Orphans get no permissions; owned files are readable only through
+        // the server proxy (the owner still retains dashboard management).
+        await storage.updateFile(bucketId, file.$id, file.name, ownerId ? filePermsForOwner(ownerId) : []);
         console.log(`   ↳ File ${file.$id} scoped to owner ${ownerId}.`);
       } catch (e: unknown) {
         console.warn(
@@ -113,13 +113,9 @@ async function applyOwnerPermsToExistingFiles(
 }
 
 /**
- * Creates the bucket with public read, or updates an existing bucket and all
- * its files to public read. Idempotent — safe to run repeatedly.
- */
-/**
- * Cria/atualiza o bucket com read público e SEM update/delete users().
- * Idempotente. Se `databases` for passado (fix de bucket existente), aplica
- * também as permissões por dono aos ficheiros existentes (backfill).
+ * Cria/atualiza o bucket privado sem read público nem update/delete users().
+ * Idempotente. Se `databases` for passado, aplica permissões por dono aos
+ * ficheiros existentes e remove acesso de ficheiros órfãos.
  */
 export async function ensureBucketWithPublicRead(
   storage: Storage,
@@ -130,7 +126,7 @@ export async function ensureBucketWithPublicRead(
 ) {
   try {
     await storage.createBucket(bucketId, name, BUCKET_PERMS, true);
-    console.log(`   ✓ Bucket ${bucketId} created with public read (least-privilege).`);
+    console.log(`   ✓ Bucket ${bucketId} created as private (server-proxied media).`);
     // Fresh bucket has no files — nothing else to fix.
     return;
   } catch (error: unknown) {
@@ -143,9 +139,9 @@ export async function ensureBucketWithPublicRead(
       message.includes("already exists") ||
       message.includes("maximum number of buckets allowed");
     if (!bucketExists) throw error;
-    console.log(`   ↳ Bucket ${bucketId} already exists — applying least-privilege perms...`);
+    console.log(`   ↳ Bucket ${bucketId} already exists — applying private least-privilege perms...`);
     await storage.updateBucket(bucketId, name, BUCKET_PERMS, true);
-    console.log(`   ✓ Bucket ${bucketId} updated (read public, no update/delete for users).`);
+    console.log(`   ✓ Bucket ${bucketId} updated as private (no public read).`);
   }
 
   // Backfill de ficheiros existentes (só quando temos acesso às databases).

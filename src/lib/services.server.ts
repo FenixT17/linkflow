@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { Query } from "node-appwrite";
-import { createServerClient, databaseId, filesBucketId } from "./appwrite.server";
-import { normalizeEnvUrl } from "./utils";
+import { createServerClient, databaseId } from "./appwrite.server";
+import { siteUrl } from "./seo";
 import {
   Appearance,
   LinkItem,
@@ -143,10 +143,7 @@ async function getPublicBadges(userId: string, rawBadges: unknown): Promise<stri
 }
 
 function getFileUrl(fileId: string) {
-  const endpoint = normalizeEnvUrl(
-    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-    "https://cloud.appwrite.io/v1"
-  );
-  const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
-  return `${endpoint}/storage/buckets/${filesBucketId}/files/${fileId}/view?project=${projectId}`;
+  // Keep public profile media same-origin so the Worker can validate and
+  // rate-limit every image request before it reaches Appwrite Storage.
+  return `${siteUrl}/api/media/${encodeURIComponent(fileId)}`;
 }
