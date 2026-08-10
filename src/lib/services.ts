@@ -1,6 +1,6 @@
 import { ID, Query, Models, OAuthProvider, Permission, Role } from "appwrite";
 
-import { account, databases, storage, databaseId, Collections, Buckets, projectId, createOAuthAccount } from "./appwrite";
+import { account, databases, databaseId, Collections, Buckets, projectId, createOAuthAccount } from "./appwrite";
 import { fetchWithCsrf } from "@/hooks/use-csrf";
 import {
   ActivityAction,
@@ -1076,8 +1076,22 @@ export async function uploadFile(bucketId: string, file: File) {
   return data.file;
 }
 
-export async function deleteFile(bucketId: string, fileId: string) {
-  return storage.deleteFile(bucketId, fileId);
+/**
+ * Apaga um ficheiro de media de forma fiável (best-effort) através do
+ * endpoint server-side DELETE /api/media/upload/[fileId] — que usa a API key
+ * do servidor e valida a propriedade ($permissions) antes de apagar. Nunca
+ * quebra a ação principal: se a limpeza falhar, o ficheiro antigo fica órfão
+ * e é recolhido pela eliminação de conta.
+ */
+export async function deleteMediaFileServerSide(fileId: string): Promise<void> {
+  if (!fileId) return;
+  try {
+    await fetchWithCsrf(`/api/media/upload/${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+    });
+  } catch {
+    // Best-effort — nunca bloquear a atualização/remoção da imagem.
+  }
 }
 
 // ---------- Avatar / Banner ----------
@@ -1090,7 +1104,7 @@ export async function updatePageAvatar(pageId: string, fileId: string) {
     avatarId: fileId,
   });
   if (previousFileId && previousFileId !== fileId) {
-    await deleteFile(Buckets.files, previousFileId).catch(() => {});
+    await deleteMediaFileServerSide(previousFileId);
   }
   void logActivity("avatar_updated", { username: String(doc.username ?? "") });
   return doc;
@@ -1104,7 +1118,7 @@ export async function updatePageBanner(pageId: string, fileId: string) {
     bannerId: fileId,
   });
   if (previousFileId && previousFileId !== fileId) {
-    await deleteFile(Buckets.files, previousFileId).catch(() => {});
+    await deleteMediaFileServerSide(previousFileId);
   }
   void logActivity("banner_updated", { username: String(doc.username ?? "") });
   return doc;
@@ -1114,22 +1128,29 @@ export async function removePageAvatar(pageId: string) {
   await requireOwnerOfPage(pageId);
   const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
   const currentFileId = String(pageDoc.avatarId ?? "");
-  if (currentFileId) {
-    await deleteFile(Buckets.files, currentFileId).catch(() => {});
-  }
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
+  // Limpa primeiro a referência e só depois apaga o ficheiro: se o update
+  // falhar, a página continua a apontar para um ficheiro existente (nunca
+  // deixa uma imagem partida); se o apagar falhar, fica um órfão recolhido
+  // pela eliminação de conta.
+  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     avatarId: "",
   });
+  if (currentFileId) {
+    await deleteMediaFileServerSide(currentFileId);
+  }
+  return doc;
 }
 
 export async function removePageBanner(pageId: string) {
   await requireOwnerOfPage(pageId);
   const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
   const currentFileId = String(pageDoc.bannerId ?? "");
-  if (currentFileId) {
-    await deleteFile(Buckets.files, currentFileId).catch(() => {});
-  }
-  return databases.updateDocument(databaseId, Collections.pages, pageId, {
+  // Mesma ordem segura do avatar: referência limpa antes de apagar o ficheiro.
+  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
     bannerId: "",
   });
+  if (currentFileId) {
+    await deleteMediaFileServerSide(currentFileId);
+  }
+  return doc;
 }

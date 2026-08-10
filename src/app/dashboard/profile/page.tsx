@@ -21,10 +21,10 @@ import {
   updatePageBanner,
   removePageAvatar,
   removePageBanner,
+  deleteMediaFileServerSide,
 } from "@/lib/services";
 import { Buckets } from "@/lib/appwrite";
 import { cn } from "@/lib/utils";
-import { fetchWithCsrf } from "@/hooks/use-csrf";
 
 // Validação de upload: apenas imagens raster (JPG/PNG/WEBP) até 5MB.
 // O bucket `files` é privado e as imagens são servidas pelo proxy protegido.
@@ -151,9 +151,7 @@ export default function ProfilePage() {
         }
       } catch (referenceError) {
         // Avoid leaving an unreferenced private file when the page update fails.
-        await fetchWithCsrf(`/api/media/upload/${encodeURIComponent(uploaded.$id)}`, {
-          method: "DELETE",
-        }).catch(() => {});
+        await deleteMediaFileServerSide(uploaded.$id);
         throw referenceError;
       }
       await refreshPage();
@@ -319,6 +317,7 @@ export default function ProfilePage() {
                     alt="Avatar"
                     fill
                     unoptimized
+                    priority
                     className="object-cover"
                     sizes="56px"
                   />
@@ -368,6 +367,7 @@ export default function ProfilePage() {
                   alt="Banner"
                   fill
                   unoptimized
+                  priority
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />

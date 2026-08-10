@@ -144,7 +144,13 @@ export async function GET(
   responseHeaders.set("X-Content-Type-Options", "nosniff");
   responseHeaders.set("Referrer-Policy", "no-referrer");
   responseHeaders.set("Cross-Origin-Resource-Policy", "same-origin");
-  responseHeaders.set("Cache-Control", "private, no-store, max-age=0");
+  // Cache no browser apenas (private = nunca em caches partilhados/CDN, por
+  // isso a proteção anti-download em massa mantém-se: cada browser só guarda
+  // o que o próprio utilizador viu). Os fileIds do Appwrite são imutáveis
+  // (ID.unique() por upload), logo o conteúdo de um URL nunca muda —
+  // `immutable` permite que mudar de aba (ex: Perfil) seja instantâneo
+  // depois da primeira visita, sem voltar a percorrer o proxy.
+  responseHeaders.set("Cache-Control", "private, max-age=604800, immutable");
 
   return new NextResponse(new Uint8Array(bytes), {
     status: 200,

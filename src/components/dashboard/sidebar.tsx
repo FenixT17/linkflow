@@ -48,9 +48,23 @@ function isActive(pathname: string, href: string) {
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const { account, logout } = useAuth();
+  const { account, logout, page } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Pré-carrega a foto de perfil e o banner quando o utilizador passa o rato
+  // ou foca o link "Perfil" — a imagem começa a descarregar antes do clique,
+  // por isso a aba abre sem esperar (a 1ª vez; nas seguintes vem do cache do
+  // browser, ativado pelo proxy /api/media com `Cache-Control: private`).
+  const preloadProfileImages = useCallback(() => {
+    if (typeof window === "undefined") return;
+    for (const src of [page?.avatar, page?.banner]) {
+      if (src && typeof src === "string") {
+        const img = new window.Image();
+        img.src = src;
+      }
+    }
+  }, [page?.avatar, page?.banner]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -99,6 +113,8 @@ export function DashboardSidebar() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                onMouseEnter={item.href === "/dashboard/profile" ? preloadProfileImages : undefined}
+                onFocus={item.href === "/dashboard/profile" ? preloadProfileImages : undefined}
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   active
@@ -287,6 +303,8 @@ export function DashboardSidebar() {
                         <Link
                           href={item.href}
                           onClick={() => setMobileOpen(false)}
+                          onMouseEnter={item.href === "/dashboard/profile" ? preloadProfileImages : undefined}
+                          onFocus={item.href === "/dashboard/profile" ? preloadProfileImages : undefined}
                           aria-current={active ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all",
