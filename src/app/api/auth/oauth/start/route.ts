@@ -5,7 +5,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 
 const APPWRITE_ENDPOINT = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://cloud.appwrite.io/v1"
+  "https://nyc.cloud.appwrite.io/v1"
 );
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const PROVIDERS: Record<string, string> = {

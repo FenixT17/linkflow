@@ -3,7 +3,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 
 export const endpoint = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://cloud.appwrite.io/v1"
+  "https://nyc.cloud.appwrite.io/v1"
 );
 export const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 export const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "linkflow";

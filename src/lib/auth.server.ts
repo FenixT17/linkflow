@@ -5,7 +5,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 
 const endpoint = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://cloud.appwrite.io/v1"
+  "https://nyc.cloud.appwrite.io/v1"
 );
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const apiKey = process.env.APPWRITE_API_KEY ?? "";

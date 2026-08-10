@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? process.env.APPWRITE_ENDPOINT ?? "https://cloud.appwrite.io/v1";
+const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? process.env.APPWRITE_ENDPOINT ?? "https://nyc.cloud.appwrite.io/v1";
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? process.env.APPWRITE_PROJECT_ID;
 const apiKey = process.env.APPWRITE_API_KEY;
 const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? process.env.APPWRITE_DATABASE_ID ?? "linkflow";
