@@ -22,10 +22,9 @@ A premium, glassmorphism Link-in-Bio SaaS built with Next.js 15, TypeScript, Tai
 - Tailwind CSS v4
 - shadcn/ui
 - Framer Motion
-- @dnd-kit (sortable links)
 - Recharts (analytics)
-- Appwrite (ready to connect)
-- TanStack Query, React Hook Form, Zod
+- qrcode.react (QR codes)
+- Appwrite (integrated: auth, database, storage)
 
 ## Getting Started
 
@@ -45,8 +44,10 @@ npm run build
 
 ## Deploy na Cloudflare (Workers)
 
-O projeto usa o adaptador `@opennextjs/cloudflare` (OpenNext) para correr o Next.js
-(SSR + API routes) num Worker da Cloudflare — substituiu o Netlify.
+O projeto corre em produção num Worker da Cloudflare através do adaptador
+`@opennextjs/cloudflare` (OpenNext), que transforma o build do Next.js
+(SSR + API routes) num Worker compatível com o runtime `workerd`
+(configuração em `wrangler.jsonc` + wrapper `worker-entry.js`).
 
 ```bash
 npm run cf:build      # next build + transformação OpenNext (gera .open-next/)
@@ -55,16 +56,18 @@ npm run cf:deploy     # build + deploy para a Cloudflare
 ```
 
 O deploy automático no push para `main` é feito pelo GitHub Actions
-(`.github/workflows/deploy.yml`). Configura os GitHub Secrets documentados nesse
-ficheiro (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID e as variáveis Appwrite).
-Os segredos runtime (APPWRITE_API_KEY, UPSTASH_REDIS_REST_URL/TOKEN) são
-gravados no Worker em cada deploy — nunca estão no código.
+(`.github/workflows/deploy.yml`): valida os GitHub Secrets obrigatórios
+(fail-fast), faz o build com as variáveis `NEXT_PUBLIC_*` (inlined pelo Next.js
+em build time) e publica o Worker com `wrangler deploy`. Os segredos runtime
+(`APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `HCAPTCHA_SECRET`) são
+gravados no Worker em cada deploy via `wrangler secret put` — nunca estão no
+código. A lista completa de variáveis está em `.env.example`.
 
 ## Distributed rate limiting (Upstash Redis)
 
-The API uses `@upstash/redis` with an atomic Redis Lua script. Counters are stored in Upstash, so limits are shared across Netlify instances, regions and cold starts; there is no in-memory fallback.
+The API uses `@upstash/redis` with an atomic Redis Lua script. Counters are stored in Upstash, so limits are shared across Cloudflare Workers, regions and cold starts; there is no in-memory fallback.
 
-Create a Redis database in [Upstash](https://console.upstash.com/redis) and configure these server-only variables locally and in Netlify:
+Create a Redis database in [Upstash](https://console.upstash.com/redis) and configure these server-only variables locally (`.env.local` or `.dev.vars`) and as GitHub Secrets for the deploy workflow:
 
 ```env
 UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
@@ -83,18 +86,25 @@ the global endpoint (`https://cloud.appwrite.io/v1`) for a regional project retu
 
 ```env
 NEXT_PUBLIC_APPWRITE_ENDPOINT=https://nyc.cloud.appwrite.io/v1
-NEXT_PUBLIC_APPWRITE_PROJECT=your_project_id
-NEXT_PUBLIC_APPWRITE_DATABASE=your_database_id
+NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_APPWRITE_DATABASE_ID=linkflow
+NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID=avatars
+NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID=banners
+NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID=files
 ```
 
 ## Project Structure
 
 ```
 src/
-  app/            # Next.js App Router pages
+  app/            # Next.js App Router pages + API routes
   components/     # Shared UI and dashboard components
   lib/            # Utilities, types, Appwrite client
   hooks/          # Custom React hooks
+  __tests__/      # Testes Vitest + Testing Library
+wrangler.jsonc    # Config do Worker Cloudflare (@opennextjs/cloudflare)
+worker-entry.js   # Wrapper do Worker (força no-store no HTML/RSC)
+.github/workflows/deploy.yml  # CI/CD: push → build → deploy Cloudflare
 ```
 
 ## Resend — email transacional
@@ -109,6 +119,6 @@ RESEND_FROM_EMAIL=LinkFlow <onboarding@resend.dev>
 RESEND_REPLY_TO=
 ```
 
-Nunca use `NEXT_PUBLIC_` nestas variáveis, nem coloque a chave em componentes `use client`, no Git ou em logs. Localmente, use `.env.local`; em produção, configure as variáveis no Netlify. Para um domínio personalizado, verifique-o na Resend, configure SPF/DKIM/DMARC e altere `RESEND_FROM_EMAIL` para o remetente verificado.
+Nunca use `NEXT_PUBLIC_` nestas variáveis, nem coloque a chave em componentes `use client`, no Git ou em logs. Localmente, use `.env.local` (ou `.dev.vars` para `wrangler dev`); em produção, defina-as como GitHub Secrets para o workflow de deploy. Para um domínio personalizado, verifique-o na Resend, configure SPF/DKIM/DMARC e altere `RESEND_FROM_EMAIL` para o remetente verificado.
 
 O envio de emails está **temporariamente desativado por decisão do produto**. Os templates, o serviço Resend server-only e as páginas de verificação/recuperação permanecem preparados para uma ativação futura, mas os fluxos atuais não iniciam pedidos ao Appwrite nem enviam mensagens. A configuração SMTP também não deve ser ativada enquanto esta decisão estiver em vigor.
