@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, databaseId } from "@/lib/appwrite.server";
-import { requireAuth } from "@/lib/auth.server";
+import { clearAuthSessionCookie, requireAuth } from "@/lib/auth.server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { resolveGeo } from "@/lib/geo";
 import { currencyForCountry } from "@/lib/currencies";
+import { DISPOSABLE_EMAIL_ERROR, isDisposableEmail } from "@/lib/disposable-email";
 import { ID, Permission, Query, Role } from "node-appwrite";
 
 const COLLECTION_USERS = "users";
@@ -35,6 +36,20 @@ export async function POST(request: NextRequest) {
     }
     const { user } = auth;
     const userId = user.$id;
+
+    if (isDisposableEmail(user.email || "")) {
+      try {
+        await auth.account.deleteSessions();
+      } catch {
+        // A sessão local também é limpa mesmo se o Appwrite já a encerrou.
+      }
+      const response = NextResponse.json(
+        { error: DISPOSABLE_EMAIL_ERROR },
+        { status: 403 },
+      );
+      clearAuthSessionCookie(response);
+      return response;
+    }
 
     // 2. Rate limit: max 3 sync requests por IP por minuto
     const ip = getClientIp(request);

@@ -1,4 +1,5 @@
 /// <reference types="vitest/globals" />
+/* eslint-disable @next/next/no-img-element */
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { TemplateThree } from "@/components/templates/template-three";
@@ -6,7 +7,7 @@ import { defaultAppearance } from "@/lib/defaults";
 import type { LinkItem, PageProfile } from "@/lib/types";
 
 vi.mock("next/image", () => ({
-  default: ({ fill: _fill, priority: _priority, alt = "", ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean }) => (
+  default: ({ fill: _fill, priority: _priority, unoptimized: _unoptimized, alt = "", ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean; unoptimized?: boolean }) => (
     <img alt={alt} {...props} />
   ),
 }));

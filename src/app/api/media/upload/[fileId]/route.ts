@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
 import { createServerClient, filesBucketId } from "@/lib/appwrite.server";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 
 const FILE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/;
 
@@ -22,6 +23,23 @@ export async function DELETE(
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  const ip = getClientIp(request);
+  let rate;
+  try {
+    rate = await checkRateLimit("media_delete", `${auth.user.$id}:${ip}`, {
+      maxRequests: 60,
+      windowMs: 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
+  }
 
   const { fileId } = await params;
   if (!FILE_ID.test(fileId)) {

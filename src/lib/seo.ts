@@ -17,7 +17,7 @@ export const siteUrl = normalizeEnvUrl(
 export const siteName = "LinkFlow";
 export const siteTagline = "Um Link. Possibilidades Infinitas.";
 export const defaultDescription =
-  "Crie uma página pessoal premium para partilhar todos os os seus links, redes sociais, vídeos, lojas e conteúdo num só lugar. Gratuito para sempre.";
+  "Crie uma página pessoal premium para partilhar todos os seus links, redes sociais, vídeos, lojas e conteúdo num só lugar.";
 
 export interface SiteMetadataOptions {
   title?: string;
@@ -136,11 +136,6 @@ export function softwareApplicationJsonLd() {
         name: "Business",
       },
     ],
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "1200",
-    },
   };
 }
 

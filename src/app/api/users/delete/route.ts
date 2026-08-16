@@ -3,6 +3,7 @@ import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
 import { deleteAccountData } from "@/lib/account-deletion.server";
 import { clearAuthSessionCookie } from "@/lib/auth.server";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 
 /**
  * DELETE /api/users/delete
@@ -17,6 +18,24 @@ export async function DELETE(request: NextRequest) {
 
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
+
+  // Limite para evitar abuso do fluxo destrutivo de eliminação de conta.
+  const ip = getClientIp(request);
+  let rate;
+  try {
+    rate = await checkRateLimit("account_delete", `${auth.user.$id}:${ip}`, {
+      maxRequests: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: mergeRateLimitHeaders(undefined, rate) },
+    );
+  }
 
   try {
     await deleteAccountData(auth.user.$id, auth.user.email || "");

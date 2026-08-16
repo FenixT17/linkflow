@@ -15,8 +15,8 @@
 // Variáveis de ambiente:
 // - NEXT_PUBLIC_*            → inlined em build time pelo Next.js (definidas
 //                              no CI — ver .github/workflows/deploy.yml).
-// - Segredos do servidor     → APPWRITE_API_KEY, UPSTASH_REDIS_REST_URL,
-//   (APPWRITE_API_KEY,         UPSTASH_REDIS_REST_TOKEN. NUNCA commitados.
+// - Segredos do servidor     → APPWRITE_API_KEY, IP_HASH_SECRET,
+//   (APPWRITE_API_KEY,         UPSTASH_REDIS_REST_URL/TOKEN. NUNCA commitados.
 //   UPSTASH_REDIS_*, ...)      Definir no dashboard do Cloudflare
 //                              (Workers & Pages → linkflow → Settings →
 //                              Variables and Secrets) ou via

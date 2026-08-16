@@ -117,7 +117,7 @@ function HeroPhoneMockup() {
               ].map((link, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.8 + i * 0.1, duration: 0.4 }}
                   className="glass h-11 w-full rounded-[var(--glass-radius)] flex items-center justify-center"
@@ -166,7 +166,7 @@ export default function Home() {
               className="max-w-2xl"
             >
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
                 className="inline-flex items-center gap-2 glass-badge-success !px-4 !py-1.5 mb-6 !rounded-full"
@@ -176,7 +176,7 @@ export default function Home() {
               </motion.div>
 
               <motion.h1
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-[var(--foreground)] leading-[1.05]"
@@ -189,7 +189,7 @@ export default function Home() {
               </motion.h1>
 
               <motion.p
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.35 }}
                 className="mt-7 text-base md:text-lg leading-relaxed text-[var(--muted-foreground)] max-w-lg"
@@ -199,7 +199,7 @@ export default function Home() {
               </motion.p>
 
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
                 className="mt-10 flex flex-col sm:flex-row gap-4"
@@ -224,7 +224,7 @@ export default function Home() {
               </motion.div>
 
               <motion.p
-                initial={{ opacity: 0 }}
+                initial={false}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
                 className="mt-5 text-xs text-[var(--muted-foreground)]/60"
@@ -234,7 +234,7 @@ export default function Home() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 40, rotateX: 10 }}
+              initial={false}
               animate={{ opacity: 1, y: 0, rotateX: 0 }}
               transition={{ duration: 0.9, delay: 0.3, ease: "easeOut" }}
               className="relative flex justify-center lg:justify-end"

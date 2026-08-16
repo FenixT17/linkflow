@@ -13,7 +13,7 @@ import { validateThemePayload } from "@/lib/theme-validation";
 // `new URL(APPWRITE_ENDPOINT)` abaixo lançar TypeError em runtime).
 const APPWRITE_ENDPOINT = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://nyc.cloud.appwrite.io/v1"
+  "https://fra.cloud.appwrite.io/v1"
 );
 const APPWRITE_PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"]);

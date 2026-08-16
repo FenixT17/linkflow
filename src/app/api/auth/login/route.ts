@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { createEmailPasswordSessionResolved, setAuthSessionCookie } from "@/lib/auth.server";
-import { CaptchaError, checkCaptchaRateLimit, verifyHCaptcha } from "@/lib/captcha";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_EMAIL_LENGTH = 254;
@@ -34,19 +33,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let captchaRateLimit;
-  try {
-    captchaRateLimit = await checkCaptchaRateLimit(request);
-  } catch {
-    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
-  }
-  if (!captchaRateLimit.allowed) {
-    return NextResponse.json(
-      { error: "Muitas verificações anti-bot. Aguarde antes de tentar novamente." },
-      { status: 429, headers: mergeRateLimitHeaders(undefined, captchaRateLimit) },
-    );
-  }
-
   try {
     const rawBody = await request.text();
     if (rawBody.length > MAX_BODY_BYTES) {
@@ -58,7 +44,6 @@ export async function POST(request: NextRequest) {
           email?: unknown;
           password?: unknown;
           remember?: unknown;
-          captchaToken?: unknown;
         };
       } catch {
         return null;
@@ -70,15 +55,6 @@ export async function POST(request: NextRequest) {
     // Só um booleano `false` explícito desativa a persistência (evita que
     // valores como "false"/0/null sejam tratados como persistentes).
     const remember = typeof body?.remember === "boolean" ? body.remember : true;
-    try {
-      await verifyHCaptcha(request, body?.captchaToken);
-    } catch (error) {
-      if (error instanceof CaptchaError) {
-        return NextResponse.json({ error: "Conclua a verificação anti-bot e tente novamente." }, { status: error.status });
-      }
-      throw error;
-    }
-
     if (!email || email.length > MAX_EMAIL_LENGTH || password.length < 1 || password.length > MAX_PASSWORD_LENGTH) {
       return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
     }

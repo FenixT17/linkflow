@@ -12,6 +12,9 @@ const VALID_EVENTS = [
   "rate_limit_hit", "password_reset_request",
 ] as const;
 
+const MAX_METADATA_BYTES = 2000;
+const MAX_BODY_BYTES = 16 * 1024;
+
 /**
  * POST /api/security/log-anonymous
  *
@@ -30,16 +33,37 @@ export async function POST(request: NextRequest) {
   const csrfCheck = csrfGuard(request);
   if (csrfCheck) return csrfCheck;
 
-  // Rate limit: max 5 anonymous logs per IP per minute
+  // Rate limit: max 5 anonymous logs per IP per minute (fail-closed)
   const ip = getClientIp(request);
-  const rateLimit = await checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit("security_log_anonymous", ip, { maxRequests: 5, windowMs: 60 * 1000 });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   }
 
   try {
-    const body = await request.json();
-    if (!body || typeof body !== "object") {
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_BODY_BYTES)) {
+      return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+    }
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+    }
+    let body: Record<string, unknown> | null = null;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      body = null;
+    }
+    if (!body) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
@@ -60,7 +84,7 @@ export async function POST(request: NextRequest) {
       email: emailHash,
       ipAddress: ip,
       userAgent: request.headers.get("user-agent") ?? "",
-      metadata: body.metadata ? JSON.stringify(body.metadata) : "",
+      metadata: body.metadata ? JSON.stringify(body.metadata).slice(0, MAX_METADATA_BYTES) : "",
       createdAt: new Date().toISOString(),
     });
 

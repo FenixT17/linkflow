@@ -23,10 +23,15 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const ip = getClientIp(request);
-  const rate = await checkRateLimit("user_provision", auth.user.$id + ":" + ip, {
-    maxRequests: 5,
-    windowMs: 60 * 1000,
-  });
+  let rate;
+  try {
+    rate = await checkRateLimit("user_provision", auth.user.$id + ":" + ip, {
+      maxRequests: 5,
+      windowMs: 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
   if (!rate.allowed) {
     return NextResponse.json(
       { error: "Too many requests" },

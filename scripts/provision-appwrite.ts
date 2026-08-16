@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.local" });
 const endpoint =
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ??
   process.env.APPWRITE_ENDPOINT ??
-  "https://nyc.cloud.appwrite.io/v1";
+  "https://fra.cloud.appwrite.io/v1";
 const projectId =
   process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? process.env.APPWRITE_PROJECT_ID;
 const apiKey = process.env.APPWRITE_API_KEY;
@@ -275,7 +275,7 @@ async function provision() {
   // 1. Database
   console.log("📦 Database");
   try {
-    await databases.create(databaseId, "LinkFlow SaaS");
+    await databases.create(databaseId, "linkflow");
   } catch (error: unknown) {
     const err = error instanceof Error ? (error as Error & { code?: number }) : undefined;
     const message = err?.message ?? String(error);

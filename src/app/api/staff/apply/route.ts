@@ -22,10 +22,15 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const ip = getClientIp(request);
-  const rateLimit = await checkRateLimit("staff_application", `${auth.user.$id}:${ip}`, {
-    maxRequests: 3,
-    windowMs: 60 * 60 * 1000,
-  });
+  let rateLimit;
+  try {
+    rateLimit = await checkRateLimit("staff_application", `${auth.user.$id}:${ip}`, {
+      maxRequests: 3,
+      windowMs: 60 * 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: "Demasiadas candidaturas. Tenta novamente mais tarde." }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   }

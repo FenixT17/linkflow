@@ -45,7 +45,7 @@
 | Animações | Framer Motion 12 |
 | Gráficos | Recharts 3 |
 | Backend | Appwrite Cloud (Auth, Database, Storage) |
-| Deploy | Netlify com @netlify/plugin-nextjs |
+| Deploy | Cloudflare Workers via @opennextjs/cloudflare |
 | Testes | Vitest + Testing Library + jsdom |
 | Segurança | CSRF, Rate Limiting, Sanitização, Security Logging |
 
@@ -53,28 +53,28 @@
 
 ## 🌐 Domínios e Deploy
 
-### Netlify
-- **Site principal:** `linkflow-web`
-- **URL:** [https://linkflow-web.netlify.app](https://linkflow-web.netlify.app)  
-- **Admin:** [https://app.netlify.com/projects/linkflow-web](https://app.netlify.com/projects/linkflow-web)
-- **Conta Netlify:** `reddit-br` (user_id: `68fb64b38a69552115381a2e`)
-- **Site ID:** `c9edd883-4927-45d8-9222-057b3826df0f`
-- **Método de deploy atual:** **GitHub → Netlify CI/CD** (build automático no push — desde Sessão 10; último push: commit `f0b1717` na Sessão 13)
+### Cloudflare Workers (deploy atual)
+- **Worker:** `linkflow` — [https://linkflow.editsttk43.workers.dev](https://linkflow.editsttk43.workers.dev)
+- **Adaptador:** `@opennextjs/cloudflare` (OpenNext) — transforma o build do Next.js num Worker `workerd` (config em `wrangler.jsonc` + wrapper `worker-entry.js` que força `Cache-Control: no-store` no HTML/RSC)
+- **Método de deploy atual:** GitHub → GitHub Actions (`.github/workflows/deploy.yml`, push para `main`) → valida secrets (fail-fast) → build OpenNext com `NEXT_PUBLIC_*` inlined → `wrangler deploy` + grava os segredos runtime com `wrangler secret put`
 - **Repositório GitHub:** `siqwsxx/linkflow-web-` (branch `main`)
-- **Ficheiro de build:** `frontend/.next` (Next.js build output via `@netlify/plugin-nextjs`)
-- **Framework detected:** Next.js (`___netlify-server-handler` ativa — as rotas dinâmicas/API funcionam)
-- **Histórico:** deploy antigo era drop manual (ZIP) SEM funções — por isso as rotas dinâmicas davam "This function has crashed" (Sessão 11)
+- **Segredos runtime:** `APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `IP_HASH_SECRET` — nunca no código; gravados no Worker em cada deploy (ou no dashboard Cloudflare → Workers → linkflow → Settings → Variables and Secrets)
+
+### Netlify (histórico — substituído pelo Cloudflare Workers)
+- **Site principal:** `linkflow-web` — [https://linkflow-web.netlify.app](https://linkflow-web.netlify.app)
+- **Conta Netlify:** `reddit-br` (user_id: `68fb64b38a69552115381a2e`) · Site ID: `c9edd883-4927-45d8-9222-057b3826df0f`
+- **Histórico:** CI/CD GitHub → Netlify desde a Sessão 10; o deploy ainda mais antigo era drop manual (ZIP) SEM funções — as rotas dinâmicas davam "This function has crashed" (Sessão 11). Substituído pelo deploy Cloudflare.
 
 ### Domínio pretendido (SEO)
-- **Domínio principal nos metadados:** `https://linkflow-web.netlify.app` (desde Sessão 6) — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` com fallback para o URL Netlify
-- **Nota:** O domínio `linkflow.app` ainda não está configurado — atualmente só existe o domínio Netlify. Quando o domínio próprio for adquirido, basta definir `NEXT_PUBLIC_SITE_URL` (build) — o código já está preparado
+- **Domínio principal nos metadados:** `https://linkflow.editsttk43.workers.dev` — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` (fallback `https://linkflow.workers.dev`)
+- **Nota:** O domínio `linkflow.app` ainda não está configurado. Quando o domínio próprio for adquirido, basta definir `NEXT_PUBLIC_SITE_URL` como GitHub Secret (build) — o código já está preparado
 
 ### Appwrite
-- **Endpoint:** `https://cloud.appwrite.io/v1`
+- **Endpoint:** `https://fra.cloud.appwrite.io/v1` (região **Frankfurt** — obrigatória; o endpoint global `cloud.appwrite.io` devolve 401 "Project is not accessible in this region" para projetos regionais). O fallback no código e nos scripts também aponta para fra (Sessão 76)
 - **Database:** `linkflow`
 - **Collections:** users, pages, links, analytics, themes, qr_codes, subscriptions, teams, notifications, security_logs, visits, activity_logs, staff_applications, collected_ips, dados_para_estudos (o `social_links` nunca existiu como coleção — os dados sociais viviam no documento pages como `socialJson`/`socialList`, removidos na Sessão 10; `visits` (Sessão 13), `collected_ips` (Sessão 16) e `dados_para_estudos` (Sessão 42) são server-only com permissões `[]`; `activity_logs` e `staff_applications` criadas nas Sessões 21/26)
 - **Buckets:** avatars, banners, files
-- **Nota:** Variáveis de ambiente `NEXT_PUBLIC_APPWRITE_PROJECT_ID` e `APPWRITE_API_KEY` ainda não estão configuradas (env vars no Netlify deram erro 403)
+- **Nota:** variáveis configuradas como GitHub Secrets no CI (`NEXT_PUBLIC_APPWRITE_*` inlined no build) e como secrets runtime no Worker (`APPWRITE_API_KEY`). O env var no Netlify já não é usado
 
 ### Outros sites Netlify na conta
 - `miguel-c.netlify.app` (criado 24 Jul 2026)
@@ -112,7 +112,7 @@ C:/Users/CR712/Documents/saas/           ← Raiz do projeto
 │   │   ├── hooks/                       ← use-csrf, use-links
 │   │   └── __tests__/                   ← Testes Vitest
 │   ├── package.json, tsconfig.json, next.config.ts
-│   ├── netlify.toml, vitest.config.ts
+│   ├── wrangler.jsonc, worker-entry.js, vitest.config.ts
 │   └── public/                          ← Assets estáticos
 ├── deploy_result.json, deploy_status.json        ← Deploy 1 (erro - ZIP corrompido)
 ├── deploy_result2.json, deploy_status2.json      ← Deploy 2 (sucesso - 117 ficheiros)
@@ -134,19 +134,28 @@ npm run typecheck    # Verificação de tipos TypeScript
 npm run lint         # ESLint
 npm run provision    # Criar schema Appwrite (idempotente)
 npm run fix:bucket   # Corrigir permissões de leitura pública do bucket de storage
+npm run cf:build     # next build + transformação OpenNext (gera .open-next/)
+npm run cf:preview   # pré-visualização local (wrangler dev)
+npm run cf:deploy    # build + deploy para a Cloudflare
 ```
 
-### Como fazer deploy manual para o Netlify
-1. `cd frontend && npm run build` — gera a pasta `.next`
-2. Criar um ZIP com o conteúdo da pasta `frontend` (incluindo `.next`, `node_modules`, `public`, `package.json`, `next.config.ts`, `netlify.toml`)
-3. Fazer upload via API ou CLI do Netlify
+### Deploy para a Cloudflare (Workers)
+```bash
+npm run cf:build      # next build + transformação OpenNext (gera .open-next/)
+npm run cf:preview    # pré-visualização local (wrangler dev)
+npm run cf:deploy     # build + deploy
+```
+O deploy normal é automático: push para `main` → GitHub Actions. Os segredos runtime gravam-se com `npx wrangler secret put NOME` (ou no dashboard Cloudflare → Workers → linkflow → Settings → Variables and Secrets). Localmente, para `wrangler dev`, criar um ficheiro `.dev.vars` gitignored com os segredos.
 
 ### Variáveis de ambiente obrigatórias
-- `NEXT_PUBLIC_APPWRITE_ENDPOINT` = `https://cloud.appwrite.io/v1`
+- `NEXT_PUBLIC_APPWRITE_ENDPOINT` = `https://fra.cloud.appwrite.io/v1` (região Frankfurt — obrigatória; o endpoint global devolve 401)
 - `NEXT_PUBLIC_APPWRITE_PROJECT_ID` = ID do projeto Appwrite
 - `NEXT_PUBLIC_APPWRITE_DATABASE_ID` = `linkflow`
-- `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` = `files`
-- `APPWRITE_API_KEY` = Server API Key do Appwrite
+- `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` = `files` · `NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID` = `avatars` · `NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID` = `banners`
+- `APPWRITE_API_KEY` = Server API Key do Appwrite (secret runtime no Worker)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` = rate limiting distribuído (secrets runtime)
+- Rate limiting de autenticação = limites distribuídos por IP e por conta via Upstash Redis (sem verificação CAPTCHA)
+- `NEXT_PUBLIC_SITE_URL` = URL público final (workers.dev ou domínio próprio)
 
 ### 🚨 Evitar Erros de Hydration (Next.js/React)
 
@@ -2241,3 +2250,154 @@ Commit: `9669436` · https://linkflow.editsttk43.workers.dev
 **Validação:** 204/204 testes ✅ · TypeScript ✅ · ESLint ✅ · build de produção com 47 rotas ✅ · diff sem erros ✅ · bucket privado e índices confirmados no Appwrite ✅.
 
 **Limitação importante:** nenhum site que permita visualizar uma imagem publicamente consegue impedir totalmente que um visitante guarde os bytes. Esta proteção bloqueia acesso direto ao Appwrite, reduz hotlinking e scraping básico e limita abuso; proteção mais forte exigiria autenticação, URLs assinados de curta duração ou Cloudflare Bot Management.
+
+### Sessão 76 — 10 Agosto 2026 — Docs do deploy real, endpoint Appwrite, auditoria de segurança e melhorias de media
+
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-flash
+
+**Tarefas realizadas:**
+
+1. **Análise completa do projeto** — leitura de toda a documentação (READMEs, memoria, configs) e do código das áreas centrais; verificação do estado do git (limpo, 216 testes).
+
+2. **README.md e README_TECHNICAL.md atualizados para refletir o deploy real** (Cloudflare Workers):
+   - Removidas todas as referências obsoletas ao Netlify (deploy, rate limiting, env vars, Resend) e ao Stripe não integrado.
+   - Tech Stack do README corrigida (removidos `@dnd-kit`, TanStack Query, React Hook Form e Zod — não existem no `package.json`); adicionados `qrcode.react` e Appwrite integrado.
+   - Secção Deploy reescrita (wrangler.jsonc + worker-entry.js + GitHub Actions com fail-fast de secrets + `wrangler secret put`); nomes de env vars Appwrite corrigidos (`PROJECT_ID`/`DATABASE_ID`) + buckets; tabela de env vars com Upstash; fluxo de recuperação de senha corrigido (`account.createRecovery`, não Resend).
+
+3. **Endpoint Appwrite alinhado com a região real (Nova Iorque)** — os fallbacks em **14 ficheiros** (7 runtime: `appwrite.ts`, `appwrite.server.ts`, `auth.server.ts`, proxy `[...path]`, OAuth start/callback, media upload; 7 scripts) passaram de `https://cloud.appwrite.io/v1` (global → 401 em projetos regionais) para `https://nyc.cloud.appwrite.io/v1`. `.env.local`/`.env.example` já estavam corretos. Verificado: zero referências globais restantes; CSP do middleware cobre nyc via wildcard.
+
+4. **Auditoria de segurança aprofundada** (media proxy, auth, rate limiting):
+   - **0 críticos / 0 altos.** Confirmados: rate limiting distribuído fail-closed, cookie de sessão HttpOnly `__Host-`, CSRF double-submit, hCaptcha server-side, media proxy com allowlist + magic bytes + permissões por dono, proxy SDK com stripping de headers sensíveis, zero `eval`/`innerHTML`, zero segredos no código.
+   - **Médios encontrados:** M1 — `hashIp` usa salt fixo hardcoded (brute-force IPv4 ~2^32 viável → deanonymization); M2 — login CSRF no callback OAuth (GET aceita userId+secret sem state). **Não corrigidos** (decisão do utilizador — pendentes).
+   - **Baixos:** falta de rate limit em `users/profile`, `users/delete`, `media/upload/[fileId]` DELETE; proxy SDK sem `csrfGuard` explícito; rate limit de login por IP (5/min) como vetor de DoS em IPs partilhados; `rate-check` sem rate limit próprio; view/click sem cap de body; headers legados `x-country`; `/api/auth/session` (migração) a manter.
+
+5. **Carregamento instantâneo das imagens do dashboard** (mudar de aba para Perfil sem esperar):
+   - **Causa:** o proxy `/api/media/[fileId]` devolvia `Cache-Control: private, no-store, max-age=0` — o browser nunca cacheava; cada mudança de aba refazia o pipeline completo (rate limit + 3 queries Appwrite + download).
+   - **Fix:** `Cache-Control: private, max-age=604800, immutable` (7 dias, só no browser — a proteção anti-download em massa mantém-se; fileIds do Appwrite são imutáveis por upload).
+   - **Sidebar:** pré-carrega avatar/banner ao passar o rato/focar o link Perfil (desktop + mobile) via `new Image()`.
+   - **Página Perfil:** `priority` (fetchpriority=high) nos `<NextImage>` de avatar/banner.
+
+6. **Ficheiros de media antigos passam a ser apagados no Appwrite** (pedido: "quando o usuário elimina ou muda de imagem o antigo deve ser apagado"):
+   - O código já tentava apagar (client SDK `storage.deleteFile`) mas com `.catch(() => {})` silencioso e frágil.
+   - **Fix:** novo helper `deleteMediaFileServerSide(fileId)` em `services.ts` — apaga via `DELETE /api/media/upload/[fileId]` (endpoint server-side com API key + validação de propriedade `$permissions` + CSRF). Aplicado em `updatePageAvatar`/`updatePageBanner` (apaga o anterior) e `removePageAvatar`/`removePageBanner` (referência limpa **antes** de apagar o ficheiro — nunca deixa imagem partida). Removidos o `deleteFile` client e o import `storage` mortos; página Perfil reutiliza o helper.
+
+7. **Auditoria OWASP do hashIp (M1) detalhada** — registada para correção futura: HMAC com segredo server-side (env var) em vez de salt no bundle.
+
+**Commit + push:** 3 commits no `origin/main` (`0b51360..b67fcb4`):
+- `530612b` "docs: reflect Cloudflare Workers deploy in READMEs" (2 ficheiros)
+- `25fbb8b` "fix: align Appwrite endpoint fallback with NYC region" (14 ficheiros)
+- `b67fcb4` "perf: instant profile image loading; delete old media server-side" (4 ficheiros)
+
+Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** ✅, code-reviewer ✅ em todos os commits.
+
+**Estado final:**
+- ✅ Documentação alinhada com o deploy real (Cloudflare Workers)
+- ✅ Endpoint Appwrite consistente com a região (nyc) em todo o código e scripts
+- ✅ Imagens do Perfil carregam instantaneamente (cache browser + preload + priority)
+- ✅ Ficheiros antigos de avatar/banner apagados do bucket ao trocar/remover
+- ✅ Typecheck, ESLint e 216 testes a passar; working tree limpo
+- ⚠️ Pendentes da auditoria: M1 (`hashIp` → HMAC com segredo) e M2 (state no OAuth)
+- ⚠️ Pendentes: rate limits em falta (users/profile, users/delete, media DELETE, rate-check) e caps de body no view/click
+
+### Sessão 77 — 15 Agosto 2026 — Análise do SaaS + limpeza de segredos e artefactos de cloud
+
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-pro
+
+**Contexto:** o utilizador apagou tudo o que estava online (Netlify, Cloudflare e GitHub) e revogou as API keys. O projeto passou a existir **apenas localmente**, sem deploy e sem segredos válidos.
+
+**Tarefas realizadas:**
+
+1. **Análise completa do SaaS:**
+   - Health check: `tsc --noEmit` ✅ 0 erros · **216/216 testes** ✅ (27 ficheiros).
+   - **Pontos fortes:** segurança madura (CSRF, rate limiting Upstash, sanitização, proteção CSV-injection, `hashIp` SHA-256, least-privilege no Appwrite, headers CSP/HSTS/COOP, hCaptcha), 216 testes com suites específicas de segurança, `memoria.md` com histórico completo, arquitetura limpa (client vs server).
+   - **Riscos priorizados:** RGPD/LGPD na coleção `dados_para_estudos` (IP cru + coordenadas recolhidos sem consentimento — crítico); Stripe não integrado (monetização offline — billing mostra "pagamento simulado"); email desativado (Sessão 41 — sem verificação nem recuperação de password); sem domínio próprio (URL workers.dev placeholder); warning de workspace root (dois `package-lock.json`); `PlanType.enterprise` morto; `README.md` da raiz em UTF-16 (ilegível).
+
+2. **Limpeza de segredos e artefactos de cloud (local):**
+   - **`frontend/.env.local`** — 5 valores secretos apagados (ficaram `KEY=` vazios): `APPWRITE_API_KEY`, `HCAPTCHA_SECRET`, `RESEND_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`. Config pública mantida (endpoint nyc, project/database/bucket IDs, `NEXT_PUBLIC_SITE_URL`, hCaptcha site key, `RESEND_FROM_EMAIL`).
+   - **Removidos:** `frontend/.env.netlify`, `frontend/.netlify/` (cache de build com cópia do `.env.local` com segredos), `env_payload.json` (tinha `APPWRITE_API_KEY` + `HCAPTCHA_SECRET` em texto simples), `env_result*.json`, e artefactos mortos do Netlify (`deploy_*.json`, `netlify_sites.json`, `site_*.json`, `linkflow-deploy.zip/.tar.gz`).
+   - **Mantidos de propósito:** `.env.example` (template de referência), `wrangler.jsonc`/`open-next.config.ts`/`.github/workflows/deploy.yml` (scaffolding para re-setup futuro) e o código-fonte (scan confirmou zero segredos hardcoded em `src/` e `scripts/`).
+
+**Estado final:**
+- ✅ Projeto limpo de segredos mortos e de artefactos de cloud apagados
+- ✅ Nenhum segredo em texto simples no disco (verificado: só config pública + 5 chaves secretas vazias)
+- ✅ Código intacto — nenhum ficheiro de código alterado; typecheck e 216 testes continuam válidos
+- ⚠️ Sem deploy nem cloud — aguarda re-criação de contas (Netlify/Cloudflare/GitHub) e novas API keys
+- ⚠️ `memoria.md` da raiz estava dessincronizado (parado na Sessão 53) — sincronizado com `frontend/memoria.md` (até Sessão 76) nesta sessão
+
+### Sessão 78 — 15 Agosto 2026 — Auditoria de segurança profissional + remoção de código morto
+
+**Agente:** Buffy (Freebuff) — modelo deepseek-v4-pro
+
+**Pedido:** analisar TODO o código como um profissional à procura de vulnerabilidades, corrigi-las, eliminar código morto e corrigir bugs.
+
+**Âmbito revisto:** 179 ficheiros / ~22.800 linhas — 28 rotas de API, libs de auth/segurança (`auth.server`, `csrf`, `rate-limit`, `captcha`, `sanitize`, `analytics`, `geo`, `media-security`, `theme-validation/security`, `staff-security`), serviços (`services.ts`/`services.server.ts`) e componentes que renderizam input do utilizador (JSON-LD, profile-renderer, templates).
+
+**Vulnerabilidades corrigidas:**
+
+1. **M1 (ALTA) — deanonymização de IPs (`hashIp` com salt fixo):** o `hashIp` (`src/lib/geo.ts`) usava salt hardcoded no bundle; um atacante com acesso à BD revertia o IP por força bruta sobre o espaço IPv4 (~2^32). **Fix:** HMAC-SHA256 com segredo server-side `IP_HASH_SECRET` (env var, nunca no bundle), com fallback legado para dev/testes. Novo export `hashIpWithSecret` (testável) + 2 testes em `geo.test.ts` + documentação em `.env.example`. Definir o segredo reinicia os contadores de visitantes únicos.
+
+2. **M2 (ALTA) — login CSRF no callback OAuth:** o callback (`oauth/callback`) trocava `userId`+`secret` da query string por sessão sem validar a origem — um atacante podia fazer a vítima abrir um link com as credenciais dele (vítima logada na conta do atacante). **Fix:** `/oauth/start` semeia um **cookie de estado HttpOnly** (`__Host-linkflow-oauth-state`, 10 min) e o callback exige a sua presença antes da troca; limpo no sucesso. Mensagem amigável `oauth_state_missing` em `oauth-errors.ts`.
+
+3. **`displayName` não sanitizado (`users/profile` PATCH):** guardava o nome em bruto. **Fix:** `sanitizeDisplayName` (remove tags) + rate limit (30/min) + body cap (16 KB).
+
+4. **Defesa em profundidade:**
+   - Body cap (16 KB) em `/api/view` e `/api/click` (DoS por body gigante).
+   - Rate limits em falta: `media/upload/[fileId]` DELETE (60/min), `users/delete` (5/h), `security/log` (60/min).
+   - `metadata` dos security logs limitado a 2000 bytes (abuso de storage).
+   - `checkRateLimit` sem try/catch → **fail-closed (503)** em `geo/lookup`, `users/geo`, `users/provision`, `staff/apply`, `log-anonymous` (consistência com login/register).
+
+**Código morto removido:**
+- `verifyOwnership`, `forbiddenResponse`, `unauthorizedResponse` (`auth.server.ts`) — 0 referências.
+- `getPublicAnalyticsByPageId` (`services.server.ts`) — já devolvia sempre `emptyAnalytics()`.
+- `sanitizeWithDetection`, `escapeHtml` (`sanitize.ts`) — 0 referências (o `detectSuspiciousInput` mantém-se, usado no AuthContext).
+
+**Validação:** typecheck `tsc --noEmit` ✅ 0 erros · **218/218 testes** ✅ (era 216; +2 HMAC) · ESLint ✅ 0 erros (3 warnings pré-existentes em ficheiros de teste).
+
+**Notas / pendências (decisão consciente, não corrigido):**
+- ⚠️ **Limite de 3 links do plano Gratuito é aplicado no CLIENTE** (`services.ts createLink`) — contornável via Appwrite SDK direto; requer mover a criação de links para rota server-side.
+- ⚠️ `PlanType.enterprise` continua (valor legado aceite nas whitelists de validação — remover exigiria migração de dados).
+- ⚠️ Warning de workspace root: existe `C:\Users\CR712\package-lock.json` órfão fora do projeto (o Next deteta 2 lockfiles).
+- ⚠️ Módulo de email (`email.server.ts`, `email-templates.ts`, `email-hint.ts`) mantido inativo de propósito (decisão da Sessão 41) — é código morto mas reservado para uso futuro.
+
+### Sessão 79 — 15 Agosto 2026 — Correção de bugs funcionais, privacidade e consistência
+
+**Tarefas realizadas:**
+
+- Corrigida a publicação agendada no servidor para páginas, links, view tracking e click tracking (`page-publication.ts`).
+- Corrigido o endpoint de cliques: exige `linkId`, valida pertença à página, estado ativo/visível e agendamento antes de atualizar métricas.
+- Consentimento de estudos passou a ser lido de cookie same-origin; o backend já não confia no campo enviado no body.
+- Analytics passaram a limitar o histórico diário a 90 dias e os links agregados a 500 entradas; mutações são serializadas por página no mesmo Worker.
+- Adicionados limites de payload e parsing seguro aos endpoints de security logs.
+- Removido o `aggregateRating` inventado do JSON-LD e corrigida a descrição SEO.
+- Atualizada a política de privacidade para refletir os dados realmente tratados.
+- Billing passou a declarar explicitamente que pagamentos ainda não estão disponíveis; a landing page deixou de prometer funcionalidades não implementadas.
+- Recuperado o `README.md` da raiz e alinhado o `README_APPWRITE.md`.
+- Corrigido o warning de workspace root com `outputFileTracingRoot` e adicionada a passagem de `IP_HASH_SECRET` no deploy Cloudflare.
+- Adicionados 6 testes de publicação/agendamento e limite de analytics.
+
+**Validação:** typecheck ✅ · **224/224 testes** ✅ · ESLint ✅ · build de produção ✅.
+
+**Pendências que exigem decisão/infraestrutura:** pagamentos reais, webhooks, domínios personalizados e contacto/base legal definitivos da política de privacidade.
+
+### Sessão 80 — 15 Agosto 2026 — Remoção da verificação de humanidade
+
+- Removido o hCaptcha das interfaces de login e registo e dos endpoints `/api/auth/login` e `/api/auth/register`.
+- Removidos o widget, o módulo server-side, o teste dedicado, a rate limit exclusiva e as permissões CSP/secrets de deploy associados.
+- Mantidos CSRF, validação de credenciais, deteção de input suspeito e rate limiting distribuído por IP/conta.
+- Validação: typecheck ✅ · **221/221 testes** ✅ · ESLint ✅ · build de produção ✅.
+
+### Sessão 81 — 16 Agosto 2026 — Mudança da região Appwrite para Frankfurt (fra)
+
+**Contexto:** o utilizador vai recriar o projeto no Appwrite Cloud na região **Frankfurt** (o projeto anterior vivia em Nova Iorque e foi apagado, Sessão 77).
+
+**Tarefas realizadas:**
+1. **Endpoint atualizado de `nyc.cloud.appwrite.io/v1` → `fra.cloud.appwrite.io/v1`** em todos os fallbacks:
+   - 7 ficheiros runtime: `src/lib/appwrite.ts`, `appwrite.server.ts`, `auth.server.ts`, proxy `api/appwrite/[...path]`, OAuth `start`/`callback`, `api/media/upload/route.ts`
+   - 7 scripts: `provision-appwrite.ts`, `fix-bucket-public.ts`, `create-security-logs.ts`, `migrate-users-permissions.ts`, `migrate-staff-applications.ts`, `migrate-study-data.ts`, `verify-account-deletion.ts`
+   - `.env.local` (2 linhas: `NEXT_PUBLIC_APPWRITE_ENDPOINT` + alias legado `APPWRITE_ENDPOINT`) e `.env.example`
+2. **Docs alinhadas:** `README.md` e secções de configuração corrente do `memoria.md` (root + frontend). O registo histórico das sessões mantém `nyc` (história preservada).
+3. **CSP intacta:** o `connect-src` do middleware já usa wildcard `https://*.cloud.appwrite.io` — cobre `fra` sem alteração.
+
+**Validação:** typecheck ✅ · **225/225 testes** ✅.
+
+**Próximo passo (utilizador):** criar o projeto no Appwrite Cloud na região **Frankfurt**, copiar o Project ID para `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, criar uma API key (scopes: databases/collections/attributes/indexes/buckets/files/users) para `APPWRITE_API_KEY`, e correr `npm run provision`.

@@ -59,7 +59,7 @@ O deploy automático no push para `main` é feito pelo GitHub Actions
 (`.github/workflows/deploy.yml`): valida os GitHub Secrets obrigatórios
 (fail-fast), faz o build com as variáveis `NEXT_PUBLIC_*` (inlined pelo Next.js
 em build time) e publica o Worker com `wrangler deploy`. Os segredos runtime
-(`APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `HCAPTCHA_SECRET`) são
+(`APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `IP_HASH_SECRET`) são
 gravados no Worker em cada deploy via `wrangler secret put` — nunca estão no
 código. A lista completa de variáveis está em `.env.example`.
 
@@ -82,10 +82,10 @@ Copy `.env.example` to `.env.local` and set your Appwrite endpoint, project and 
 
 > ⚠️ The endpoint must match the **region where your Appwrite project was created** — using
 the global endpoint (`https://cloud.appwrite.io/v1`) for a regional project returns HTTP 401
-`"Project is not accessible in this region"`. The LinkFlow project lives in **Nova Iorque**, so use:
+`"Project is not accessible in this region"`. The LinkFlow project lives in **Frankfurt**, so use:
 
 ```env
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://nyc.cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_APPWRITE_DATABASE_ID=linkflow
 NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID=avatars

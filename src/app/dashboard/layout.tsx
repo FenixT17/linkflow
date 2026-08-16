@@ -35,6 +35,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     }
   }, [isLoading, account, page, isCreateRoute, router]);
 
+  // Pré-carregamento da foto de perfil e do banner assim que os dados da
+  // página estão disponíveis. O browser inicia o download em paralelo com o
+  // resto do dashboard (prioridade baixa — não bloqueia recursos críticos).
+  // Quando o utilizador abre a aba Perfil, a imagem já está no cache do
+  // browser (o proxy /api/media devolve `Cache-Control: private, max-age,
+  // immutable`) — zero atraso perceptível, sem flickering e sem pedidos
+  // duplicados (o <img> da página reutiliza a mesma entrada de cache).
+  useEffect(() => {
+    const mediaUrls = [page?.avatar, page?.banner].filter((u): u is string => Boolean(u));
+    if (mediaUrls.length === 0) return;
+    const links = mediaUrls.map((href) => {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.href = href;
+      // Prioridade baixa: nunca compete com o JS/CSS do dashboard.
+      link.fetchPriority = "low";
+      document.head.appendChild(link);
+      return link;
+    });
+    // Remove os links antigos quando a foto/banner muda (nova imagem -> novo
+    // URL -> novo preload; evita duplicados em document.head).
+    return () => {
+      for (const link of links) document.head.removeChild(link);
+    };
+  }, [page?.avatar, page?.banner]);
+
   if (isLoading || !account) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[#030303]">

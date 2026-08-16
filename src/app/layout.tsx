@@ -115,13 +115,22 @@ export default async function RootLayout({
         {/* Sanitização pré-hidratação: valida localStorage["theme"] contra a
             whitelist ANTES do script inline do next-themes o aplicar ao DOM
             (previne DOM XSS via secondary source — CWE-79). */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }} />
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_SANITIZER_SCRIPT }}
+        />
         {/* Aplica o tema antes da hidratação (substitui o script inline do
             next-themes — ver THEME_SCRIPT em lib/theme-security.ts). */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }}
+        />
         <script
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={renderJsonLd(structuredData)}
         />
       </head>

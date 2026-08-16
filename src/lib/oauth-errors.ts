@@ -97,6 +97,17 @@ export function parseOAuthError(errorParam: string | null, errorDescription: str
   }
 
   if (
+    haystack.includes("oauth_state_missing") ||
+    haystack.includes("state missing")
+  ) {
+    return {
+      type,
+      message: messageText,
+      friendly: "Sessão de login inválida ou expirada. Inicie o login novamente.",
+    };
+  }
+
+  if (
     haystack.includes("user_already_exists") ||
     haystack.includes("user already exists") ||
     haystack.includes("user with the same id")

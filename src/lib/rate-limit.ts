@@ -31,10 +31,6 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     maxRequests: 3,
     windowMs: 3_600_000,
   },
-  captcha: {
-    maxRequests: 10,
-    windowMs: 60_000,
-  },
   api: {
     maxRequests: 30,
     windowMs: 60_000,

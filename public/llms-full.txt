@@ -1,0 +1,86 @@
+# LinkFlow — Documentação completa
+
+> Link-in-bio SaaS que permite a criadores, marcas e equipas criarem uma página pública personalizada para partilhar links, redes sociais, vídeos, lojas e conteúdo num só lugar.
+
+Esta é a versão completa da descrição do LinkFlow. Para um resumo rápido, consulta o [`llms.txt`](/llms.txt).
+
+## Sobre
+
+O LinkFlow é uma plataforma de link-in-bio (estilo Linktree) dirigida a criadores de conteúdo, influencers, marcas e equipas. Resolve o problema de ter os links dispersos por várias redes sociais e plataformas: reúne tudo numa única página pública, acessível em `/u/[username]`, que o utilizador pode personalizar e partilhar.
+
+## Funcionalidades
+
+- **Página pública por utilizador** — cada utilizador tem uma página pública em `/u/[username]`.
+- **Gestão de links** — adicionar, remover, reordenar com drag & drop, pesquisar e filtrar links.
+- **Códigos QR** — gerados para a página e para cada link, para partilha rápida.
+- **Analytics** — visualizações, cliques, CTR, países e dispositivos da página.
+- **Templates** — 12 estruturas visuais de página (criador, loja, portfólio, fotógrafo, música, restaurante, evento, CV, gamer, desenvolvedor, entre outros).
+- **Design system "Liquid Glass"** — personalização de opacidade, blur e cores da página.
+- **Redes sociais** — mais de 44 plataformas (Instagram, YouTube, TikTok, GitHub, Twitch, Spotify, entre outras) num único seletor, com geração automática de URL a partir do nome de utilizador.
+- **Autenticação** — por email/password ou contas Google e GitHub.
+- **Domínio personalizado** — em desenvolvimento.
+
+## Fluxos principais do produto
+
+1. **Registo** — o utilizador cria uma conta em `/register` (email/password ou Google/GitHub).
+2. **Criação da página** — define o nome de utilizador, nome, biografia, foto e banner.
+3. **Gestão de links** — adiciona e organiza os links que quer mostrar.
+4. **Personalização** — escolhe um template e ajusta a aparência (Liquid Glass).
+5. **Publicação** — publica a página, que fica disponível em `/u/[username]`.
+6. **Acompanhamento** — consulta as métricas de visualizações e cliques.
+
+## Páginas
+
+- [Página inicial](/): visão geral do produto, com secções de funcionalidades (`/#features`), preços (`/#pricing`) e FAQ (`/#faq`).
+- [Demo](/demo): demonstração de como fica uma página pública.
+- [Registar](/register): criação de conta.
+- [Entrar](/login): início de sessão.
+- [Política de privacidade](/privacidade): informação sobre o tratamento de dados.
+- [Páginas dos utilizadores](/u/[username]): página pública de cada utilizador. Só ficam visíveis e indexadas depois de publicadas.
+- [Sitemap](/sitemap.xml): sitemap do site.
+
+## Planos e preços
+
+Os planos são apresentados na secção [Preços](/#pricing) da página inicial:
+
+- **Gratuito — €0/mês**: até 3 links, foto de perfil e banner, biografia personalizada, layouts disponíveis, código QR, estatísticas básicas e página responsiva.
+- **Pro — €7,99/mês (ou €79/ano)**: tudo do plano Gratuito, mais links ilimitados, analytics avançados, mais personalização e acesso antecipado a novas funcionalidades.
+- **Business — €19,99/mês (ou €199/ano)**: tudo do plano Pro, mais funcionalidades para equipas, branding personalizado e limites mais elevados.
+
+## FAQ
+
+**O que é o LinkFlow?**
+O LinkFlow é uma plataforma de link-in-bio que permite criar páginas pessoais para partilhar links, redes sociais, vídeos, lojas e conteúdo num só lugar.
+
+**O LinkFlow é gratuito?**
+Sim. O plano Gratuito permite criar uma página com até 3 links, foto de perfil, banner, QR Code e templates, podendo atualizar para Pro ou Business quando quiser.
+
+**Quais planos estão disponíveis?**
+Gratuito (€0/mês), Pro (€7,99/mês ou €79/ano) e Business (€19,99/mês).
+
+**Posso usar o meu próprio domínio?**
+O suporte a domínio próprio está previsto para os planos pagos, atualmente em desenvolvimento.
+
+**Tem analíticos?**
+Sim. O plano Gratuito inclui estatísticas básicas; os planos pagos oferecem analytics mais completos, incluindo dispositivos, países, sistema operativo, navegador e exportação.
+
+## Termos importantes
+
+- **Link-in-bio**: página única que reúne todos os links de uma pessoa ou marca, partilhada na biografia das redes sociais.
+- **Página pública**: a página de um utilizador acessível em `/u/[username]`.
+- **CTR (click-through rate)**: percentagem de visitantes que clicam num link.
+- **Template**: estrutura visual pré-definida que define o layout da página pública.
+- **Liquid Glass**: design system visual próprio do LinkFlow, com efeitos de vidro, blur e opacidade ajustáveis.
+
+## API e documentação técnica
+
+O LinkFlow não disponibiliza atualmente uma API pública nem documentação técnica pública.
+
+## Links oficiais
+
+- [Página inicial](/)
+- [Demo](/demo)
+- [Registar](/register)
+- [Política de privacidade](/privacidade)
+- [Sitemap](/sitemap.xml)
+- [Resumo (llms.txt)](/llms.txt)

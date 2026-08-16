@@ -77,25 +77,32 @@ export interface DailyStat {
   clicks: number;
 }
 
+/** Mantém o documento agregado abaixo do limite do atributo Appwrite. */
+const MAX_DAILY_STATS = 90;
+const MAX_TOP_LINKS = 500;
+
 export function updateDailyStats(
   dailyStats: DailyStat[],
   type: "views" | "clicks"
 ): DailyStat[] {
   const today = new Date().toISOString().split("T")[0];
   const index = dailyStats.findIndex((s) => s.day === today);
-  if (index >= 0) {
-    return dailyStats.map((s, i) =>
-      i === index ? { ...s, [type]: (s[type] ?? 0) + 1 } : s
-    );
-  }
-  return [
-    ...dailyStats,
-    {
-      day: today,
-      views: type === "views" ? 1 : 0,
-      clicks: type === "clicks" ? 1 : 0,
-    },
-  ];
+  const updated = index >= 0
+    ? dailyStats.map((s, i) =>
+        i === index ? { ...s, [type]: (s[type] ?? 0) + 1 } : { ...s }
+      )
+    : [
+        ...dailyStats.map((s) => ({ ...s })),
+        {
+          day: today,
+          views: type === "views" ? 1 : 0,
+          clicks: type === "clicks" ? 1 : 0,
+        },
+      ];
+
+  return updated
+    .sort((a, b) => a.day.localeCompare(b.day))
+    .slice(-MAX_DAILY_STATS);
 }
 
 /** Número máximo de hashes únicos guardados nos agregados (evita crescimento infinito). */
@@ -200,8 +207,11 @@ function upsertTopLink(
       ctr: 0,
     });
   }
+  // Mantém apenas os links mais relevantes para impedir crescimento infinito.
+  topLinks.sort((a, b) => b.clicks - a.clicks);
+  const bounded = topLinks.slice(0, MAX_TOP_LINKS);
   // CTR real por link = cliques no link / total de cliques * 100
-  return topLinks.map((l) => ({
+  return bounded.map((l) => ({
     ...l,
     ctr: totalClicks > 0 ? Math.round((l.clicks / totalClicks) * 100) : 0,
   }));
@@ -284,11 +294,11 @@ function applyEventToMetrics(
   // Agregados por tipo de evento (views → país/dispositivo/visitante; clicks → links)
   if (input.type === "views") {
     metrics.topCountries = upsertTopCountry(
-      Array.isArray(metrics.topCountries) ? (metrics.topCountries as TopCountry[]) : [],
+      Array.isArray(metrics.topCountries) ? [...(metrics.topCountries as TopCountry[])] : [],
       input.geo
     );
     metrics.topDevices = upsertTopDevice(
-      Array.isArray(metrics.topDevices) ? (metrics.topDevices as TopDevice[]) : [],
+      Array.isArray(metrics.topDevices) ? [...(metrics.topDevices as TopDevice[])] : [],
       device
     );
 
@@ -308,7 +318,10 @@ function applyEventToMetrics(
 
     // Visitantes únicos por dia (limitado) — base real para o crescimento
     const dailyVisitors: DailyVisitorDay[] = Array.isArray(metrics.dailyVisitors)
-      ? (metrics.dailyVisitors as DailyVisitorDay[])
+      ? (metrics.dailyVisitors as DailyVisitorDay[]).map((day) => ({
+          day: day.day,
+          hashes: Array.isArray(day.hashes) ? [...day.hashes] : [],
+        }))
       : [];
     const today = new Date().toISOString().split("T")[0];
     const dayIndex = dailyVisitors.findIndex((d) => d.day === today);
@@ -329,13 +342,13 @@ function applyEventToMetrics(
 
     // Últimos visitantes (sem IP — privacidade)
     const recent: Visitor[] = Array.isArray(metrics.recentVisitors)
-      ? (metrics.recentVisitors as Visitor[])
+      ? (metrics.recentVisitors as Visitor[]).map((visitor) => ({ ...visitor }))
       : [];
     recent.unshift(buildRecentVisitor(input, visitorHash));
     metrics.recentVisitors = recent.slice(0, MAX_RECENT_VISITORS);
   } else {
     metrics.topLinks = upsertTopLink(
-      Array.isArray(metrics.topLinks) ? (metrics.topLinks as TopLink[]) : [],
+      Array.isArray(metrics.topLinks) ? [...(metrics.topLinks as TopLink[])] : [],
       input,
       newClicks
     );
@@ -354,6 +367,26 @@ function applyEventToMetrics(
 }
 
 // ---------- Upsert do documento de analytics ----------
+
+// Serializa mutações por página dentro do mesmo Worker. Isto evita que
+// renders concorrentes do mesmo isolate percam contadores; a chave única no
+// Appwrite continua a proteger a criação inicial entre vários Workers.
+const analyticsLocks = new Map<string, Promise<void>>();
+
+async function withAnalyticsLock<T>(pageId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = analyticsLocks.get(pageId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  const queued = previous.then(() => current);
+  analyticsLocks.set(pageId, queued);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (analyticsLocks.get(pageId) === queued) analyticsLocks.delete(pageId);
+  }
+}
 
 function createInitialMetrics(input: RecordAnalyticsEventInput, newViews: number, newClicks: number) {
   const dailyStats = updateDailyStats([], input.type);
@@ -391,8 +424,14 @@ async function incrementAnalyticsMetric(
   const newViews = prevViews + (input.type === "views" ? 1 : 0);
   const newClicks = prevClicks + (input.type === "clicks" ? 1 : 0);
 
-  const metricsJson = JSON.parse(String(fields.metricsJson || "{}"));
-  const dailyStats = Array.isArray(metricsJson.dailyStats) ? metricsJson.dailyStats : [];
+  let metricsJson: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(String(fields.metricsJson || "{}"));
+    metricsJson = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    metricsJson = {};
+  }
+  const dailyStats = Array.isArray(metricsJson.dailyStats) ? metricsJson.dailyStats as DailyStat[] : [];
   const updatedDaily = updateDailyStats(dailyStats, input.type);
   const { metrics } = applyEventToMetrics({ ...metricsJson, dailyStats: updatedDaily }, input, newViews, newClicks);
 
@@ -423,35 +462,37 @@ export async function recordAnalyticsEvent(
   const newViews = input.type === "views" ? 1 : 0;
   const newClicks = input.type === "clicks" ? 1 : 0;
 
-  const docs = await databases.listDocuments(databaseId, "analytics", [
-    Query.equal("pageId", input.pageId),
-  ]);
+  await withAnalyticsLock(input.pageId, async () => {
+    const docs = await databases.listDocuments(databaseId, "analytics", [
+      Query.equal("pageId", input.pageId),
+    ]);
 
-  if (docs.documents.length > 0) {
-    await incrementAnalyticsMetric(databases, docs.documents[0], input);
-  } else {
-    const firstMetrics = createInitialMetrics(input, newViews, newClicks);
-    try {
-      await databases.createDocument(databaseId, "analytics", ID.unique(), {
-        pageId: input.pageId,
-        views: newViews,
-        clicks: newClicks,
-        followers: Number(firstMetrics.uniqueVisitors ?? 0),
-        metricsJson: JSON.stringify(firstMetrics),
-      }, [
-        Permission.read(Role.user(input.ownerUserId)),
-        Permission.update(Role.user(input.ownerUserId)),
-        Permission.delete(Role.user(input.ownerUserId)),
-      ]);
-    } catch (createError) {
-      // Race: outro pedido criou o doc entretanto (índice único em pageId)
-      const retry = await databases.listDocuments(databaseId, "analytics", [
-        Query.equal("pageId", input.pageId),
-      ]);
-      if (retry.documents.length === 0) throw createError;
-      await incrementAnalyticsMetric(databases, retry.documents[0], input);
+    if (docs.documents.length > 0) {
+      await incrementAnalyticsMetric(databases, docs.documents[0], input);
+    } else {
+      const firstMetrics = createInitialMetrics(input, newViews, newClicks);
+      try {
+        await databases.createDocument(databaseId, "analytics", ID.unique(), {
+          pageId: input.pageId,
+          views: newViews,
+          clicks: newClicks,
+          followers: Number(firstMetrics.uniqueVisitors ?? 0),
+          metricsJson: JSON.stringify(firstMetrics),
+        }, [
+          Permission.read(Role.user(input.ownerUserId)),
+          Permission.update(Role.user(input.ownerUserId)),
+          Permission.delete(Role.user(input.ownerUserId)),
+        ]);
+      } catch (createError) {
+        // Race: outro pedido criou o doc entretanto (índice único em pageId)
+        const retry = await databases.listDocuments(databaseId, "analytics", [
+          Query.equal("pageId", input.pageId),
+        ]);
+        if (retry.documents.length === 0) throw createError;
+        await incrementAnalyticsMetric(databases, retry.documents[0], input);
+      }
     }
-  }
+  });
 
   // Registo bruto da visita (server-only — o cliente nunca lê esta coleção).
   try {

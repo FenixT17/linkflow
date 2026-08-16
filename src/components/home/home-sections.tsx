@@ -113,7 +113,7 @@ function PricingSection() {
               price="€0"
               period="/mês"
               description="Tudo para começar."
-              features={["Até 3 links", "Foto de perfil e banner", "Biografia personalizada", "6 templates gratuitos", "Código QR", "Estatísticas básicas", "Página responsiva"]}
+              features={["Até 3 links", "Foto de perfil e banner", "Biografia personalizada", "Layouts disponíveis", "Código QR", "Estatísticas básicas", "Página responsiva"]}
               variant="secondary"
               href="/register"
               buttonText="Começar Gratuitamente"
@@ -125,11 +125,11 @@ function PricingSection() {
               price={annual ? "€79" : "€7,99"}
               period={annual ? "/ano" : "/mês"}
               description="Para criadores que querem mais."
-              features={["Tudo do plano Gratuito", "Remover marca LinkFlow", "Domínio personalizado", "Todos os templates Premium", "Analytics completos", "Histórico ilimitado", "Agendamento de links", "Pixels Meta, Google e TikTok", "Suporte prioritário"]}
+              features={["Tudo do plano Gratuito", "Links ilimitados", "Analytics avançados", "Mais personalização", "Acesso antecipado a novas funcionalidades"]}
               variant="primary"
               popular
               href="/register"
-              buttonText="Subscrever Agora"
+              buttonText="Ver planos"
             />
           </ScrollReveal>
           <ScrollReveal delay={0.3}>
@@ -138,10 +138,10 @@ function PricingSection() {
               price={annual ? "€199" : "€19,99"}
               period={annual ? "/ano" : "/mês"}
               description="Para equipas e marcas."
-              features={["Tudo do plano Pro", "Até 5 membros da equipa", "Gestão da equipa", "Branding personalizado", "Workspace partilhado", "Limites mais elevados", "Prioridade máxima no suporte"]}
+              features={["Tudo do plano Pro", "Funcionalidades para equipas", "Branding personalizado", "Limites mais elevados", "Funcionalidades em desenvolvimento"]}
               variant="secondary"
               href="/register"
-              buttonText="Contactar Vendas"
+              buttonText="Saber mais"
             />
           </ScrollReveal>
         </div>

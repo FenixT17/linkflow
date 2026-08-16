@@ -35,8 +35,6 @@ Copie `.env.example` para `.env.local` e preencha com valores reais.
 | Variável                     | Descrição                                                                 |
 |------------------------------|-------------------------------------------------------------------------|
 | `NEXT_PUBLIC_SITE_URL`       | URL do site (usada para links canônicos, Open Graph, JSON-LD).          |
-| `NEXT_PUBLIC_HCAPTCHA_SITE_KEY` | Chave pública do hCaptcha (frontend).                                  |
-| `HCAPTCHA_SECRET`            | Chave secreta do hCaptcha (backend, nunca expor ao frontend).           |
 | `APPWRITE_API_KEY`           | Chave de API do Appwrite (backend).                                      |
 | `RESEND_API_KEY`             | Chave de API do Resend (infra preparada, envio desativado).              |
 | `RESEND_FROM_EMAIL`          | Endereço de email do remetente (ex: `LinkFlow <onboarding@resend.dev>`). |
@@ -53,8 +51,8 @@ Copie `.env.example` para `.env.local` e preencha com valores reais.
 - **Permissions-Policy**: Restringe acesso a câmera, microfone e geolocalização.
 
 ### Autenticação
-- **hCaptcha**: Proteção contra bots.
 - **Appwrite**: Autenticação segura com escopos restritos.
+- **Rate limiting**: Limites distribuídos por IP e por conta nos fluxos de autenticação.
 
 ### CSP (Content Security Policy)
 O rate limiting distribuído usa Redis REST e não depende de estado local da função. O CSP atual ainda usa scripts inline necessários para a hidratação do tema; a migração completa para nonce/hash deve ser tratada separadamente para não quebrar `next-themes`.
@@ -78,7 +76,7 @@ npm run cf:deploy     # build + deploy para a Cloudflare
 O deploy automático no push para `main` é feito pelo GitHub Actions (`.github/workflows/deploy.yml`):
 1. Valida que todos os GitHub Secrets obrigatórios existem (fail-fast).
 2. Faz o build com as variáveis `NEXT_PUBLIC_*` (inlined no bundle pelo Next.js).
-3. Publica o Worker e grava os segredos runtime (`APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `HCAPTCHA_SECRET`) com `wrangler secret put`.
+3. Publica o Worker e grava os segredos runtime (`APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN`, `IP_HASH_SECRET`) com `wrangler secret put`.
 
 ---
 

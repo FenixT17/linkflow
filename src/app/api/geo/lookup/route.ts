@@ -19,10 +19,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
 
-  const rate = await checkRateLimit("geo_lookup", ip, {
-    maxRequests: 30,
-    windowMs: 60 * 1000,
-  });
+  let rate;
+  try {
+    rate = await checkRateLimit("geo_lookup", ip, {
+      maxRequests: 30,
+      windowMs: 60 * 1000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+  }
   if (!rate.allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rate) });
   }

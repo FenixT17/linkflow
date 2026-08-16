@@ -46,7 +46,7 @@ const PNG = Buffer.from(
   "base64"
 );
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://nyc.cloud.appwrite.io/v1";
+const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ?? "https://fra.cloud.appwrite.io/v1";
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const apiKey = process.env.APPWRITE_API_KEY ?? "";
 

@@ -21,6 +21,7 @@ export function SiteJsonLd() {
     <script
       type="application/ld+json"
       nonce={nonce}
+      suppressHydrationWarning
       dangerouslySetInnerHTML={renderJsonLd(jsonLdData)}
     />
   );

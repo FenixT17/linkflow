@@ -79,6 +79,11 @@ export default function ProfilePage() {
     null
   );
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Erro de carregamento das imagens: se o ficheiro falhar (ex: media já
+  // apagada), mostra o mesmo placeholder do estado "sem imagem" em vez de um
+  // ícone partido — sem alterar o design.
+  const [avatarError, setAvatarError] = useState(false);
+  const [bannerError, setBannerError] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +91,13 @@ export default function ProfilePage() {
   useEffect(() => {
     setUsername(page?.username || "");
   }, [page?.username]);
+
+  // Quando a imagem muda (nova foto, remoção ou refresh), o erro anterior
+  // deixa de se aplicar e o novo URL tenta carregar normalmente.
+  useEffect(() => {
+    setAvatarError(false);
+    setBannerError(false);
+  }, [page?.avatar, page?.banner]);
 
   const showToast = useCallback((text: string, type: "success" | "error") => {
     setToast({ text, type });
@@ -310,7 +322,7 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {page?.avatar ? (
+              {page?.avatar && !avatarError ? (
                 <div className="relative h-14 w-14 rounded-full overflow-hidden ring-1 ring-white/[0.08]">
                   <NextImage
                     src={page.avatar}
@@ -318,6 +330,7 @@ export default function ProfilePage() {
                     fill
                     unoptimized
                     priority
+                    onError={() => setAvatarError(true)}
                     className="object-cover"
                     sizes="56px"
                   />
@@ -360,7 +373,7 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
-            {page?.banner ? (
+            {page?.banner && !bannerError ? (
               <div className="relative h-24 w-full rounded-lg overflow-hidden ring-1 ring-white/[0.08]">
                 <NextImage
                   src={page.banner}
@@ -368,6 +381,7 @@ export default function ProfilePage() {
                   fill
                   unoptimized
                   priority
+                  onError={() => setBannerError(true)}
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />

@@ -133,7 +133,6 @@ export function sanitizeSocialLinks(
   return result;
 }
 
-export const escapeHtml = sanitizeText;
 
 // ---------- Security Hashing ----------
 
@@ -187,23 +186,6 @@ export function detectSuspiciousInput(input: string): {
 
   return {
     suspicious: matchedPatterns.length > 0,
-    matchedPatterns,
-  };
-}
-
-/**
- * Sanitiza e deteta se o input é suspeito.
- * Útil para logging de segurança em formulários.
- */
-export function sanitizeWithDetection(input: string): {
-  sanitized: string;
-  suspicious: boolean;
-  matchedPatterns: string[];
-} {
-  const { suspicious, matchedPatterns } = detectSuspiciousInput(input);
-  return {
-    sanitized: sanitizeText(input),
-    suspicious,
     matchedPatterns,
   };
 }

@@ -67,7 +67,7 @@ export function Navbar() {
       )}
 
       <motion.header
-        initial={{ y: -80, opacity: 0, filter: "blur(8px)" }}
+        initial={false}
         animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
         className="fixed top-0 left-0 right-0 z-50 transition-all duration-500 bg-[var(--background)] md:bg-transparent"

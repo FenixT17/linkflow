@@ -14,7 +14,22 @@
  * 3. IPs privados/locais (dev) → sem lookup, devolvem vazio.
  */
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
+
+/**
+ * Segredo server-side para derivar o visitorHash (HMAC-SHA256).
+ *
+ * M1 (corrigido): um salt fixo hardcoded permite a um atacante com acesso
+ * à base de dados reverter o hash por força bruta sobre o espaço IPv4
+ * (~2^32 endereços) e desanonimizar visitantes. Com um segredo fora do
+ * bundle (env var), o hash só é reversível por quem conhecer o segredo.
+ *
+ * Quando a variável não está definida (dev/testes), mantém-se o salt
+ * legado por compatibilidade — os hashes antigos continuam a coincidir.
+ * Definir `IP_HASH_SECRET` em produção (o valor NUNCA deve ir para o
+ * bundle NEXT_PUBLIC_*; reiniciar o contador de visitantes ao defini-lo).
+ */
+const ipHashSecret = (process.env.IP_HASH_SECRET ?? "").trim();
 
 
 export interface GeoInfo {
@@ -196,9 +211,9 @@ export async function resolveGeo(ip: string, request?: Request): Promise<GeoInfo
 /**
  * Hash determinístico e não reversível do IP (para visitorHash).
  *
- * SHA-256 real (RFC 6234) com salt fixo — não reversível na prática para
- * um atacante com acesso à BD (a força bruta sobre o espaço IPv4 exigiria
- * ~2^32 tentativas de SHA-256, e o salt impede rainbow tables pré-computadas).
+ * Com `IP_HASH_SECRET` definido usa HMAC-SHA256 (RFC 2104) com o segredo
+ * server-side — não reversível na prática por quem só tem acesso à BD.
+ * Sem segredo (dev/testes) usa SHA-256 com salt fixo legado.
  *
  * Devolve os primeiros 16 hex chars (64 bits): espaço suficiente para
  * deduplicar visitantes sem colisões práticas (birthday bound ~2^32) e
@@ -206,7 +221,18 @@ export async function resolveGeo(ip: string, request?: Request): Promise<GeoInfo
  * (1MB — visitorSet 2000, dailyVisitors 14×1000).
  */
 export function hashIp(ip: string): string {
+  if (ipHashSecret) {
+    return hashIpWithSecret(ip, ipHashSecret);
+  }
   const salt = "linkflow-visitor-v1";
   const input = `${salt}:${ip}`;
   return createHash("sha256").update(input).digest("hex").slice(0, 16);
+}
+
+/**
+ * HMAC-SHA256 do IP com um segredo server-side (16 hex chars). Extraído
+ * para ser testável sem depender da env var IP_HASH_SECRET.
+ */
+export function hashIpWithSecret(ip: string, secret: string): string {
+  return createHmac("sha256", secret).update(ip, "utf8").digest("hex").slice(0, 16);
 }

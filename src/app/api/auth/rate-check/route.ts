@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const action = typeof body?.action === "string" ? body.action : "";
 
-    if (action !== "login" && action !== "register" && action !== "passwordReset" && action !== "captcha") {
+    if (action !== "login" && action !== "register" && action !== "passwordReset") {
       return NextResponse.json(
         { allowed: false, error: "Ação inválida." },
         { status: 400 }
@@ -42,9 +42,7 @@ export async function POST(request: NextRequest) {
           ? `Muitas tentativas de login. Aguarde ${waitSeconds}s antes de tentar novamente.`
           : action === "register"
             ? `Limite de registos atingido. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`
-            : action === "passwordReset"
-            ? `Muitos pedidos de recuperação. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`
-            : `Muitas verificações anti-bot. Aguarde ${waitSeconds}s antes de tentar novamente.`;
+            : `Muitos pedidos de recuperação. Aguarde ${Math.ceil(waitSeconds / 60)}min antes de tentar novamente.`;
 
       return NextResponse.json(
         { allowed: false, error: message },

@@ -9,7 +9,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const APPWRITE_ENDPOINT = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://nyc.cloud.appwrite.io/v1",
+  "https://fra.cloud.appwrite.io/v1",
 );
 const APPWRITE_PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID?.trim() ?? "";
 const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY?.trim() ?? "";

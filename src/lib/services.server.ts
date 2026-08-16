@@ -8,11 +8,11 @@ import {
   PageProfile,
   PageType,
   PageTemplateId,
-  AnalyticsData,
 } from "./types";
 
-import { defaultAppearance, emptyAnalytics } from "./defaults";
+import { defaultAppearance } from "./defaults";
 import { safeThemeColor, safeThemeFont } from "./theme-validation";
+import { isLinkPublicAt, isPublicAt } from "./page-publication";
 
 const Collections = {
   pages: "pages",
@@ -26,12 +26,14 @@ export const getPublicPageByUsername = cache(
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, Collections.pages, [
       Query.equal("username", username.toLowerCase()),
-      Query.equal("published", true),
+      Query.limit(5),
     ]);
-    if (docs.documents.length === 0) {
+    const doc = docs.documents
+      .map((candidate) => candidate as unknown as Record<string, unknown> & { $id: string })
+      .find((candidate) => isPublicAt(candidate));
+    if (!doc) {
       throw new Error("Page not found");
     }
-    const doc = docs.documents[0] as unknown as Record<string, unknown> & { $id: string };
     return {
       $id: doc.$id,
       username: String(doc.username),
@@ -52,12 +54,13 @@ export const getPublicPageByUsername = cache(
 export async function getPublicPublishedUsernames(limit = 1000): Promise<string[]> {
   const { databases } = createServerClient();
   const docs = await databases.listDocuments(databaseId, Collections.pages, [
-    Query.equal("published", true),
     Query.limit(limit),
     Query.orderAsc("username"),
-    Query.select(["username"]),
+    Query.select(["username", "published", "deleting", "scheduledPublishAt", "scheduledUnpublishAt"]),
   ]);
-  return docs.documents.map((doc) => String((doc as unknown as { username: string }).username));
+  return docs.documents
+    .filter((doc) => isPublicAt(doc as unknown as Record<string, unknown>))
+    .map((doc) => String((doc as unknown as { username: string }).username));
 }
 
 export async function getPublicLinksByPageId(pageId: string): Promise<LinkItem[]> {
@@ -68,7 +71,11 @@ export async function getPublicLinksByPageId(pageId: string): Promise<LinkItem[]
     Query.equal("active", true),
     Query.orderAsc("order"),
   ]);
-  return docs.documents.map((doc) => {
+  const now = Date.now();
+  return docs.documents.filter((doc) => {
+    const d = doc as unknown as Record<string, unknown>;
+    return isLinkPublicAt(d.scheduledFor, now);
+  }).map((doc) => {
     const d = doc as unknown as Record<string, unknown> & { $id: string };
     return {
       id: d.$id,
@@ -122,14 +129,6 @@ export async function getPublicThemeByPageId(pageId: string): Promise<Appearance
     glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
     glassStrength: doc.glassStrength !== undefined ? Number(doc.glassStrength) : 50,
   };
-}
-
-/**
- * @deprecated Analytics data is private and should not be exposed publicly.
- * This function now returns empty analytics regardless of the page.
- */
-export async function getPublicAnalyticsByPageId(_pageId: string): Promise<AnalyticsData> {
-  return emptyAnalytics();
 }
 
 async function getPublicBadges(userId: string, rawBadges: unknown): Promise<string[]> {

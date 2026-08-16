@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuthProvider } from "node-appwrite";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
+import { setOAuthStateCookie } from "@/lib/auth.server";
+import { generateToken } from "@/lib/csrf";
 import { normalizeEnvUrl } from "@/lib/utils";
 
 const APPWRITE_ENDPOINT = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://nyc.cloud.appwrite.io/v1"
+  "https://fra.cloud.appwrite.io/v1"
 );
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const PROVIDERS: Record<string, string> = {
@@ -55,7 +57,13 @@ export async function GET(request: NextRequest) {
   oauthUrl.searchParams.set("success", new URL("/api/auth/oauth/callback", request.url).toString());
   oauthUrl.searchParams.set("failure", new URL("/login", request.url).toString());
 
-  return NextResponse.redirect(oauthUrl, {
+  // M2: marca o browser que iniciou o fluxo com um cookie de estado. O
+  // callback exige a sua presença antes de trocar userId+secret por sessão —
+  // impede login CSRF (um atacante não consegue semear este cookie no
+  // browser da vítima).
+  const response = NextResponse.redirect(oauthUrl, {
     headers: mergeRateLimitHeaders(undefined, rateLimit),
   });
+  setOAuthStateCookie(response, generateToken());
+  return response;
 }

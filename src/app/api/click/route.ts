@@ -5,6 +5,10 @@ import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-l
 import { resolveGeo } from "@/lib/geo";
 import { detectDeviceType, detectBrowser, detectOS } from "@/lib/device-detect";
 import { isSameOriginMediaReferrer } from "@/lib/media-security";
+import { isStudyConsentGranted } from "@/lib/privacy";
+import { isLinkPublicAt, isPublicAt } from "@/lib/page-publication";
+
+const MAX_BODY_BYTES = 16 * 1024;
 
 // NOTA: Este endpoint é público e anónimo — regista cliques de
 // visitantes não autenticados na página pública /u/[username]. Aplica
@@ -21,8 +25,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
     }
 
-    const body = await request.json();
-    if (!body || typeof body !== "object") {
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_BODY_BYTES)) {
+      return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+    }
+
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Pedido demasiado grande." }, { status: 413 });
+    }
+    let body: Record<string, unknown> | null = null;
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      body = null;
+    }
+    if (!body) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
     if (typeof body.pageId !== "string" || !body.pageId.trim()) {
@@ -30,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
     const pageId = body.pageId.trim();
     const linkId = typeof body.linkId === "string" ? body.linkId.trim() : "";
-    const studyConsent = body.studyConsent === true;
+    const studyConsent = isStudyConsentGranted(request);
 
     // Rate limit: max 20 clicks per IP per minute to prevent metric spam
     const ip = getClientIp(request);
@@ -44,7 +65,7 @@ export async function POST(request: NextRequest) {
     let pageDoc;
     try {
       pageDoc = await databases.getDocument(databaseId, "pages", pageId);
-      if (!pageDoc.published || pageDoc.deleting === true) {
+      if (!isPublicAt(pageDoc)) {
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
     } catch {
@@ -61,32 +82,30 @@ export async function POST(request: NextRequest) {
     const geo = await resolveGeo(ip, request);
 
     // Detalhes do link clicado (para o agregado real de Top Links)
+    if (!linkId) {
+      return NextResponse.json({ error: "linkId is required" }, { status: 400 });
+    }
+
     let linkTitle = "";
     let linkUrl = "";
-    if (linkId) {
-      try {
-        const linkDoc = await databases.getDocument(databaseId, "links", linkId);
-        if (linkDoc) {
-          // Validação de segurança FASE 2:
-          // 1. O link tem de pertencer à página informada (pageId)
-          // 2. O link não pode estar inativo ou invisível
-          const linkPageId = String(linkDoc.pageId ?? "");
-          const isLinkActive = linkDoc.active !== false;
-          const isLinkVisible = linkDoc.visible !== false;
+    try {
+      const linkDoc = await databases.getDocument(databaseId, "links", linkId);
+      const linkPageId = String(linkDoc.pageId ?? "");
+      const isLinkActive = linkDoc.active !== false;
+      const isLinkVisible = linkDoc.visible !== false;
+      const isLinkScheduled = isLinkPublicAt(linkDoc.scheduledFor);
 
-          if (linkPageId === pageId && isLinkActive && isLinkVisible) {
-            linkTitle = String(linkDoc.title ?? "");
-            linkUrl = String(linkDoc.url ?? "");
-            await databases.updateDocument(databaseId, "links", linkId, {
-              clicks: (Number(linkDoc.clicks) || 0) + 1,
-            });
-          } else {
-            console.warn(`[api/click] Link ${linkId} do not match page ${pageId} or is inactive/invisible`);
-          }
-        }
-      } catch {
-        // Link não encontrado; ignora
+      if (linkPageId !== pageId || !isLinkActive || !isLinkVisible || !isLinkScheduled) {
+        return NextResponse.json({ error: "Link not found or not published" }, { status: 404 });
       }
+
+      linkTitle = String(linkDoc.title ?? "");
+      linkUrl = String(linkDoc.url ?? "");
+      await databases.updateDocument(databaseId, "links", linkId, {
+        clicks: (Number(linkDoc.clicks) || 0) + 1,
+      });
+    } catch {
+      return NextResponse.json({ error: "Link not found or not published" }, { status: 404 });
     }
 
     // Regista o clique com todos os dados reais recolhidos.

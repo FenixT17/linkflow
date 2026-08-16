@@ -5,7 +5,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 
 const endpoint = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://nyc.cloud.appwrite.io/v1"
+  "https://fra.cloud.appwrite.io/v1"
 );
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const apiKey = process.env.APPWRITE_API_KEY ?? "";
@@ -20,6 +20,46 @@ const apiKey = process.env.APPWRITE_API_KEY ?? "";
  */
 export const AUTH_SESSION_COOKIE_NAME =
   process.env.NODE_ENV === "production" ? "__Host-linkflow-session" : "linkflow-session";
+
+/**
+ * Cookie de estado do fluxo OAuth (anti login CSRF — M2).
+ *
+ * O callback OAuth (/api/auth/oauth/callback) recebe `userId`+`secret` na
+ * query string (redirect do provider). Sem um estado ligado ao browser, um
+ * atacante poderia induzir a vítima a abrir um link com o `userId`+`secret`
+ * da conta DO ATACANTE, fazendo o browser da vítima definir a sessão do
+ * atacante (login CSRF / session fixation). Este cookie (HttpOnly, curta
+ * duração) só existe quando o próprio browser inicia o fluxo em
+ * /api/auth/oauth/start — o callback exige a sua presença.
+ */
+export const OAUTH_STATE_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-linkflow-oauth-state" : "linkflow-oauth-state";
+const OAUTH_STATE_MAX_AGE = 10 * 60; // 10 minutos
+
+export function setOAuthStateCookie(response: NextResponse, state: string): void {
+  response.cookies.set(OAUTH_STATE_COOKIE_NAME, state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    // Lax: o cookie tem de ser enviado no redirect top-level do provider.
+    sameSite: "lax",
+    path: "/",
+    maxAge: OAUTH_STATE_MAX_AGE,
+  });
+}
+
+export function clearOAuthStateCookie(response: NextResponse): void {
+  response.cookies.set(OAUTH_STATE_COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export function hasOAuthStateCookie(request: NextRequest): boolean {
+  return Boolean(request.cookies.get(OAUTH_STATE_COOKIE_NAME)?.value);
+}
 
 export interface SessionCookie {
   name: string;
@@ -301,14 +341,3 @@ export async function requireAuth(request: NextRequest): Promise<
   }
 }
 
-export function verifyOwnership(documentUserId: string, currentUserId: string): boolean {
-  return documentUserId === currentUserId;
-}
-
-export function forbiddenResponse(message = "Forbidden"): NextResponse {
-  return NextResponse.json({ error: message }, { status: 403 });
-}
-
-export function unauthorizedResponse(message = "Unauthorized"): NextResponse {
-  return NextResponse.json({ error: message }, { status: 401 });
-}

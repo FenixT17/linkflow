@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { getFilePreviewUrl } from "@/lib/services";
@@ -8,7 +9,7 @@ import type { LinkItem, PageProfile } from "@/lib/types";
 
 vi.mock("next/image", () => ({
   default: ({ fill: _fill, priority: _priority, unoptimized, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean; priority?: boolean; unoptimized?: boolean }) => (
-    <img data-unoptimized={unoptimized ? "true" : "false"} {...props} />
+    <img alt={props.alt ?? ""} data-unoptimized={unoptimized ? "true" : "false"} {...props} />
   ),
 }));
 

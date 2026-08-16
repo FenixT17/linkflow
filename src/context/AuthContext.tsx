@@ -63,12 +63,11 @@ interface AuthContextValue {
   activities: ActivityEntry[];
   refreshActivities: () => Promise<void>;
   isLoading: boolean;
-  login: (email: string, password: string, remember?: boolean, captchaToken?: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   register: (
     name: string,
     email: string,
-    password: string,
-    captchaToken?: string
+    password: string
   ) => Promise<{ success: boolean; verificationSent?: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
@@ -327,7 +326,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Sincronização OAuth: usa API route server-side para evitar
         // problemas de permissão do client SDK. Falhas não quebram o login.
         // O endpoint verifica o cookie de sessão e deriva o userId server-side.
-        await checkAndSyncOAuthUser(session);
+        const oauthSyncAllowed = await checkAndSyncOAuthUser(session);
+        if (!oauthSyncAllowed) {
+          throw new Error("Este email não pode ser utilizado no LinkFlow.");
+        }
 
         await loadUserData(session.$id, session);
       } catch {
@@ -358,7 +360,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadUserData, pathname, router]);
 
-  const login = useCallback(async (email: string, password: string, remember?: boolean, captchaToken?: string) => {
+  const login = useCallback(async (email: string, password: string, remember?: boolean) => {
     try {
       // Detect suspicious input
       const suspicious = detectSuspiciousInput(email);
@@ -380,7 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       });
 
-      await loginUser(email, password, remember, captchaToken);
+      await loginUser(email, password, remember);
       const session = await getCurrentSession();
 
       // Registo de atividade: login bem-sucedido
@@ -413,7 +415,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadUserData]);
 
-  const register = useCallback(async (name: string, email: string, password: string, captchaToken?: string) => {
+  const register = useCallback(async (name: string, email: string, password: string) => {
     try {
       // Detect suspicious input
       const emailCheck = detectSuspiciousInput(email);
@@ -440,7 +442,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metadata: { displayName: name },
       });
 
-      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name, captchaToken);
+      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name);
 
       // Registo de atividade: conta criada
       void logActivity("register", { displayName: name });

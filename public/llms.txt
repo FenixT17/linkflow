@@ -1,0 +1,53 @@
+# LinkFlow
+
+> Link-in-bio SaaS que permite a criadores, marcas e equipas criarem uma página pública personalizada para partilhar links, redes sociais, vídeos, lojas e conteúdo num só lugar.
+
+## Sobre
+
+O LinkFlow é uma plataforma de link-in-bio (estilo Linktree) dirigida a criadores de conteúdo, influencers, marcas e equipas. Resolve o problema de ter os links dispersos por várias plataformas, reunindo tudo numa única página pública com o endereço `/u/[username]`.
+
+## Funcionalidades
+
+- Página pública personalizada por utilizador (`/u/[username]`)
+- Gestão de links: adicionar, remover, reordenar com drag & drop, pesquisar e filtrar
+- Códigos QR para a página e para cada link
+- Analytics: visualizações, cliques, CTR, países e dispositivos
+- 12 templates de página (criador, loja, portfólio, evento, gamer, entre outros)
+- Design system "Liquid Glass" com personalização de opacidade, blur e cores
+- Mais de 44 plataformas de redes sociais num único seletor
+- Autenticação por email/password ou Google/GitHub
+- Domínio personalizado (em desenvolvimento)
+
+## Páginas principais
+
+- [Página inicial](/): visão geral do produto
+- [Funcionalidades](/#features): funcionalidades do LinkFlow
+- [Preços](/#pricing): planos e preços
+- [FAQ](/#faq): perguntas frequentes
+- [Demo](/demo): demonstração de uma página pública
+- [Registar](/register): criar uma conta
+- [Entrar](/login): iniciar sessão
+- [Política de privacidade](/privacidade): tratamento de dados
+- [Páginas dos utilizadores](/u/[username]): página pública de cada utilizador
+
+## Documentação
+
+Atualmente o LinkFlow não disponibiliza documentação pública nem uma API pública.
+
+## Planos e preços
+
+Os três planos estão descritos em [Preços](/#pricing):
+
+- **Gratuito** — €0/mês, até 3 links
+- **Pro** — €7,99/mês (ou €79/ano)
+- **Business** — €19,99/mês (ou €199/ano)
+
+## Ajuda
+
+- [FAQ](/#faq): perguntas frequentes sobre o LinkFlow
+
+## Links
+
+- [Página inicial](/)
+- [Sitemap](/sitemap.xml)
+- [Versão completa](/llms-full.txt)

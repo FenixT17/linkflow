@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createHash } from "node:crypto";
-import { hashIp, isPrivateIp, resolveGeoWithCoordinates } from "@/lib/geo";
+import { createHash, createHmac } from "node:crypto";
+import { hashIp, hashIpWithSecret, isPrivateIp, resolveGeoWithCoordinates } from "@/lib/geo";
 
 /** SHA-256 puro (sem salt) — para provar que o hashIp aplica o salt. */
 function bareSha256(input: string): string {
@@ -36,6 +36,21 @@ describe("hashIp (SHA-256 salgado)", () => {
     // ...mas é determinístico e tem o formato esperado.
     expect(hashIp(ip)).toBe(hashIp(ip));
     expect(hashIp(ip)).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
+describe("hashIpWithSecret (HMAC server-side — M1)", () => {
+  it("é HMAC-SHA256 do IP com o segredo (16 hex chars)", () => {
+    const ip = "203.0.113.9";
+    const secret = "super-secret-key";
+    const expected = createHmac("sha256", secret).update(ip, "utf8").digest("hex").slice(0, 16);
+    expect(hashIpWithSecret(ip, secret)).toBe(expected);
+    expect(hashIpWithSecret(ip, secret)).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("segredos diferentes produzem hashes diferentes (reversão requer o segredo)", () => {
+    const ip = "203.0.113.9";
+    expect(hashIpWithSecret(ip, "secret-a")).not.toBe(hashIpWithSecret(ip, "secret-b"));
   });
 });
 

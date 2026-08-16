@@ -91,10 +91,10 @@ export async function fetchUserGeo(): Promise<{
   }
 }
 
-export async function registerUser(email: string, password: string, name: string, captchaToken?: string) {
+export async function registerUser(email: string, password: string, name: string) {
   const response = await fetchWithCsrf("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, name, captchaToken }),
+    body: JSON.stringify({ email, password, name }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
@@ -185,10 +185,10 @@ export async function completePasswordReset(userId: string, secret: string, pass
   return account.updateRecovery(userId, secret, password);
 }
 
-export async function loginUser(email: string, password: string, remember = true, captchaToken?: string) {
+export async function loginUser(email: string, password: string, remember = true) {
   const response = await fetchWithCsrf("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password, remember, captchaToken }),
+    body: JSON.stringify({ email, password, remember }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
@@ -281,7 +281,7 @@ async function fetchWithAppwriteAuth(url: string, options: RequestInit = {}): Pr
   return fetchWithCsrf(url, options);
 }
 
-export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences>) {
+export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences>): Promise<boolean> {
   try {
     // M3: usa fetchWithCsrf (com header X-CSRF-Token) — o endpoint agora
     // valida CSRF. Usa o server SDK via API route para criar/verificar o
@@ -299,12 +299,15 @@ export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.warn("[checkAndSyncOAuthUser] API error:", data.error || res.status);
+      return res.status !== 403;
     }
+    return true;
   } catch (error) {
     // Não deve impedir o login OAuth — falha silenciosa.
     if (process.env.NODE_ENV === "development") {
       console.warn("[checkAndSyncOAuthUser] Failed to sync:", error);
     }
+    return true;
   }
 }
 

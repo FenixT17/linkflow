@@ -5,14 +5,14 @@ function createNonce(): string {
 }
 
 function buildContentSecurityPolicy(nonce: string): string {
+  const isDevelopment = process.env.NODE_ENV === "development";
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://js.hcaptcha.com`,
-    "frame-src 'self' https://hcaptcha.com https://*.hcaptcha.com https://api.hcaptcha.com",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDevelopment ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self' data:",
-    "connect-src 'self' https://cloud.appwrite.io https://*.cloud.appwrite.io https://hcaptcha.com https://*.hcaptcha.com https://api.hcaptcha.com",
+    `connect-src 'self' https://cloud.appwrite.io https://*.cloud.appwrite.io${isDevelopment ? " ws: wss:" : ""}`,
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",

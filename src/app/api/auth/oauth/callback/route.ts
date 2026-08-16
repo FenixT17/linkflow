@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { setAuthSessionCookie } from "@/lib/auth.server";
+import {
+  clearOAuthStateCookie,
+  hasOAuthStateCookie,
+  setAuthSessionCookie,
+} from "@/lib/auth.server";
 import { normalizeEnvUrl } from "@/lib/utils";
 
 const APPWRITE_ENDPOINT = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
-  "https://nyc.cloud.appwrite.io/v1"
+  "https://fra.cloud.appwrite.io/v1"
 );
 const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID ?? "";
 const MAX_SECRET_LENGTH = 4096;
@@ -45,6 +49,13 @@ export async function GET(request: NextRequest) {
     const returning = new URL("/dashboard", request.url);
     returning.searchParams.set("oauth", "returning");
     return NextResponse.redirect(returning);
+  }
+
+  // M2 (login CSRF): só completa a troca de credenciais se o browser iniciou
+  // o fluxo OAuth nesta origem (cookie de estado semeado em /oauth/start).
+  // Um link forjado com userId+secret de terceiros não tem este cookie.
+  if (!hasOAuthStateCookie(request)) {
+    return NextResponse.redirect(new URL("/login?error=oauth_state_missing", request.url));
   }
 
   let rateLimit;
@@ -131,5 +142,6 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(new URL("/dashboard", request.url));
   setAuthSessionCookie(response, sessionSecret, expire || undefined);
+  clearOAuthStateCookie(response);
   return response;
 }

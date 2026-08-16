@@ -34,14 +34,14 @@ const plans: PlanDef[] = [
     id: "pro",
     name: "Pro",
     description: "Para criadores que querem mais.",
-    features: ["Links ilimitados", "Remover marca", "Domínio personalizado", "Analytics completos", "Suporte prioritário"],
+    features: ["Links ilimitados", "Analytics avançados", "Mais personalização", "Acesso antecipado a novas funcionalidades"],
     popular: true,
   },
   {
     id: "business",
     name: "Business",
     description: "Para equipas e marcas.",
-    features: ["Tudo do Pro", "Até 5 membros", "Gestão da equipa", "Branding personalizado"],
+    features: ["Tudo do Pro", "Funcionalidades para equipas", "Branding personalizado", "Limites mais elevados"],
   },
 ];
 
@@ -60,7 +60,7 @@ export default function BillingPage() {
 
   const handleUpgrade = (plan: PlanDef) => {
     if (plan.id === "free") return;
-    showToast(`O upgrade para ${plan.name} estará disponível em breve.`, "info");
+    showToast(`O plano ${plan.name} ainda não pode ser subscrito.`, "info");
   };
 
   const handleDetectCountry = async () => {
@@ -142,6 +142,9 @@ export default function BillingPage() {
 
       <div className="glass-card p-6">
         <div className="relative z-10">
+          <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm text-amber-200">
+            Os pagamentos estão em preparação. Podes consultar os planos, mas nenhum upgrade será cobrado nesta versão.
+          </div>
           <div className="flex items-center justify-center gap-3 mb-8">
             <span className={`text-sm ${!annual ? "text-white/90" : "text-white/50"}`}>Mensal</span>
             <button onClick={() => setAnnual(!annual)} type="button" className="glass-toggle" data-state={annual ? "checked" : "unchecked"} />
@@ -187,9 +190,8 @@ export default function BillingPage() {
                   <div className="relative z-10">
                     {isCurrent ? (
                       <button disabled className="glass-btn w-full justify-center opacity-50 cursor-not-allowed text-sm font-medium h-11 px-5">Plano atual</button>
-                    ) : (
-                      <GlassButton className="w-full opacity-80" variant="secondary" onClick={() => handleUpgrade(plan)}>
-                        Pagamentos em breve
+                    ) : (                        <GlassButton className="w-full opacity-60" variant="secondary" onClick={() => handleUpgrade(plan)} disabled>
+                        Pagamentos em preparação
                       </GlassButton>
                     )}
                   </div>

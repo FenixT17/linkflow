@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // O repositório de desenvolvimento tem outro lockfile acima de frontend/.
+  // Fixar a raiz evita tracing incorreto e o warning do Next.js no build.
+  outputFileTracingRoot: process.cwd(),
+
   // Enable compression for all responses
   compress: true,
 

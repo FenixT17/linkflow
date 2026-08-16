@@ -1,0 +1,23 @@
+# LinkFlow
+
+> Link-in-bio SaaS (estilo Linktree) — páginas públicas personalizadas por utilizador. Repositório de código em `frontend/`.
+
+## O que é
+
+O LinkFlow é uma plataforma de link-in-bio para criadores, marcas e equipas. A descrição pública do produto, para crawlers e LLMs, está em [`public/llms.txt`](public/llms.txt) e na versão completa [`public/llms-full.txt`](public/llms-full.txt).
+
+## Documentação do projeto
+
+- [memoria.md](memoria.md): histórico de sessões e regras para qualquer AI que trabalhe no projeto. **Ler primeiro.**
+- [README.md](README.md): visão geral e comandos úteis.
+
+## Estrutura (frontend/)
+
+- `src/app/` — páginas e rotas (landing, autenticação, dashboard, página pública `/u/[username]`, API)
+- `src/components/` — componentes de UI, da home, da página pública, do dashboard e templates
+- `src/lib/` — lógica de negócio (tipos, defaults, segurança, SEO, analytics)
+- `src/context/` — estado global (autenticação, toasts)
+- `src/hooks/` — hooks partilhados
+- `src/__tests__/` — testes
+- `scripts/` — scripts de manutenção
+- `public/` — assets estáticos e os ficheiros `llms.txt` públicos
