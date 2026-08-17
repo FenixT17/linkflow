@@ -45,7 +45,7 @@
 | Animações | Framer Motion 12 |
 | Gráficos | Recharts 3 |
 | Backend | Appwrite Cloud (Auth, Database, Storage) |
-| Deploy | Cloudflare Workers via @opennextjs/cloudflare |
+| Deploy | Netlify (@netlify/plugin-nextjs) — migração de Cloudflare Workers (Sessão 83) |
 | Testes | Vitest + Testing Library + jsdom |
 | Segurança | CSRF, Rate Limiting, Sanitização, Security Logging |
 
@@ -53,28 +53,27 @@
 
 ## 🌐 Domínios e Deploy
 
-### Cloudflare Workers (deploy atual)
-- **Worker:** `linkflow` — [https://linkflow.editsttk43.workers.dev](https://linkflow.editsttk43.workers.dev)
-- **Adaptador:** `@opennextjs/cloudflare` (OpenNext) — transforma o build do Next.js num Worker `workerd` (config em `wrangler.jsonc` + wrapper `worker-entry.js` que força `Cache-Control: no-store` no HTML/RSC)
-- **Método de deploy atual:** GitHub → GitHub Actions (`.github/workflows/deploy.yml`, push para `main`) → valida secrets (fail-fast) → build OpenNext com `NEXT_PUBLIC_*` inlined → `wrangler deploy` + grava os segredos runtime com `wrangler secret put`
+### Netlify (deploy atual — migração da Sessão 83)
+- **Adaptador:** plugin `@netlify/plugin-nextjs` (config em `netlify.toml`) — trata do SSR, API routes, rewrites/redirects e do caching do `next build`
+- **Método de deploy:** CI/CD GitHub → Netlify (push para `main`) — env vars públicas (`NEXT_PUBLIC_*`) inlined no build; segredos (`APPWRITE_API_KEY`, `IP_HASH_SECRET`, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`) no dashboard Netlify (Site configuration → Environment variables)
 - **Repositório GitHub:** `siqwsxx/linkflow-web-` (branch `main`)
-- **Segredos runtime:** `APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `IP_HASH_SECRET` — nunca no código; gravados no Worker em cada deploy (ou no dashboard Cloudflare → Workers → linkflow → Settings → Variables and Secrets)
+- **Nota:** a Sessão 83 removeu o deploy Cloudflare Workers (`wrangler.jsonc`, `worker-entry.js`, `open-next.config.ts`, `.github/workflows/deploy.yml` e os scripts `cf:*`) e voltou ao Netlify
 
-### Netlify (histórico — substituído pelo Cloudflare Workers)
-- **Site principal:** `linkflow-web` — [https://linkflow-web.netlify.app](https://linkflow-web.netlify.app)
-- **Conta Netlify:** `reddit-br` (user_id: `68fb64b38a69552115381a2e`) · Site ID: `c9edd883-4927-45d8-9222-057b3826df0f`
-- **Histórico:** CI/CD GitHub → Netlify desde a Sessão 10; o deploy ainda mais antigo era drop manual (ZIP) SEM funções — as rotas dinâmicas davam "This function has crashed" (Sessão 11). Substituído pelo deploy Cloudflare.
+### Cloudflare Workers (histórico — removido na Sessão 83)
+- **Worker:** `linkflow` — [https://linkflow.editsttk43.workers.dev](https://linkflow.editsttk43.workers.dev) (já não é o deploy atual)
+- **Histórico:** deploy OpenNext (`@opennextjs/cloudflare` + `worker-entry.js` forçando `Cache-Control: no-store` no HTML/RSC) — usado das Sessões 46–82; removido na Sessão 83
 
-### Domínio pretendido (SEO)
-- **Domínio principal nos metadados:** `https://linkflow.editsttk43.workers.dev` — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` (fallback `https://linkflow.workers.dev`)
-- **Nota:** O domínio `linkflow.app` ainda não está configurado. Quando o domínio próprio for adquirido, basta definir `NEXT_PUBLIC_SITE_URL` como GitHub Secret (build) — o código já está preparado
+### Domínio próprio (SEO)
+- **Domínio principal nos metadados:** `https://linkflou.qd.je` — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` (fallback `https://linkflou.qd.je`; Sessão 82.6)
+- **Registo:** DigitalPlat FreeDomain (`linkflou.qd.je`)
+- **Nota:** os passos de DNS (nameservers no DigitalPlat + zona Cloudflare/Netlify) continuam pendentes no dashboard do registar
 
 ### Appwrite
 - **Endpoint:** `https://fra.cloud.appwrite.io/v1` (região **Frankfurt** — obrigatória; o endpoint global `cloud.appwrite.io` devolve 401 "Project is not accessible in this region" para projetos regionais). O fallback no código e nos scripts também aponta para fra (Sessão 76)
 - **Database:** `linkflow`
 - **Collections:** users, pages, links, analytics, themes, qr_codes, subscriptions, teams, notifications, security_logs, visits, activity_logs, staff_applications, collected_ips, dados_para_estudos (o `social_links` nunca existiu como coleção — os dados sociais viviam no documento pages como `socialJson`/`socialList`, removidos na Sessão 10; `visits` (Sessão 13), `collected_ips` (Sessão 16) e `dados_para_estudos` (Sessão 42) são server-only com permissões `[]`; `activity_logs` e `staff_applications` criadas nas Sessões 21/26)
 - **Buckets:** avatars, banners, files
-- **Nota:** variáveis configuradas como GitHub Secrets no CI (`NEXT_PUBLIC_APPWRITE_*` inlined no build) e como secrets runtime no Worker (`APPWRITE_API_KEY`). O env var no Netlify já não é usado
+- **Nota:** variáveis `NEXT_PUBLIC_APPWRITE_*` inlined no build e `APPWRITE_API_KEY` como env var server-only no Netlify (dashboard → Environment variables)
 
 ### Outros sites Netlify na conta
 - `miguel-c.netlify.app` (criado 24 Jul 2026)
@@ -112,7 +111,7 @@ C:/Users/CR712/Documents/saas/           ← Raiz do projeto
 │   │   ├── hooks/                       ← use-csrf, use-links
 │   │   └── __tests__/                   ← Testes Vitest
 │   ├── package.json, tsconfig.json, next.config.ts
-│   ├── wrangler.jsonc, worker-entry.js, vitest.config.ts
+│   ├── netlify.toml, vitest.config.ts
 │   └── public/                          ← Assets estáticos
 ├── deploy_result.json, deploy_status.json        ← Deploy 1 (erro - ZIP corrompido)
 ├── deploy_result2.json, deploy_status2.json      ← Deploy 2 (sucesso - 117 ficheiros)
@@ -134,28 +133,21 @@ npm run typecheck    # Verificação de tipos TypeScript
 npm run lint         # ESLint
 npm run provision    # Criar schema Appwrite (idempotente)
 npm run fix:bucket   # Corrigir permissões de leitura pública do bucket de storage
-npm run cf:build     # next build + transformação OpenNext (gera .open-next/)
-npm run cf:preview   # pré-visualização local (wrangler dev)
-npm run cf:deploy    # build + deploy para a Cloudflare
 ```
 
-### Deploy para a Cloudflare (Workers)
-```bash
-npm run cf:build      # next build + transformação OpenNext (gera .open-next/)
-npm run cf:preview    # pré-visualização local (wrangler dev)
-npm run cf:deploy     # build + deploy
-```
-O deploy normal é automático: push para `main` → GitHub Actions. Os segredos runtime gravam-se com `npx wrangler secret put NOME` (ou no dashboard Cloudflare → Workers → linkflow → Settings → Variables and Secrets). Localmente, para `wrangler dev`, criar um ficheiro `.dev.vars` gitignored com os segredos.
+### Deploy para a Netlify
+O deploy é automático: push para `main` → GitHub Actions → Netlify (plugin `@netlify/plugin-nextjs` via `netlify.toml`). As env vars configuram-se no dashboard Netlify (Site configuration → Environment variables): as públicas (`NEXT_PUBLIC_*`) são inlined no build e os segredos (`APPWRITE_API_KEY`, `IP_HASH_SECRET`, `UPSTASH_*`) ficam server-only.
 
 ### Variáveis de ambiente obrigatórias
 - `NEXT_PUBLIC_APPWRITE_ENDPOINT` = `https://fra.cloud.appwrite.io/v1` (região Frankfurt — obrigatória; o endpoint global devolve 401)
 - `NEXT_PUBLIC_APPWRITE_PROJECT_ID` = ID do projeto Appwrite
 - `NEXT_PUBLIC_APPWRITE_DATABASE_ID` = `linkflow`
 - `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` = `files` · `NEXT_PUBLIC_APPWRITE_AVATARS_BUCKET_ID` = `avatars` · `NEXT_PUBLIC_APPWRITE_BANNERS_BUCKET_ID` = `banners`
-- `APPWRITE_API_KEY` = Server API Key do Appwrite (secret runtime no Worker)
-- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` = rate limiting distribuído (secrets runtime)
+- `APPWRITE_API_KEY` = Server API Key do Appwrite (server-only, nunca no bundle)
+- `IP_HASH_SECRET` = segredo server-only para o HMAC do `hashIp` (Sessão 78)
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` = rate limiting distribuído (server-only)
 - Rate limiting de autenticação = limites distribuídos por IP e por conta via Upstash Redis (sem verificação CAPTCHA)
-- `NEXT_PUBLIC_SITE_URL` = URL público final (workers.dev ou domínio próprio)
+- `NEXT_PUBLIC_SITE_URL` = URL público final (`https://linkflou.qd.je`)
 
 ### 🚨 Evitar Erros de Hydration (Next.js/React)
 
@@ -2595,3 +2587,30 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 5. Redepois (push) para o build inlined usar o novo `NEXT_PUBLIC_SITE_URL`
 
 **Nota:** o OAuth usa URLs relativas (`new URL(..., request.url)`), por isso funciona em qualquer domínio sem config adicional. O fluxo de email está desativado (Sessão 82.x) — o `NEXT_PUBLIC_SITE_URL` continua a ser usado para canonical/OG/sitemap/QR.
+
+### Sessão 83 — 17 Agosto 2026 — Migração do deploy: Cloudflare Workers → Netlify
+
+**Pedido:** voltar do deploy Cloudflare Workers para o **Netlify** (plugin Next.js), removendo toda a stack OpenNext/Wrangler.
+
+**Contexto:** após a Sessão 82.6 o deploy vivia no Cloudflare Workers (`wrangler.jsonc` + `worker-entry.js` + `open-next.config.ts` + GitHub Actions). Esta sessão remove essa stack e prepara o projeto para o deploy Netlify.
+
+**Alterações (working tree — ainda não commitadas):**
+- **Apagados:** `.github/workflows/deploy.yml` (GitHub Actions do deploy CF), `wrangler.jsonc`, `worker-entry.js`, `open-next.config.ts`
+- **`package.json`:** removidos os scripts `cf:build`/`cf:deploy`/`cf:preview`; removidas as devDependencies `@opennextjs/cloudflare` e `wrangler`; removida a entrada `workerd` de `allowScripts`
+- **`package-lock.json`:** atualizado em conformidade (remoção da árvore OpenNext/Wrangler)
+- **`next.config.ts`:** comentário de `images.unoptimized` atualizado (deixa de referir o Cloudflare Workers; passa a documentar compatibilidade com o Netlify)
+- **Novo `netlify.toml`:** config do Netlify — `command = "npm run build"`, `publish = ".next"`, `NODE_VERSION = "22"`, plugin `@netlify/plugin-nextjs` e documentação das env vars (públicas inlined + segredos server-only)
+
+**Estado do projeto (health check):**
+- typecheck `tsc --noEmit` ✅ 0 erros
+- ESLint ✅ 0 erros
+- **225/225 testes** ✅ (28 ficheiros)
+- Sem alterações de código funcional — apenas infraestrutura de deploy
+
+**Pendências (passos no dashboard — NÃO automáticos):**
+1. Ligar o repositório GitHub (`siqwsxx/linkflow-web-`) a um site Netlify
+2. Configurar as env vars no Netlify (lista completa em `.env.example`): `NEXT_PUBLIC_*` (públicas) + `APPWRITE_API_KEY`, `IP_HASH_SECRET`, `UPSTASH_REDIS_REST_URL/TOKEN` (segredos)
+3. Apontar o domínio `linkflou.qd.je` ao Netlify (Sessão 82.6 — DNS pendente no DigitalPlat)
+4. Commit + push das alterações para disparar o primeiro build Netlify
+
+**Nota:** o domínio canónico continua `https://linkflou.qd.je` (Sessão 82.6). O `.env.local` ainda aponta `NEXT_PUBLIC_SITE_URL` para `https://linkflow-web.netlify.app` (domínio antigo) — alinhar para `https://linkflou.qd.je` quando o site Netlify novo for criado.

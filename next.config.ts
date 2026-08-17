@@ -9,10 +9,9 @@ const nextConfig: NextConfig = {
   compress: true,
 
   images: {
-    // Cloudflare Workers (via @opennextjs/cloudflare) não executa o otimizador
-    // de imagens do Next.js sem configuração adicional (Cloudflare Images).
     // `unoptimized` garante que avatares/banners/QR funcionam em produção
-    // (serve o src original; remotePatterns é irrelevante neste modo).
+    // sem depender do otimizador de imagens do Next.js (serve o src original;
+    // remotePatterns é irrelevante neste modo). Compatível com o Netlify.
     unoptimized: true,
   },
 

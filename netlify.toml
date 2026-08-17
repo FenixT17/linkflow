@@ -1,0 +1,30 @@
+# ============================================================================
+# LinkFlow — Netlify (Next.js)
+# ============================================================================
+# O Netlify deteta o Next.js e usa o plugin @netlify/plugin-nextjs, que trata
+# do SSR, API routes, rewrites/redirects e do caching do next build.
+#
+# Env vars: configurar no dashboard do Netlify
+# (Site configuration → Environment variables). A lista completa está em
+# .env.example. Resumo:
+#   Públicas (inlined no build — NEXT_PUBLIC_*):
+#     NEXT_PUBLIC_APPWRITE_ENDPOINT / PROJECT_ID / DATABASE_ID ·
+#     NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID / AVATARS_BUCKET_ID / BANNERS_BUCKET_ID
+#     NEXT_PUBLIC_SITE_URL=https://linkflou.qd.je
+#   Secret (server-only, nunca expor):
+#     APPWRITE_API_KEY · IP_HASH_SECRET · UPSTASH_REDIS_REST_URL ·
+#     UPSTASH_REDIS_REST_TOKEN (RESEND_* opcionais — email desativado)
+#
+# NOTA: o deploy para Cloudflare Workers foi removido (ver git history) —
+# este ficheiro substitui wrangler.jsonc + .github/workflows/deploy.yml.
+# ============================================================================
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
