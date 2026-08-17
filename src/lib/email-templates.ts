@@ -41,7 +41,7 @@ function assertSafeActionUrl(actionUrl: string): string {
 
   const configuredSiteUrl = normalizeEnvUrl(
     process.env.NEXT_PUBLIC_SITE_URL,
-    "https://linkflow.workers.dev"
+    "https://linkflou.qd.je"
   );
   try {
     const expectedOrigin = new URL(configuredSiteUrl).origin;

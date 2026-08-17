@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { normalizeEnvUrl } from "@/lib/utils";
 
 // Domínio canónico: NEXT_PUBLIC_SITE_URL (definido no build — ver
-// .github/workflows/deploy.yml). Fallback para o domínio Cloudflare
-// (workers.dev) — substituir pelo subdomínio real da conta em produção.
+// .github/workflows/deploy.yml). Fallback para o domínio próprio
+// (linkflou.qd.je) — o mesmo valor deve estar no GitHub Secret.
 //
 // `normalizeEnvUrl` valida a variável (trim + URL http(s) válida) e devolve
 // o fallback quando ela está ausente, vazia ou inválida. Isto é crítico no
@@ -12,7 +12,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 // "TypeError: Invalid URL. Input: ''" ao coletar /_not-found.
 export const siteUrl = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_SITE_URL,
-  "https://linkflow.workers.dev"
+  "https://linkflou.qd.je"
 );
 export const siteName = "LinkFlow";
 export const siteTagline = "Um Link. Possibilidades Infinitas.";

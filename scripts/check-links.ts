@@ -6,7 +6,7 @@
  *
  * Example:
  *   npx tsx scripts/check-links.ts http://localhost:3000
- *   npx tsx scripts/check-links.ts https://linkflow-web.netlify.app
+ *   npx tsx scripts/check-links.ts https://linkflou.qd.je
  */
 
 interface CheckResult {
@@ -30,7 +30,7 @@ const CONCURRENCY = 5;
 const RETRIES = 2;
 
 const DEFAULT_HEADERS = {
-  "User-Agent": "LinkFlow-BrokenLinksChecker/1.0 (+https://linkflow-web.netlify.app)",
+  "User-Agent": "LinkFlow-BrokenLinksChecker/1.0 (+https://linkflou.qd.je)",
 };
 
 function sleep(ms: number) {

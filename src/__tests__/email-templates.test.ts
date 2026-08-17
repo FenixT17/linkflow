@@ -22,15 +22,15 @@ describe("email templates", () => {
     }
   });
 
-  it("falls back to the workers.dev origin when NEXT_PUBLIC_SITE_URL is empty (CI without secrets)", () => {
+  it("falls back to the production domain when NEXT_PUBLIC_SITE_URL is empty (CI without secrets)", () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
     try {
       const content = renderVerificationEmail(
         { name: "Ana" },
-        "https://linkflow.workers.dev/verify?token=abc"
+        "https://linkflou.qd.je/verify?token=abc"
       );
       expect(content.subject).toBe("Confirme o seu email — LinkFlow");
-      expect(content.html).toContain("https://linkflow.workers.dev/verify?token=abc");
+      expect(content.html).toContain("https://linkflou.qd.je/verify?token=abc");
     } finally {
       vi.unstubAllEnvs();
     }

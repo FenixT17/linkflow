@@ -2570,3 +2570,28 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 - Bordas de foco fixas (`glass-input:focus`, `glass-toggle[checked]`) passaram a `rgba(var(--glass-border-rgb), 0.25)`
 
 **Verificação:** typecheck ✅ (CSS não afeta TS) · dev server recompilou sem erros (1718 módulos) · CSS servido contém `--glass-border-rgb` · rotas 200. O modo escuro mantém o aspeto (bordas brancas ligeiramente mais fortes); o claro ganha bordas escuras visíveis.
+
+### Sessão 82.6 — 17 Agosto 2026 — Domínio próprio `linkflou.qd.je` (DigitalPlat)
+
+**Pedido:** publicar o site no domínio próprio `linkflou.qd.je` (registado no DigitalPlat FreeDomain).
+
+**Contexto:** o deploy é Cloudflare Workers (`linkflow`, via GitHub Actions no push para `main`). O domínio canónico vem de `NEXT_PUBLIC_SITE_URL` (GitHub Secret, inlined no build) com fallback no código.
+
+**Alterações no código (commit + push para `main`):**
+- `src/lib/seo.ts`: fallback de `https://linkflow.workers.dev` → `https://linkflou.qd.je` (e comentário atualizado)
+- `src/lib/auth.server.ts`, `src/lib/email-templates.ts`, `src/app/api/auth/password-reset/route.ts`: fallback `normalizeEnvUrl` → `https://linkflou.qd.je`
+- `.env.example`: `NEXT_PUBLIC_SITE_URL=https://linkflou.qd.je`
+- `scripts/check-links.ts`: referências `linkflow-web.netlify.app` → `linkflou.qd.je`
+- `scripts/appwrite-verification-template.html`: URL → `linkflou.qd.je`
+- `email-templates.test.ts`: teste de fallback atualizado para o novo domínio
+
+**Verificação:** typecheck ✅ · testes afetados (email-templates + utils) ✅ 25/25.
+
+**Pendências (passos no dashboard — NÃO automáticos):**
+1. GitHub → Settings → Secrets → `NEXT_PUBLIC_SITE_URL` = `https://linkflou.qd.je` (senão o deploy continua a usar o valor antigo — o secret sobrepõe o fallback)
+2. Cloudflare → adicionar `linkflou.qd.je` como zona (obter 2 nameservers)
+3. DigitalPlat → definir os 2 nameservers do Cloudflare no domínio (delegação NS)
+4. Cloudflare Workers → `linkflow` → Settings → Domains & Routes → Add Custom Domain `linkflou.qd.je`
+5. Redepois (push) para o build inlined usar o novo `NEXT_PUBLIC_SITE_URL`
+
+**Nota:** o OAuth usa URLs relativas (`new URL(..., request.url)`), por isso funciona em qualquer domínio sem config adicional. O fluxo de email está desativado (Sessão 82.x) — o `NEXT_PUBLIC_SITE_URL` continua a ser usado para canonical/OG/sitemap/QR.
