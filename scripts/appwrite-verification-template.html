@@ -5,15 +5,16 @@
   1. Console Appwrite → Branding → Email Templates → "Verification" (Editar).
   2. Colar este HTML inteiro no campo "Message".
   3. Assunto sugerido: "Confirme o seu email — {{project}}"
-  4. O campo "URL" (redirect) deve apontar para:
-       https://linkflou.qd.je/verify-email
-     O Appwrite anexa ?userId=..&secret=.. automaticamente.
+  4. O link de verificação vai no {{redirect}} — é injetado
+     automaticamente pelo Appwrite a partir da URL passada a
+     account.createVerification() (https://linkflou.qd.je/verify-email),
+     já com ?userId=..&secret=.. anexado.
 
-  Variáveis disponíveis (mostradas na consola):
-    {{project}}  — nome do projeto
-    {{name}}     — nome do utilizador
-    {{url}}      — link de verificação (com userId + secret)
-    {{expire}}   — validade do link
+  Variáveis disponíveis (Appwrite atual — ver docs "Message templates"):
+    {{project}}   — nome do projeto
+    {{team}}      — nome da equipa
+    {{user}}      — nome do utilizador
+    {{redirect}}  — link de verificação (com userId + secret)
 
   Nota: se algum dia o envio passar a ser feito pelo Resend (envio
   personalizado), o template equivalente é o renderVerificationEmail em
@@ -26,13 +27,13 @@
         <div style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:28px;color:#fff">LinkFlow</div>
         <h1 style="font-size:26px;line-height:1.2;margin:0 0 16px;color:#fff">Confirme o seu email</h1>
         <div style="font-size:15px;color:rgba(255,255,255,.72)">
-          <p style="margin:0 0 12px">Olá, {{name}}.</p>
-          <p style="margin:0">Confirme o seu endereço de email para concluir a configuração da sua conta LinkFlow. Este link é válido até {{expire}}.</p>
+          <p style="margin:0 0 12px">Olá, {{user}}.</p>
+          <p style="margin:0">Confirme o seu endereço de email para concluir a configuração da sua conta LinkFlow. Este link expira em 1 hora.</p>
         </div>
         <p style="margin:28px 0">
-          <a href="{{url}}" style="display:inline-block;background:#fff;color:#111318;text-decoration:none;font-weight:700;border-radius:12px;padding:13px 20px">Confirmar email</a>
+          <a href="{{redirect}}" style="display:inline-block;background:#fff;color:#111318;text-decoration:none;font-weight:700;border-radius:12px;padding:13px 20px">Confirmar email</a>
         </p>
-        <p style="font-size:12px;color:rgba(255,255,255,.42);word-break:break-all">Se o botão não funcionar, copie este endereço:<br>{{url}}</p>
+        <p style="font-size:12px;color:rgba(255,255,255,.42);word-break:break-all">Se o botão não funcionar, copie este endereço:<br>{{redirect}}</p>
         <p style="font-size:12px;color:rgba(255,255,255,.42);margin:28px 0 0">Este email foi enviado automaticamente pelo LinkFlow ({{project}}). Não responda a esta mensagem.</p>
       </div>
     </div>
