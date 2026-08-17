@@ -287,7 +287,7 @@ export function setAuthSessionCookie(
 export async function requestEmailVerification(account: Account): Promise<void> {
   const siteUrl = normalizeEnvUrl(
     process.env.NEXT_PUBLIC_SITE_URL,
-    "https://linkflou.qd.je"
+    "https://linkflow-pt.netlify.app"
   );
   const verificationUrl = new URL("/verify-email", siteUrl).toString();
   await account.createVerification(verificationUrl);

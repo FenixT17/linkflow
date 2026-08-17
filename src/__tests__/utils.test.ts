@@ -71,19 +71,19 @@ describe("escapeCsv (proteção contra formula injection)", () => {
 
 describe("normalizeEnvUrl (build-safe URL de ambiente)", () => {
   it("devolve o fallback quando o valor é undefined (variável ausente)", () => {
-    expect(normalizeEnvUrl(undefined, "https://linkflow.workers.dev")).toBe(
-      "https://linkflow.workers.dev"
+    expect(normalizeEnvUrl(undefined, "https://linkflow-pt.netlify.app")).toBe(
+      "https://linkflow-pt.netlify.app"
     );
   });
 
   it("devolve o fallback quando o valor é STRING VAZIA — o caso do CI sem secrets", () => {
     // O GitHub Actions injeta secrets não configurados como "" (não como
     // undefined). `?? fallback` NÃO captura isto — daí o normalizeEnvUrl.
-    expect(normalizeEnvUrl("", "https://linkflow.workers.dev")).toBe(
-      "https://linkflow.workers.dev"
+    expect(normalizeEnvUrl("", "https://linkflow-pt.netlify.app")).toBe(
+      "https://linkflow-pt.netlify.app"
     );
-    expect(normalizeEnvUrl("   ", "https://linkflow.workers.dev")).toBe(
-      "https://linkflow.workers.dev"
+    expect(normalizeEnvUrl("   ", "https://linkflow-pt.netlify.app")).toBe(
+      "https://linkflow-pt.netlify.app"
     );
   });
 
@@ -107,8 +107,8 @@ describe("normalizeEnvUrl (build-safe URL de ambiente)", () => {
   });
 
   it("preserva o valor quando a URL já está normalizada", () => {
-    expect(normalizeEnvUrl("https://linkflow.workers.dev", "https://fallback.dev")).toBe(
-      "https://linkflow.workers.dev"
+    expect(normalizeEnvUrl("https://linkflow-pt.netlify.app", "https://fallback.dev")).toBe(
+      "https://linkflow-pt.netlify.app"
     );
   });
 });

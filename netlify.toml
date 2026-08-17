@@ -10,7 +10,7 @@
 #   Públicas (inlined no build — NEXT_PUBLIC_*):
 #     NEXT_PUBLIC_APPWRITE_ENDPOINT / PROJECT_ID / DATABASE_ID ·
 #     NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID / AVATARS_BUCKET_ID / BANNERS_BUCKET_ID
-#     NEXT_PUBLIC_SITE_URL=https://linkflou.qd.je
+#     NEXT_PUBLIC_SITE_URL=https://linkflow-pt.netlify.app
 #   Secret (server-only, nunca expor):
 #     APPWRITE_API_KEY · IP_HASH_SECRET · UPSTASH_REDIS_REST_URL ·
 #     UPSTASH_REDIS_REST_TOKEN (RESEND_* opcionais — email desativado)

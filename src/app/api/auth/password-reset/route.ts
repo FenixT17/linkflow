@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       const { account } = createServerAuthClient();
       const siteUrl = normalizeEnvUrl(
         process.env.NEXT_PUBLIC_SITE_URL,
-        "https://linkflou.qd.je",
+        "https://linkflow-pt.netlify.app",
       );
       // O Appwrite envia o email oficial e cria o token de recuperação.
       // A consola Appwrite deve ter SMTP/template configurados. Não usamos

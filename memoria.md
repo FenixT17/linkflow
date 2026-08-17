@@ -56,16 +56,16 @@
 ### Netlify (deploy atual — migração da Sessão 83)
 - **Adaptador:** plugin `@netlify/plugin-nextjs` (config em `netlify.toml`) — trata do SSR, API routes, rewrites/redirects e do caching do `next build`
 - **Método de deploy:** CI/CD GitHub → Netlify (push para `main`) — env vars públicas (`NEXT_PUBLIC_*`) inlined no build; segredos (`APPWRITE_API_KEY`, `IP_HASH_SECRET`, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`) no dashboard Netlify (Site configuration → Environment variables)
-- **Repositório GitHub:** `siqwsxx/linkflow-web-` (branch `main`)
+- **Repositório GitHub:** `FenixT17/linkflow` (branch `main`)
 - **Nota:** a Sessão 83 removeu o deploy Cloudflare Workers (`wrangler.jsonc`, `worker-entry.js`, `open-next.config.ts`, `.github/workflows/deploy.yml` e os scripts `cf:*`) e voltou ao Netlify
 
 ### Cloudflare Workers (histórico — removido na Sessão 83)
-- **Worker:** `linkflow` — [https://linkflow.editsttk43.workers.dev](https://linkflow.editsttk43.workers.dev) (já não é o deploy atual)
+- **Worker:** `linkflow` — [https://linkflow-pt.netlify.app](https://linkflow-pt.netlify.app) (já não é o deploy atual)
 - **Histórico:** deploy OpenNext (`@opennextjs/cloudflare` + `worker-entry.js` forçando `Cache-Control: no-store` no HTML/RSC) — usado das Sessões 46–82; removido na Sessão 83
 
 ### Domínio próprio (SEO)
-- **Domínio principal nos metadados:** `https://linkflou.qd.je` — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` (fallback `https://linkflou.qd.je`; Sessão 82.6)
-- **Registo:** DigitalPlat FreeDomain (`linkflou.qd.je`)
+- **Domínio principal nos metadados:** `https://linkflow-pt.netlify.app` — canónico em `src/lib/seo.ts` via `process.env.NEXT_PUBLIC_SITE_URL` (fallback `https://linkflow-pt.netlify.app`; Sessão 82.6)
+- **Registo:** DigitalPlat FreeDomain (`linkflow-pt.netlify.app`)
 - **Nota:** os passos de DNS (nameservers no DigitalPlat + zona Cloudflare/Netlify) continuam pendentes no dashboard do registar
 
 ### Appwrite
@@ -147,7 +147,7 @@ O deploy é automático: push para `main` → GitHub Actions → Netlify (plugin
 - `IP_HASH_SECRET` = segredo server-only para o HMAC do `hashIp` (Sessão 78)
 - `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` = rate limiting distribuído (server-only)
 - Rate limiting de autenticação = limites distribuídos por IP e por conta via Upstash Redis (sem verificação CAPTCHA)
-- `NEXT_PUBLIC_SITE_URL` = URL público final (`https://linkflou.qd.je`)
+- `NEXT_PUBLIC_SITE_URL` = URL público final (`https://linkflow-pt.netlify.app`)
 
 ### 🚨 Evitar Erros de Hydration (Next.js/React)
 
@@ -213,17 +213,17 @@ if (!mounted) return null; // ou renderizar skeleton/placeholder
 
 **Estado final do projeto:**
 - ✅ Código completo e funcional
-- ✅ Site publicado no Netlify: https://linkflow-web.netlify.app
+- ✅ Site publicado no Netlify: https://linkflow-pt.netlify.app
 - ❌ Sem repositório Git local configurado
 - ❌ Sem ligação GitHub → Netlify (deploy é manual)
 - ❌ Variáveis de ambiente Appwrite não configuradas no Netlify
-- ❌ Domínio `linkflow.app` não configurado
+- ❌ Domínio `linkflow-pt.netlify.app` não configurado
 
 **Próximos passos sugeridos:**
 - Inicializar Git local e fazer push para GitHub
 - Ligar Netlify ao repositório GitHub para CI/CD automático
 - Configurar variáveis de ambiente Appwrite
-- Configurar domínio personalizado `linkflow.app`
+- Configurar domínio personalizado `linkflow-pt.netlify.app`
 
 ---
 
@@ -391,20 +391,20 @@ if (!mounted) return null; // ou renderizar skeleton/placeholder
    - Correção: `taskkill` no dev server (PID 19756) + `rm -rf .next` + reinício do dev server
    - Verificado via curl: navbar serve `Funcionalidades → Preços → FAQ`, o único "Templates" restante é o link legítimo do footer
 
-2. **URLs corrigidos — `linkflow.app` → `https://linkflow-web.netlify.app`** (URL real publicado):
-   - `src/lib/seo.ts`: `siteUrl` passa a ler `process.env.NEXT_PUBLIC_SITE_URL` com fallback `https://linkflow-web.netlify.app` → fonte única do URL canónico (metadata, Open Graph, JSON-LD, sitemap)
+2. **URLs corrigidos — `linkflow-pt.netlify.app` → `https://linkflow-pt.netlify.app`** (URL real publicado):
+   - `src/lib/seo.ts`: `siteUrl` passa a ler `process.env.NEXT_PUBLIC_SITE_URL` com fallback `https://linkflow-pt.netlify.app` → fonte única do URL canónico (metadata, Open Graph, JSON-LD, sitemap)
    - `src/app/sitemap.ts`: passou a importar `siteUrl` de `seo.ts` (removida constante duplicada)
-   - `public/robots.txt`: `Sitemap` → `https://linkflow-web.netlify.app/sitemap.xml`
+   - `public/robots.txt`: `Sitemap` → `https://linkflow-pt.netlify.app/sitemap.xml`
    - `src/app/u/[username]/page.tsx`: `publicUrl` usa `siteUrl` (canonical, JSON-LD, partilha de perfis)
    - `src/app/dashboard/create/page.tsx`: prefixo do campo username mostra o hostname real
-   - `src/app/dashboard/domains/page.tsx`: registos DNS CNAME apontam para `linkflow-web.netlify.app` (correto para domínio custom no Netlify)
+   - `src/app/dashboard/domains/page.tsx`: registos DNS CNAME apontam para `linkflow-pt.netlify.app` (correto para domínio custom no Netlify)
    - `scripts/check-links.ts`: exemplo de uso e User-Agent atualizados
    - `.env.example`: adicionada `NEXT_PUBLIC_SITE_URL` documentada
    - `memoria.md` (secção "Domínio pretendido (SEO)"): atualizada para refletir o novo canónico
 
 **Estado final:**
 - ✅ Erro de hydration resolvido (cache `.next` limpa + dev server reiniciado)
-- ✅ Zero referências a `linkflow.app` no código (grep confirmado)
+- ✅ Zero referências a `linkflow-pt.netlify.app` no código (grep confirmado)
 - ✅ `NEXT_PUBLIC_SITE_URL` preparado para domínio próprio futuro
 - ✅ Typecheck e 76 testes a passar
 - ✅ Servidor dev a correr em localhost:3000
@@ -1104,7 +1104,7 @@ if (!mounted) return null; // ou renderizar skeleton/placeholder
 
 **Validação:** typecheck ✅ · **119/119 testes** ✅ · ESLint ✅ · code-review ✅ (3 rondas — pontos aplicados: `ComponentType` em vez de `React.ComponentType`, wiring do `appearance_updated`, throttle só para ações de alta frequência, reset de `activities` no logout, filtro `meaningfulKeys` no updateLink)
 
-**Limpeza:** contas de teste criadas na Sessão anterior (Teste Mobile `testemobile.0801@linkflow.app` e o antigo `teste@linkflow-temp.com`) apagadas do Appwrite (HTTP 204, confirmado `total:0`).
+**Limpeza:** contas de teste criadas na Sessão anterior (Teste Mobile `testemobile.0801@linkflow-pt.netlify.app` e o antigo `teste@linkflow-temp.com`) apagadas do Appwrite (HTTP 204, confirmado `total:0`).
 
 **Estado final:**
 - ✅ Cartão Atividades recentes com dados reais (login, registo, logout, links, página, aparência, avatar/banner) + IP mascarado + hora
@@ -1622,9 +1622,9 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 
 ### Sessão 38 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Fix do cartão de Configuração DNS no telemóvel
 
-**Pedido:** o cartão de configuração DNS (CNAME `@` / `www` → linkflow-web.netlify.app) estava bugado no telemóvel.
+**Pedido:** o cartão de configuração DNS (CNAME `@` / `www` → linkflow-pt.netlify.app) estava bugado no telemóvel.
 
-**Bug:** cada registo era uma linha `flex items-center gap-3` com `font-mono` e **sem** `min-w-0`/`break-all`/`flex-wrap` — o valor longo (`linkflow-web.netlify.app`) estourava a largura do ecrã e partia o layout em viewports pequenos. Além disso, o botão com ícone `Check` era **decorativo** (não copiava nada).
+**Bug:** cada registo era uma linha `flex items-center gap-3` com `font-mono` e **sem** `min-w-0`/`break-all`/`flex-wrap` — o valor longo (`linkflow-pt.netlify.app`) estourava a largura do ecrã e partia o layout em viewports pequenos. Além disso, o botão com ícone `Check` era **decorativo** (não copiava nada).
 
 **Fix (frontend/src/app/dashboard/domains/page.tsx):**
 - Cada registo DNS passou a ser um cartão individual com `flex-wrap` + `min-w-0` + `break-all` no valor (quebra corretamente no telemóvel) e botão `shrink-0`.
@@ -1661,7 +1661,7 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 
 ### Sessão 40 — 2 Agosto 2026 (Buffy / DeepSeek v4-flash) — Auditoria XSS refletido (teste de payload em produção)
 
-**Pedido:** o utilizador testou `https://linkflow-web.netlify.app//%3Cscript%3Ealert('XSS')%3C/script%3E` (reflected XSS no caminho) e perguntou se é seguro.
+**Pedido:** o utilizador testou `https://linkflow-pt.netlify.app//%3Cscript%3Ealert('XSS')%3C/script%3E` (reflected XSS no caminho) e perguntou se é seguro.
 
 **Resultado: SEGURO — nenhuma vulnerabilidade encontrada.** O payload não é refletido em nenhuma rota; o HTML devolvido é apenas a página 404 estática (`not-found.tsx`), que não usa nem ecoa o caminho.
 
@@ -1864,7 +1864,7 @@ O mesmo bug do default perdido afeta **todos** os atributos obrigatórios com de
 
 **Validação:** typecheck ✅ · 195/195 testes ✅ · deploys verdes (runs 31220259767 e 31220729191) · rotas core 200 · callback: sem params → `/login?error=oauth_missing`; credenciais inválidas → `/login?error=user_invalid_token` (prova o endpoint correto). O happy path completo (autorizar no provider) só pode ser testado com uma conta real GitHub/Google.
 
-**Estado:** commits `1f51013` (callback + start) e `e0c4404` (endpoint `/account/sessions/token` + gitignore) pushados para `main` e deployados em https://linkflow.editsttk43.workers.dev .
+**Estado:** commits `1f51013` (callback + start) e `e0c4404` (endpoint `/account/sessions/token` + gitignore) pushados para `main` e deployados em https://linkflow-pt.netlify.app .
 
 **Sessão 53 — 7 Agosto 2026 — Fix OAuth Google/GitHub definitivo: fluxo TOKEN (createOAuth2Token)**
 
@@ -1947,7 +1947,7 @@ Nota: as contas de teste antigas (@teste.pt) tinham passwords inválidas para re
 
 **Nota:** as contas de teste antigas (guardb/pub/audit) foram eliminadas do Appwrite (só restava o utilizador owner `editsttk43@gmail.com`) — os logins de teste passaram a falhar com 401 `user_invalid_credentials`. Criadas contas de teste novas via API: `sideno*` (sem página) e `sideyes*` (com página) em `.tmpcheck/`.
 
-Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow.editsttk43.workers.dev
+Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow-pt.netlify.app
 
 **Sessão 58 — 8 Agosto 2026 — Privacidade: remover exibição de IP na interface**
 
@@ -1961,7 +1961,7 @@ Commit `9dc9916` · deploy run `31268552250` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** login → /dashboard com atividade "Início de sessão" no feed: `hasMaskedIp:false`, `hasRawIpv4:false`, `hasRawIpv6:false` ✅.
 
-Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow.editsttk43.workers.dev
+Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow-pt.netlify.app
 
 **Sessão 59 — 8 Agosto 2026 — Remover o cabeçalho do perfil da aba Perfil**
 
@@ -1978,7 +1978,7 @@ Commit `77ca8d6` · deploy run `31269270944` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasAlterarFoto:false`, `hasAvatarBtn:false`, `hasBannerUpload:true`, `hasNomePublico:true`, `hasBio:true`, `hasAlterarBannerBtn:true` ✅.
 
-Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow.editsttk43.workers.dev
+Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow-pt.netlify.app
 
 **Sessão 60 — 8 Agosto 2026 — Remover o cartão inteiro da aba Perfil (banner + wrapper)**
 
@@ -1994,7 +1994,7 @@ Commit `b7d37ec` · deploy run `31271484986` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasBannerText:false`, `hasAlterarBanner:false`, sem cartão gigante (só o formulário), `hasNomePublico:true`, `hasBio:true`, `hasPublish:true` ✅.
 
-Commit `22a6919` · deploy run `31271952953` verde · https://linkflow.editsttk43.workers.dev
+Commit `22a6919` · deploy run `31271952953` verde · https://linkflow-pt.netlify.app
 
 **Sessão 61 — 8 Agosto 2026 — Remover os campos Nome público e Bio da aba Perfil**
 
@@ -2006,7 +2006,7 @@ Commit `22a6919` · deploy run `31271952953` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** /dashboard/profile → `hasNomePublico:false`, `hasBio:false`, `hasPerfilTitle:true`, `hasPublish:true`, `hasPreview:true`, `hasStatus:true` ✅.
 
-Commit `3080d72` · deploy run `31272752454` verde · https://linkflow.editsttk43.workers.dev
+Commit `3080d72` · deploy run `31272752454` verde · https://linkflow-pt.netlify.app
 
 **Sessão 62 — 8 Agosto 2026 — Mover o cartão "Foto e banner" da Aparência para o Perfil**
 
@@ -2022,7 +2022,7 @@ Commit `3080d72` · deploy run `31272752454` verde · https://linkflow.editsttk4
 
 **Nota:** a aba Aparência está agora vazia (só o título) — opção natural: remover o item do sidebar/página ou redirecionar para /dashboard/profile.
 
-Commit `beb912b` · deploy run `31273301693` verde · https://linkflow.editsttk43.workers.dev
+Commit `beb912b` · deploy run `31273301693` verde · https://linkflow-pt.netlify.app
 
 **Sessão 63 — 8 Agosto 2026 — Remover a aba Aparência (sidebar + página)**
 
@@ -2037,7 +2037,7 @@ Commit `beb912b` · deploy run `31273301693` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** sidebar com 10 itens sem "Aparência" (`hasAparencia:false`); `/dashboard/appearance` → 404 ✅.
 
-Commit `1b05981` · deploy run `31273749037` verde · https://linkflow.editsttk43.workers.dev
+Commit `1b05981` · deploy run `31273749037` verde · https://linkflow-pt.netlify.app
 
 **Sessão 64 — 8 Agosto 2026 — Validação E2E do upload de foto/banner na aba Perfil**
 
@@ -2052,7 +2052,7 @@ Commit `1b05981` · deploy run `31273749037` verde · https://linkflow.editsttk4
 
 Sem alterações de código — fluxo 100% funcional. Conta de teste: `sideyes*`.
 
-Commit: apenas registro do relatório (memoria.md). https://linkflow.editsttk43.workers.dev
+Commit: apenas registro do relatório (memoria.md). https://linkflow-pt.netlify.app
 
 **Sessão 65 — 8 Agosto 2026 — Cartão "Atividades recentes" com altura fixa + scroll**
 
@@ -2064,7 +2064,7 @@ Commit: apenas registro do relatório (memoria.md). https://linkflow.editsttk43.
 
 **E2E (browser real, worker deployado):** `clientHeight:320` (fixo), `scrollHeight:1070` (15 atividades), `hasOverflow:true`, `scrollable:true` (scrollTop 0→200), cabeçalho e "Ver tudo" visíveis ✅.
 
-Commit `7507104` · deploy run `31275131607` verde · https://linkflow.editsttk43.workers.dev
+Commit `7507104` · deploy run `31275131607` verde · https://linkflow-pt.netlify.app
 
 **Sessão 66 — 8 Agosto 2026 — Confirmação de eliminação de conta DENTRO da app (sem window.confirm nativo)**
 
@@ -2079,7 +2079,7 @@ Commit `7507104` · deploy run `31275131607` verde · https://linkflow.editsttk4
 
 **E2E (browser real, worker deployado):** `confirmCalled:0` (window.confirm NUNCA chamado), modal `role=dialog` com "Eliminar conta?" + aviso, Cancelar fecha e restaura o scroll ✅.
 
-Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow.editsttk43.workers.dev
+Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow-pt.netlify.app
 
 **Sessão 67 — 8 Agosto 2026 — Causa raiz: HTML cacheado 1 ano (s-maxage) — utilizadores viam versões antigas**
 
@@ -2106,7 +2106,7 @@ Commit `d4d23c4` · deploy run `31275469514` verde · https://linkflow.editsttk4
 
 **Ação do utilizador (1x):** como o browser dele já guardou o HTML antigo com validade de 1 ano, precisa de um **hard refresh** (Ctrl+Shift+R / Cmd+Shift+R) ou limpar a cache do site UMA vez. A partir daí o `no-store` impede qualquer versão antiga.
 
-Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow.editsttk43.workers.dev
+Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow-pt.netlify.app
 
 **Sessão 68 — 8 Agosto 2026 — Simplificar o aviso de eliminação de conta**
 
@@ -2116,7 +2116,7 @@ Commit `7bfd996` · deploy run `31276044626` verde · https://linkflow.editsttk4
 
 **Validação:** Typecheck ✅ · deploy run 31276642616 verde · bundle servido no Worker: texto antigo=0, texto novo=1 (`"A sua conta ser\xe1 apagada permanentemente."`), modal "Eliminar conta?" mantido ✅.
 
-Commit `ea5d95f` · https://linkflow.editsttk43.workers.dev
+Commit `ea5d95f` · https://linkflow-pt.netlify.app
 
 **Sessão 69 — 8 Agosto 2026 — Sessão persistente após fechar/reabrir o browser**
 
@@ -2140,7 +2140,7 @@ Commit `ea5d95f` · https://linkflow.editsttk43.workers.dev
 - Login `remember:false` → sem Max-Age (cookie de sessão) ✅
 - E2E browser real: login → fechar Chrome (gracioso e forçado) → reabrir com o mesmo perfil → `/dashboard` (continua logado) ✅
 
-Commit `8d399e8` · https://linkflow.editsttk43.workers.dev
+Commit `8d399e8` · https://linkflow-pt.netlify.app
 
 **Sessão 70 — 8 Agosto 2026 — Email de verificação no registo (Appwrite)**
 
@@ -2160,9 +2160,9 @@ Commit `8d399e8` · https://linkflow.editsttk43.workers.dev
 
 **Worker deployado:** registo → 201 (email disparado) ✅ · /api/auth/verify com sessão → 200 {sent:true} ✅ · sem sessão → 403 (CSRF) ✅ · /verify-email → HTTP 200 ✅ · E2E browser: estado de erro com botão Reenviar email + aviso de falha sem sessão ✅.
 
-**Ação do utilizador (para o email ser bonito):** colar `scripts/appwrite-verification-template.html` na consola do Appwrite (Branding → Email Templates → Verification) e definir o campo URL como https://linkflow.editsttk43.workers.dev/verify-email. O envio do email não depende disto (o Appwrite envia o template por defeito), mas o template default é genérico.
+**Ação do utilizador (para o email ser bonito):** colar `scripts/appwrite-verification-template.html` na consola do Appwrite (Branding → Email Templates → Verification) e definir o campo URL como https://linkflow-pt.netlify.app/verify-email. O envio do email não depende disto (o Appwrite envia o template por defeito), mas o template default é genérico.
 
-Commit `6beacd4` · https://linkflow.editsttk43.workers.dev
+Commit `6beacd4` · https://linkflow-pt.netlify.app
 
 **Sessão 71 — 8 Agosto 2026 — Auditoria + correção definitiva do fluxo de confirmação de email**
 
@@ -2190,9 +2190,9 @@ Commit `6beacd4` · https://linkflow.editsttk43.workers.dev
 
 **AÇÃO MANUAL OBRIGATÓRIA (consola Appwrite) — entregabilidade:**
 1. Settings → SMTP → ligar Custom SMTP server (ex.: Resend: smtp.resend.com, porta 465/587, user/pass da API key; From: algo@teudominio) — SEM isto o email partilhado do Appwrite vai para spam/bloqueio.
-2. Branding → Email Templates → Verification → colar `scripts/appwrite-verification-template.html` (variáveis {{project}}/{{name}}/{{url}}/{{expire}}); o URL do link é o passado na API: https://linkflow.editsttk43.workers.dev/verify-email.
+2. Branding → Email Templates → Verification → colar `scripts/appwrite-verification-template.html` (variáveis {{project}}/{{name}}/{{url}}/{{expire}}); o URL do link é o passado na API: https://linkflow-pt.netlify.app/verify-email.
 
-Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
+Commit `e81c0d6` · https://linkflow-pt.netlify.app
 
 **Sessão 73 — 9 Agosto 2026 — Reversão: sair do MailerSend, voltar ao fluxo nativo do Appwrite**
 
@@ -2208,7 +2208,7 @@ Commit `e81c0d6` · https://linkflow.editsttk43.workers.dev
 
 **Nota (entregabilidade):** o email do Appwrite Cloud usa a infraestrutura partilhada — em testes reais NÃO chegou (spam/bloqueio). Para o email chegar a utilizadores reais é preciso configurar SMTP na consola do Appwrite (Settings → Auth → SMTP ou Branding → Email Templates → Verification com template próprio em `scripts/appwrite-verification-template.html`).
 
-Commit: `9669436` · https://linkflow.editsttk43.workers.dev
+Commit: `9669436` · https://linkflow-pt.netlify.app
 
 ### Sessão 74 — 9 Agosto 2026 — Eliminação dos dados da aplicação com preservação da identidade Auth
 
@@ -2459,7 +2459,7 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 
 **Limpeza:** removidos do Appwrite o utilizador de teste (`teste.codebuff.1708@gmail.com`), páginas, temas, analytics, visits e o ficheiro de upload de teste. Base de dados fica limpa.
 
-**⚠️ Pendência encontrada (não bloqueante):** `NEXT_PUBLIC_SITE_URL` no `.env.local` aponta para `https://linkflow-web.netlify.app` (domínio Netlify apagado na Sessão 77). Afeta canonical/OG/sitemap e o URL de verificação de email (email desativado). Definir o domínio real quando o deploy for recriado.
+**⚠️ Pendência encontrada (não bloqueante):** `NEXT_PUBLIC_SITE_URL` no `.env.local` aponta para `https://linkflow-pt.netlify.app` (domínio Netlify apagado na Sessão 77). Afeta canonical/OG/sitemap e o URL de verificação de email (email desativado). Definir o domínio real quando o deploy for recriado.
 
 **Estado final:**
 - ✅ Fluxos principais validados end-to-end contra o Appwrite Frankfurt
@@ -2563,27 +2563,27 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 
 **Verificação:** typecheck ✅ (CSS não afeta TS) · dev server recompilou sem erros (1718 módulos) · CSS servido contém `--glass-border-rgb` · rotas 200. O modo escuro mantém o aspeto (bordas brancas ligeiramente mais fortes); o claro ganha bordas escuras visíveis.
 
-### Sessão 82.6 — 17 Agosto 2026 — Domínio próprio `linkflou.qd.je` (DigitalPlat)
+### Sessão 82.6 — 17 Agosto 2026 — Domínio próprio `linkflow-pt.netlify.app` (DigitalPlat)
 
-**Pedido:** publicar o site no domínio próprio `linkflou.qd.je` (registado no DigitalPlat FreeDomain).
+**Pedido:** publicar o site no domínio próprio `linkflow-pt.netlify.app` (registado no DigitalPlat FreeDomain).
 
 **Contexto:** o deploy é Cloudflare Workers (`linkflow`, via GitHub Actions no push para `main`). O domínio canónico vem de `NEXT_PUBLIC_SITE_URL` (GitHub Secret, inlined no build) com fallback no código.
 
 **Alterações no código (commit + push para `main`):**
-- `src/lib/seo.ts`: fallback de `https://linkflow.workers.dev` → `https://linkflou.qd.je` (e comentário atualizado)
-- `src/lib/auth.server.ts`, `src/lib/email-templates.ts`, `src/app/api/auth/password-reset/route.ts`: fallback `normalizeEnvUrl` → `https://linkflou.qd.je`
-- `.env.example`: `NEXT_PUBLIC_SITE_URL=https://linkflou.qd.je`
-- `scripts/check-links.ts`: referências `linkflow-web.netlify.app` → `linkflou.qd.je`
-- `scripts/appwrite-verification-template.html`: URL → `linkflou.qd.je`
+- `src/lib/seo.ts`: fallback de `https://linkflow-pt.netlify.app` → `https://linkflow-pt.netlify.app` (e comentário atualizado)
+- `src/lib/auth.server.ts`, `src/lib/email-templates.ts`, `src/app/api/auth/password-reset/route.ts`: fallback `normalizeEnvUrl` → `https://linkflow-pt.netlify.app`
+- `.env.example`: `NEXT_PUBLIC_SITE_URL=https://linkflow-pt.netlify.app`
+- `scripts/check-links.ts`: referências `linkflow-pt.netlify.app` → `linkflow-pt.netlify.app`
+- `scripts/appwrite-verification-template.html`: URL → `linkflow-pt.netlify.app`
 - `email-templates.test.ts`: teste de fallback atualizado para o novo domínio
 
 **Verificação:** typecheck ✅ · testes afetados (email-templates + utils) ✅ 25/25.
 
 **Pendências (passos no dashboard — NÃO automáticos):**
-1. GitHub → Settings → Secrets → `NEXT_PUBLIC_SITE_URL` = `https://linkflou.qd.je` (senão o deploy continua a usar o valor antigo — o secret sobrepõe o fallback)
-2. Cloudflare → adicionar `linkflou.qd.je` como zona (obter 2 nameservers)
+1. GitHub → Settings → Secrets → `NEXT_PUBLIC_SITE_URL` = `https://linkflow-pt.netlify.app` (senão o deploy continua a usar o valor antigo — o secret sobrepõe o fallback)
+2. Cloudflare → adicionar `linkflow-pt.netlify.app` como zona (obter 2 nameservers)
 3. DigitalPlat → definir os 2 nameservers do Cloudflare no domínio (delegação NS)
-4. Cloudflare Workers → `linkflow` → Settings → Domains & Routes → Add Custom Domain `linkflou.qd.je`
+4. Cloudflare Workers → `linkflow` → Settings → Domains & Routes → Add Custom Domain `linkflow-pt.netlify.app`
 5. Redepois (push) para o build inlined usar o novo `NEXT_PUBLIC_SITE_URL`
 
 **Nota:** o OAuth usa URLs relativas (`new URL(..., request.url)`), por isso funciona em qualquer domínio sem config adicional. O fluxo de email está desativado (Sessão 82.x) — o `NEXT_PUBLIC_SITE_URL` continua a ser usado para canonical/OG/sitemap/QR.
@@ -2608,9 +2608,9 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 - Sem alterações de código funcional — apenas infraestrutura de deploy
 
 **Pendências (passos no dashboard — NÃO automáticos):**
-1. Ligar o repositório GitHub (`siqwsxx/linkflow-web-`) a um site Netlify
+1. Ligar o repositório GitHub (`FenixT17/linkflow`) a um site Netlify
 2. Configurar as env vars no Netlify (lista completa em `.env.example`): `NEXT_PUBLIC_*` (públicas) + `APPWRITE_API_KEY`, `IP_HASH_SECRET`, `UPSTASH_REDIS_REST_URL/TOKEN` (segredos)
-3. Apontar o domínio `linkflou.qd.je` ao Netlify (Sessão 82.6 — DNS pendente no DigitalPlat)
+3. Apontar o domínio `linkflow-pt.netlify.app` ao Netlify (Sessão 82.6 — DNS pendente no DigitalPlat)
 4. Commit + push das alterações para disparar o primeiro build Netlify
 
-**Nota:** o domínio canónico continua `https://linkflou.qd.je` (Sessão 82.6). O `.env.local` ainda aponta `NEXT_PUBLIC_SITE_URL` para `https://linkflow-web.netlify.app` (domínio antigo) — alinhar para `https://linkflou.qd.je` quando o site Netlify novo for criado.
+**Nota:** o domínio canónico continua `https://linkflow-pt.netlify.app` (Sessão 82.6). O `.env.local` ainda aponta `NEXT_PUBLIC_SITE_URL` para `https://linkflow-pt.netlify.app` (domínio antigo) — alinhar para `https://linkflow-pt.netlify.app` quando o site Netlify novo for criado.

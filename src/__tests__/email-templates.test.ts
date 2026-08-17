@@ -7,11 +7,11 @@ import {
 
 describe("email templates", () => {
   it("escapes user-controlled names in HTML while keeping text readable", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow.workers.dev");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://linkflow-pt.netlify.app");
     try {
       const content = renderVerificationEmail(
         { name: "<script>alert('xss')</script>" },
-        "https://linkflow.workers.dev/verify?token=abc"
+        "https://linkflow-pt.netlify.app/verify?token=abc"
       );
 
       expect(content.html).not.toContain("<script>alert");
@@ -27,10 +27,10 @@ describe("email templates", () => {
     try {
       const content = renderVerificationEmail(
         { name: "Ana" },
-        "https://linkflou.qd.je/verify?token=abc"
+        "https://linkflow-pt.netlify.app/verify?token=abc"
       );
       expect(content.subject).toBe("Confirme o seu email — LinkFlow");
-      expect(content.html).toContain("https://linkflou.qd.je/verify?token=abc");
+      expect(content.html).toContain("https://linkflow-pt.netlify.app/verify?token=abc");
     } finally {
       vi.unstubAllEnvs();
     }

@@ -61,7 +61,7 @@ const storage = new Storage(client);
 const users = new Users(client);
 
 const stamp = Date.now();
-const email = `deletion-check-${stamp}@linkflow.app`;
+const email = `deletion-check-${stamp}@linkflow-pt.netlify.app`;
 const password = "Teste!1234Delecao";
 const name = "Deletion Check";
 const nomeUtilizador = `dt${stamp}`;

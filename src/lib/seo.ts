@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { normalizeEnvUrl } from "@/lib/utils";
 
-// Domínio canónico: NEXT_PUBLIC_SITE_URL (definido no build — ver
-// .github/workflows/deploy.yml). Fallback para o domínio próprio
-// (linkflou.qd.je) — o mesmo valor deve estar no GitHub Secret.
+// Domínio canónico: NEXT_PUBLIC_SITE_URL (definido no build do Netlify).
+// Fallback para o domínio do site (linkflow-pt.netlify.app) — o mesmo valor
+// deve estar definido nas env vars do Netlify.
 //
 // `normalizeEnvUrl` valida a variável (trim + URL http(s) válida) e devolve
 // o fallback quando ela está ausente, vazia ou inválida. Isto é crítico no
@@ -12,7 +12,7 @@ import { normalizeEnvUrl } from "@/lib/utils";
 // "TypeError: Invalid URL. Input: ''" ao coletar /_not-found.
 export const siteUrl = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_SITE_URL,
-  "https://linkflou.qd.je"
+  "https://linkflow-pt.netlify.app"
 );
 export const siteName = "LinkFlow";
 export const siteTagline = "Um Link. Possibilidades Infinitas.";
