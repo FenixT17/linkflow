@@ -106,15 +106,15 @@ interface ResumoCardProps {
 export function ResumoCard({ links, analytics }: ResumoCardProps) {
   const [modal, setModal] = useState<"links" | "countries" | "devices" | null>(null);
 
-  const activeLinks = links.filter((l) => l.active && l.visible);
+  const activeLinks = links.filter((l) => l.ativo && l.visivel);
 
   // Lista completa de links ordenada por cliques (decrescente) — nunca alfabética
   const sortedLinks = useMemo(
-    () => [...links].sort((a, b) => b.clicks - a.clicks),
+    () => [...links].sort((a, b) => b.cliques - a.cliques),
     [links]
   );
   const totalClicks = useMemo(
-    () => links.reduce((sum, l) => sum + (l.clicks || 0), 0),
+    () => links.reduce((sum, l) => sum + (l.cliques || 0), 0),
     [links]
   );
   const mostClicked = sortedLinks[0];
@@ -154,7 +154,7 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
           value={String(activeLinks.length)}
           hint={
             mostClicked
-              ? `Mais clicado: ${mostClicked.title || "Link"} (${mostClicked.clicks || 0} cliques)`
+              ? `Mais clicado: ${mostClicked.titulo || "Link"} (${mostClicked.cliques || 0} cliques)`
               : "Sem cliques ainda"
           }
           onClick={() => setModal("links")}
@@ -197,7 +197,7 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
             ) : (
               <ul className="space-y-2.5">
                 {sortedLinks.map((link) => {
-                  const clicks = link.clicks || 0;
+                  const clicks = link.cliques || 0;
                   const ctr = totalClicks > 0 ? Math.round((clicks / totalClicks) * 100) : 0;
                   return (
                     <li
@@ -205,11 +205,11 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
                       className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
                     >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">
-                        {link.icon ? (
+                        {link.icone ? (
                           <PlatformIcon
-                            platformId={link.icon}
+                            platformId={link.icone}
                             size={16}
-                            color={getPlatform(link.icon)?.color ?? "#fff"}
+                            color={getPlatform(link.icone)?.color ?? "#fff"}
                           />
                         ) : (
                           <Link2 className="h-4 w-4 text-white/50" />
@@ -217,7 +217,7 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-white/90">
-                          {link.title || "Link"}
+                          {link.titulo || "Link"}
                         </p>
                         <p className="truncate text-xs text-white/40">{link.url}</p>
                       </div>
@@ -255,15 +255,15 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
               <ul className="space-y-2.5">
                 {countries.map((c) => (
                   <li
-                    key={c.countryCode || c.country}
+                    key={c.codigoPais || c.pais}
                     className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
                   >
                     <span className="text-xl" aria-hidden="true">
-                      {countryFlag(c.countryCode)}
+                      {countryFlag(c.codigoPais)}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white/90">{c.country}</p>
-                      {c.city && <p className="truncate text-xs text-white/40">{c.city}</p>}
+                      <p className="truncate text-sm font-medium text-white/90">{c.pais}</p>
+                      {c.cidade && <p className="truncate text-xs text-white/40">{c.cidade}</p>}
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-sm font-semibold text-white/90">
@@ -293,11 +293,11 @@ export function ResumoCard({ links, analytics }: ResumoCardProps) {
             ) : (
               <ul className="space-y-2.5">
                 {devices.map((d) => {
-                  const meta = deviceMeta[d.type] ?? { label: d.type, icon: MonitorSmartphone };
+                  const meta = deviceMeta[d.tipo] ?? { label: d.tipo, icon: MonitorSmartphone };
                   const Icon = meta.icon;
                   return (
                     <li
-                      key={d.type}
+                      key={d.tipo}
                       className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3"
                     >
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]">

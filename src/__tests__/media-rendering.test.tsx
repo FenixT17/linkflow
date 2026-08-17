@@ -37,29 +37,29 @@ describe("media rendering", () => {
   it("renders avatar and banner as direct unoptimized proxy images", () => {
     const profile: PageProfile & { $id: string } = {
       $id: "page-1",
-      username: "maria",
-      displayName: "Maria Silva",
-      bio: "Criadora",
+      nomeUtilizador: "maria",
+      nomeExibicao: "Maria Silva",
+      biografia: "Criadora",
       avatar: "/api/media/avatar-1",
       banner: "/api/media/banner-1",
-      published: true,
+      publicado: true,
     };
     const link: LinkItem = {
       id: "link-1",
-      type: "social",
-      title: "Instagram",
+      tipo: "social",
+      titulo: "Instagram",
       url: "https://instagram.com/maria",
-      icon: "instagram",
-      active: true,
-      visible: true,
-      newTab: true,
-      order: 0,
-      clicks: 0,
+      icone: "instagram",
+      ativo: true,
+      visivel: true,
+      novaAba: true,
+      ordem: 0,
+      cliques: 0,
     };
 
     const { container } = render(
       <>
-        <TemplateAvatar src={profile.avatar} name={profile.displayName} />
+        <TemplateAvatar src={profile.avatar} name={profile.nomeExibicao} />
         <TemplateThree
           profile={profile}
           links={[link]}

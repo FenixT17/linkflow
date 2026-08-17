@@ -26,25 +26,25 @@ vi.mock("@/components/ui/platform-icon", () => ({
 
 const profile: PageProfile & { $id: string } = {
   $id: "page-1",
-  username: "maria",
-  displayName: "Maria Silva",
-  bio: "Criadora e fotógrafa.",
+  nomeUtilizador: "maria",
+  nomeExibicao: "Maria Silva",
+  biografia: "Criadora e fotógrafa.",
   avatar: "/api/media/avatar-1",
   banner: "/api/media/banner-1",
-  published: true,
+  publicado: true,
 };
 
 const link: LinkItem = {
   id: "link-1",
-  type: "social",
-  title: "Instagram",
+  tipo: "social",
+  titulo: "Instagram",
   url: "https://instagram.com/maria",
-  icon: "instagram",
-  active: true,
-  visible: true,
-  newTab: true,
-  order: 0,
-  clicks: 0,
+  icone: "instagram",
+  ativo: true,
+  visivel: true,
+  novaAba: true,
+  ordem: 0,
+  cliques: 0,
 };
 
 describe("TemplateThree — Página 3 Liquid Glass", () => {

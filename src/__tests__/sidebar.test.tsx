@@ -27,7 +27,7 @@ describe("DashboardSidebar", () => {
 
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
       logout: vi.fn(),
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
     mockUsePathname.mockReturnValue("/dashboard");
@@ -79,7 +79,7 @@ describe("DashboardSidebar", () => {
   it("calls logout when Sair button is clicked", () => {
     const logout = vi.fn();
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
       logout,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
     render(<DashboardSidebar />);

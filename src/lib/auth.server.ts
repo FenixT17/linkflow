@@ -24,9 +24,9 @@ export const AUTH_SESSION_COOKIE_NAME =
 /**
  * Cookie de estado do fluxo OAuth (anti login CSRF — M2).
  *
- * O callback OAuth (/api/auth/oauth/callback) recebe `userId`+`secret` na
+ * O callback OAuth (/api/auth/oauth/callback) recebe `idUtilizador`+`secret` na
  * query string (redirect do provider). Sem um estado ligado ao browser, um
- * atacante poderia induzir a vítima a abrir um link com o `userId`+`secret`
+ * atacante poderia induzir a vítima a abrir um link com o `idUtilizador`+`secret`
  * da conta DO ATACANTE, fazendo o browser da vítima definir a sessão do
  * atacante (login CSRF / session fixation). Este cookie (HttpOnly, curta
  * duração) só existe quando o próprio browser inicia o fluxo em
@@ -143,7 +143,7 @@ export function createServerAuthClient(): { client: Client; account: Account } {
 export async function createEmailPasswordSessionResolved(
   email: string,
   password: string,
-): Promise<{ secret: string; expire: string; userId: string }> {
+): Promise<{ secret: string; expire: string; idUtilizador: string }> {
   const response = await fetch(`${endpoint}/account/sessions/email`, {
     method: "POST",
     headers: {
@@ -154,7 +154,7 @@ export async function createEmailPasswordSessionResolved(
   });
   const data = (await response.json()) as {
     $id?: unknown;
-    userId?: unknown;
+    idUtilizador?: unknown;
     expire?: unknown;
     secret?: unknown;
   };
@@ -201,7 +201,7 @@ export async function createEmailPasswordSessionResolved(
   return {
     secret,
     expire: typeof data.expire === "string" ? data.expire : "",
-    userId: typeof data.userId === "string" ? data.userId : typeof data.$id === "string" ? data.$id : "",
+    idUtilizador: typeof data.idUtilizador === "string" ? data.idUtilizador : typeof data.$id === "string" ? data.$id : "",
   };
 }
 
@@ -278,7 +278,7 @@ export function setAuthSessionCookie(
  * Dispara o email de verificação de email do Appwrite para a sessão dada
  * (createVerification). O Appwrite envia SEMPRE o seu próprio email (template
  * da consola — Branding → Email Templates → Verification) com o link
- * `{NEXT_PUBLIC_SITE_URL}/verify-email?userId=..&secret=..`. O secret do token
+ * `{NEXT_PUBLIC_SITE_URL}/verify-email?idUtilizador=..&secret=..`. O secret do token
  * só é conhecido do Appwrite (vai no email), por isso não é possível enviar um
  * email personalizado com o mesmo link sem duplicar o envio do Appwrite.
  * Falhas de envio não devem quebrar o registo — quem chama trata como

@@ -60,7 +60,7 @@ export const SOCIAL_PLATFORM_IDS = [
   "blog",
 ] as const;
 
-/** Platforms that accept a full URL but never auto-generate from a username. */
+/** Platforms that accept a full URL but never auto-generate from a nomeUtilizador. */
 const FULL_URL_ONLY = new Set(["website", "portfolio", "blog", "notion", "trello", "applemusic", "deezer"]);
 
 /** Host aliases accepted when a full URL is provided for a platform. */
@@ -109,8 +109,8 @@ const HOST_ALIASES: Record<string, string[]> = {
 export interface SocialUrlResult {
   /** Final normalized URL, or "" when invalid. */
   url: string;
-  /** Raw username when derived from a username (optional). */
-  username?: string;
+  /** Raw nomeUtilizador when derived from a nomeUtilizador (optional). */
+  nomeUtilizador?: string;
   /** Human-readable validation error (empty when valid). */
   error?: string;
 }
@@ -141,7 +141,7 @@ export function isFullUrlInput(input: string): boolean {
 }
 
 /**
- * Sanitize a username handle: strip leading @, whitespace, control chars
+ * Sanitize a nomeUtilizador handle: strip leading @, whitespace, control chars
  * and any character outside [a-zA-Z0-9._~-].
  */
 function sanitizeHandle(input: string): string {
@@ -162,10 +162,10 @@ function hostMatches(url: URL, platformId: string): boolean {
 }
 
 /**
- * Build a normalized URL from a username OR validate a provided full URL.
+ * Build a normalized URL from a nomeUtilizador OR validate a provided full URL.
  *
  * Rules:
- * - username → generated from the platform urlPrefix (e.g. joao → https://instagram.com/joao)
+ * - nomeUtilizador → generated from the platform urlPrefix (e.g. joao → https://instagram.com/joao)
  * - full URL   → validated with the URL() API; HTTPS only for external platforms;
  *                mailto: only for email; tel: only for phone
  * - unsafe protocols (javascript:, data:, vbscript:, file:, blob:) are always blocked
@@ -196,7 +196,7 @@ export function buildSocialUrl(platformId: string, raw: string): SocialUrlResult
         if (!isValidEmail(address)) {
           return { url: "", error: "Email inválido." };
         }
-        return { url: `mailto:${address}`, username: address };
+        return { url: `mailto:${address}`, nomeUtilizador: address };
       }
       return { url: "", error: "Use mailto: ou indique apenas o email." };
     }
@@ -208,7 +208,7 @@ export function buildSocialUrl(platformId: string, raw: string): SocialUrlResult
       if (!/^\+?\d{7,15}$/.test(normalized)) {
         return { url: "", error: "Número de telefone inválido. Use formato internacional, ex.: tel:+351912345678." };
       }
-      return { url: `tel:${normalized}`, username: normalized };
+      return { url: `tel:${normalized}`, nomeUtilizador: normalized };
     }
 
     // Only HTTPS allowed for external platforms
@@ -237,7 +237,7 @@ export function buildSocialUrl(platformId: string, raw: string): SocialUrlResult
     if (!isValidEmail(input)) {
       return { url: "", error: "Email inválido." };
     }
-    return { url: `mailto:${input}`, username: input };
+    return { url: `mailto:${input}`, nomeUtilizador: input };
   }
 
   const handle = sanitizeHandle(input);
@@ -260,7 +260,7 @@ export function buildSocialUrl(platformId: string, raw: string): SocialUrlResult
     if (url.protocol !== "https:") {
       return { url: "", error: "Apenas URLs HTTPS são permitidas." };
     }
-    return { url: url.toString(), username: handle };
+    return { url: url.toString(), nomeUtilizador: handle };
   } catch {
     return { url: "", error: "URL gerada inválida." };
   }

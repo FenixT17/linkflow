@@ -119,8 +119,8 @@ async function deleteFile(storage: Storage, bucketId: string, fileId: string): P
  * transaction, so the operation is idempotent and must be retried if a
  * transient error is returned.
  */
-export async function deleteAccountData(userId: string, email: string): Promise<void> {
-  if (!userId.trim()) throw new Error("Missing user id");
+export async function deleteAccountData(idUtilizador: string, email: string): Promise<void> {
+  if (!idUtilizador.trim()) throw new Error("Missing user id");
 
   const { databases, storage, users } = createServerClient();
   const adminUsers = users as Users;
@@ -128,7 +128,7 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   // Revoke sessions before starting the non-transactional cleanup. This
   // closes the authenticated user's access immediately, even if a later
   // collection or storage operation needs to be retried.
-  await adminUsers.deleteSessions(userId);
+  await adminUsers.deleteSessions(idUtilizador);
 
   const pageIds = new Set<string>();
   const fileIds = new Set<string>();
@@ -139,17 +139,17 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   const userDocuments = await listAllDocuments(
     databases,
     ACCOUNT_COLLECTIONS.users,
-    [Query.equal("userId", userId)]
+    [Query.equal("idUtilizador", idUtilizador)]
   );
   const pages = await listAllDocuments(
     databases,
     ACCOUNT_COLLECTIONS.pages,
-    [Query.equal("userId", userId)]
+    [Query.equal("idUtilizador", idUtilizador)]
   );
   pages.forEach((page) => {
     addUniqueId(pageIds, page.$id);
-    addUniqueId(fileIds, page.avatarId);
-    addUniqueId(fileIds, page.bannerId);
+    addUniqueId(fileIds, page.idAvatar);
+    addUniqueId(fileIds, page.idBanner);
   });
 
   // Unpublish before deleting children. Public tracking routes require a
@@ -158,8 +158,8 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   for (const page of pages) {
     try {
       await databases.updateDocument(databaseId, ACCOUNT_COLLECTIONS.pages, page.$id, {
-        published: false,
-        deleting: true,
+        publicado: false,
+        aEliminar: true,
       });
     } catch (error) {
       if (!isNotFound(error)) throw error;
@@ -171,19 +171,19 @@ export async function deleteAccountData(userId: string, email: string): Promise<
 
   for (const collectionId of PAGE_SCOPED_COLLECTIONS) {
     const documents: Document[] = [];
-    for (const pageId of pageIds) {
-      documents.push(...await listAllDocuments(databases, collectionId, [Query.equal("pageId", pageId)]));
+    for (const idPagina of pageIds) {
+      documents.push(...await listAllDocuments(databases, collectionId, [Query.equal("idPagina", idPagina)]));
     }
     pageChildren.push([collectionId, documents]);
 
     for (const document of documents) {
-      addUniqueId(fileIds, document.imageId);
-      addUniqueId(fileIds, document.logoId);
+      addUniqueId(fileIds, document.idImagem);
+      addUniqueId(fileIds, document.idLogo);
       if (collectionId === ACCOUNT_COLLECTIONS.analytics) {
-        collectAnalyticsVisitorHashes(document.metricsJson, visitorHashes);
+        collectAnalyticsVisitorHashes(document.metricasJson, visitorHashes);
       }
       if (collectionId === ACCOUNT_COLLECTIONS.visits) {
-        addUniqueId(visitorHashes, document.visitorHash);
+        addUniqueId(visitorHashes, document.hashVisitante);
         addUniqueId(visitorHashes, document.ip);
       }
     }
@@ -195,16 +195,16 @@ export async function deleteAccountData(userId: string, email: string): Promise<
     const otherPageVisitorHashes = new Set<string>();
     const allVisits = await listAllDocuments(databases, ACCOUNT_COLLECTIONS.visits);
     for (const visit of allVisits) {
-      if (!pageIds.has(String(visit.pageId ?? ""))) {
-        addUniqueId(otherPageVisitorHashes, visit.visitorHash);
+      if (!pageIds.has(String(visit.idPagina ?? ""))) {
+        addUniqueId(otherPageVisitorHashes, visit.hashVisitante);
         addUniqueId(otherPageVisitorHashes, visit.ip);
       }
     }
 
     const allAnalytics = await listAllDocuments(databases, ACCOUNT_COLLECTIONS.analytics);
     for (const analytics of allAnalytics) {
-      if (!pageIds.has(String(analytics.pageId ?? ""))) {
-        collectAnalyticsVisitorHashes(analytics.metricsJson, otherPageVisitorHashes);
+      if (!pageIds.has(String(analytics.idPagina ?? ""))) {
+        collectAnalyticsVisitorHashes(analytics.metricasJson, otherPageVisitorHashes);
       }
     }
 
@@ -213,7 +213,7 @@ export async function deleteAccountData(userId: string, email: string): Promise<
       databases,
       ACCOUNT_COLLECTIONS.collectedIps,
       collectedIpDocuments.filter((document) => {
-        const hash = String(document.visitorHash ?? document.ip ?? "");
+        const hash = String(document.hashVisitante ?? document.ip ?? "");
         return visitorHashes.has(hash) && !otherPageVisitorHashes.has(hash);
       })
     );
@@ -228,8 +228,8 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   // remove those late records before deleting the page itself.
   for (const collectionId of PAGE_SCOPED_COLLECTIONS) {
     const lateDocuments: Document[] = [];
-    for (const pageId of pageIds) {
-      lateDocuments.push(...await listAllDocuments(databases, collectionId, [Query.equal("pageId", pageId)]));
+    for (const idPagina of pageIds) {
+      lateDocuments.push(...await listAllDocuments(databases, collectionId, [Query.equal("idPagina", idPagina)]));
     }
     await deleteDocuments(databases, collectionId, lateDocuments);
   }
@@ -237,13 +237,13 @@ export async function deleteAccountData(userId: string, email: string): Promise<
 
   // Remove all account-scoped documents, including logs, subscriptions and
   // staff applications that do not depend on a page.
-  // NOTA (Sessão 43): a coleção `teams` usa `ownerId` (não `userId`) como
-  // campo do dono — ver USER_SCOPED_OWNER_FIELD. Consultar `userId` aí
-  // falhava com "Attribute not found in schema: userId" e abortava a
+  // NOTA (Sessão 43): a coleção `teams` usa `idProprietario` (não `idUtilizador`) como
+  // campo do dono — ver USER_SCOPED_OWNER_FIELD. Consultar `idUtilizador` aí
+  // falhava com "Attribute not found in schema: idUtilizador" e abortava a
   // exclusão DEPOIS de as páginas já terem sido apagadas.
   for (const [collectionId, ownerField] of Object.entries(USER_SCOPED_OWNER_FIELD)) {
     const documents = await listAllDocuments(databases, collectionId, [
-      Query.equal(ownerField, userId),
+      Query.equal(ownerField, idUtilizador),
     ]);
     await deleteDocuments(databases, collectionId, documents);
   }
@@ -254,9 +254,9 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   const securityLogs = await listAllDocuments(databases, ACCOUNT_COLLECTIONS.securityLogs);
   const emailHash = email.trim() ? await hashForLog(email.trim()) : "";
   const accountSecurityLogs = securityLogs.filter((document) => {
-    if (String(document.userId ?? "") === userId) return true;
+    if (String(document.idUtilizador ?? "") === idUtilizador) return true;
     if (emailHash && String(document.email ?? "") === emailHash) return true;
-    return String(document.metadata ?? "").includes(userId);
+    return String(document.metadados ?? "").includes(idUtilizador);
   });
   await deleteDocuments(databases, ACCOUNT_COLLECTIONS.securityLogs, accountSecurityLogs);
 
@@ -267,7 +267,7 @@ export async function deleteAccountData(userId: string, email: string): Promise<
   for (const bucketId of accountFileBucketIds) {
     const files = await listAllFiles(storage, bucketId);
     for (const file of files) {
-      if (fileIds.has(file.$id) || fileBelongsToUser(file.$permissions, userId)) {
+      if (fileIds.has(file.$id) || fileBelongsToUser(file.$permissions, idUtilizador)) {
         await deleteFile(storage, bucketId, file.$id);
       }
     }

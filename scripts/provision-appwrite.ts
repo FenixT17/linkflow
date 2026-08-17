@@ -18,6 +18,14 @@ const databaseId =
   process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ??
   process.env.APPWRITE_DATABASE_ID ??
   "linkflow";
+// Bucket ID: tem de corresponder ao runtime (NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID).
+// No plano gratuito o Appwrite limita o nº de buckets — se já existir um bucket
+// (ex: criado manualmente na consola com ID aleatório), o provision deve
+// ATUALIZAR esse bucket em vez de tentar criar um novo com ID fixo "files".
+const filesBucketId =
+  process.env.NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID ??
+  process.env.APPWRITE_FILES_BUCKET_ID ??
+  "files";
 
 if (!projectId || !apiKey) {
   console.error(
@@ -218,7 +226,7 @@ async function ensureStringAttributeDefault(
  * Backfill: garante que um atributo boolean JÁ EXISTENTE tem o default
  * pretendido. Necessário porque createBooleanAttribute descarta o default
  * em atributos obrigatórios (required ? undefined : defaultValue) — ex:
- * themes.showSocial ficou com required:true/default:null, o que fazia o
+ * themes.mostrarSocial ficou com required:true/default:null, o que fazia o
  * createDocument sem o campo falhar com "Missing required attribute".
  * Igual ao ensureStringAttributeDefault (Sessão 31) mas para booleans.
  */
@@ -296,17 +304,17 @@ async function provision() {
   // O perfil é criado/atualizado via API routes com API key; o browser recebe
   // apenas Permission.read(Role.user(owner)) no próprio documento.
   console.log("\n👤 Collection: users");
-  await createCollection("users", "Users", [], true);
-  await createStringAttribute("users", "userId", 255, true);
+  await createCollection("users", "Utilizadores", [], true);
+  await createStringAttribute("users", "idUtilizador", 255, true);
   await createStringAttribute("users", "email", 255, true);
-  await createStringAttribute("users", "displayName", 255, true);
-  await createStringAttribute("users", "plan", 32, true, "free");
-  await createStringAttribute("users", "country", 128, false, "");
-  await createStringAttribute("users", "countryCode", 8, false, "");
-  await createStringAttribute("users", "currency", 8, false, "EUR");
-  await createDatetimeAttribute("users", "createdAt", true);
-  await waitForAttributes("users", ["userId", "email", "displayName", "plan", "country", "countryCode", "currency", "createdAt"]);
-  await createIndex("users", "idx_users_userId", "unique", ["userId"]);
+  await createStringAttribute("users", "nomeExibicao", 255, true);
+  await createStringAttribute("users", "plano", 32, true, "free");
+  await createStringAttribute("users", "pais", 128, false, "");
+  await createStringAttribute("users", "codigoPais", 8, false, "");
+  await createStringAttribute("users", "moeda", 8, false, "EUR");
+  await createDatetimeAttribute("users", "criadoEm", true);
+  await waitForAttributes("users", ["idUtilizador", "email", "nomeExibicao", "plano", "pais", "codigoPais", "moeda", "criadoEm"]);
+  await createIndex("users", "idx_users_idUtilizador", "unique", ["idUtilizador"]);
   await createIndex("users", "idx_users_email", "unique", ["email"]);
 
   // 3. Pages collection
@@ -316,35 +324,33 @@ async function provision() {
   console.log("\n📄 Collection: pages");
   await createCollection(
     "pages",
-    "Pages",
+    "Páginas",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("pages", "userId", 255, true);
-  await createStringAttribute("pages", "username", 255, true);
-  await createStringAttribute("pages", "displayName", 255, true);
-  await createStringAttribute("pages", "bio", 4096, false);
-  await createStringAttribute("pages", "avatarId", 255, false);
-  await createStringAttribute("pages", "bannerId", 255, false);
-  await createBooleanAttribute("pages", "published", true, false);
-  await createStringAttribute("pages", "pageType", 32, false, "minimal");
-  await createStringAttribute("pages", "pageTemplate", 32, false, "template1");
-  await createStringArrayAttribute("pages", "badges", 32, false);
-  await createDatetimeAttribute("pages", "scheduledPublishAt", false);
-  await createDatetimeAttribute("pages", "scheduledUnpublishAt", false);
+  await createStringAttribute("pages", "idUtilizador", 255, true);
+  await createStringAttribute("pages", "nomeUtilizador", 255, true);
+  await createStringAttribute("pages", "nomeExibicao", 255, true);
+  await createStringAttribute("pages", "biografia", 4096, false);
+  await createStringAttribute("pages", "idAvatar", 255, false);
+  await createStringAttribute("pages", "idBanner", 255, false);
+  await createBooleanAttribute("pages", "publicado", true, false);
+  await createStringAttribute("pages", "tipoPagina", 32, false, "minimal");
+  await createStringAttribute("pages", "modeloPagina", 32, false, "template1");
+  await createStringArrayAttribute("pages", "emblemas", 32, false);
+  await createDatetimeAttribute("pages", "publicacaoAgendadaEm", false);
+  await createDatetimeAttribute("pages", "despublicacaoAgendadaEm", false);
   // Sessão 43: flag usada pela exclusão de conta — despública a página e
-  // sinaliza "em eliminação" (deleting: true) para as rotas /api/view e
+  // sinaliza "em eliminação" (aEliminar: true) para as rotas /api/view e
   // /api/click pararem de registar novas interações durante a limpeza.
-  // Sem este atributo, o updateDocument({ deleting: true }) da exclusão
-  // falhava com "Attribute 'deleting' not found" (400) e abortava tudo.
-  await createBooleanAttribute("pages", "deleting", false, false);
-  await waitForAttributes("pages", ["userId", "username", "displayName", "bio", "avatarId", "bannerId", "published", "pageType", "pageTemplate", "badges", "scheduledPublishAt", "scheduledUnpublishAt", "deleting"]);
-  await createIndex("pages", "idx_pages_userId", "key", ["userId"]);
-  await createIndex("pages", "idx_pages_username", "unique", ["username"]);
-  await createIndex("pages", "idx_pages_avatarId", "key", ["avatarId"]);
-  await createIndex("pages", "idx_pages_bannerId", "key", ["bannerId"]);
+  await createBooleanAttribute("pages", "aEliminar", false, false);
+  await waitForAttributes("pages", ["idUtilizador", "nomeUtilizador", "nomeExibicao", "biografia", "idAvatar", "idBanner", "publicado", "tipoPagina", "modeloPagina", "emblemas", "publicacaoAgendadaEm", "despublicacaoAgendadaEm", "aEliminar"]);
+  await createIndex("pages", "idx_pages_idUtilizador", "key", ["idUtilizador"]);
+  await createIndex("pages", "idx_pages_nomeUtilizador", "unique", ["nomeUtilizador"]);
+  await createIndex("pages", "idx_pages_idAvatar", "key", ["idAvatar"]);
+  await createIndex("pages", "idx_pages_idBanner", "key", ["idBanner"]);
 
   // 4. Links collection
   // Sessão 36: só create ao nível da coleção. O dono lê/edita/apaga os SEUS
@@ -359,28 +365,28 @@ async function provision() {
     ],
     true
   );
-  await createStringAttribute("links", "pageId", 255, true);
-  await createStringAttribute("links", "type", 64, true);
-  await createStringAttribute("links", "title", 255, true);
+  await createStringAttribute("links", "idPagina", 255, true);
+  await createStringAttribute("links", "tipo", 64, true);
+  await createStringAttribute("links", "titulo", 255, true);
   await createStringAttribute("links", "url", 4096, true);
-  await createStringAttribute("links", "description", 4096, false);
-  await createStringAttribute("links", "icon", 255, false);
-  await createStringAttribute("links", "color", 32, false);
-  await createStringAttribute("links", "imageId", 255, false);
-  await createStringAttribute("links", "animation", 32, false, "none");
-  await createBooleanAttribute("links", "active", true, true);
-  await createBooleanAttribute("links", "visible", true, true);
-  await createBooleanAttribute("links", "newTab", true, true);
-  await createIntegerAttribute("links", "order", true, 0);
-  await createIntegerAttribute("links", "clicks", true, 0);
-  await createDatetimeAttribute("links", "scheduledFor", false);
+  await createStringAttribute("links", "descricao", 4096, false);
+  await createStringAttribute("links", "icone", 255, false);
+  await createStringAttribute("links", "cor", 32, false);
+  await createStringAttribute("links", "idImagem", 255, false);
+  await createStringAttribute("links", "animacao", 32, false, "none");
+  await createBooleanAttribute("links", "ativo", true, true);
+  await createBooleanAttribute("links", "visivel", true, true);
+  await createBooleanAttribute("links", "novaAba", true, true);
+  await createIntegerAttribute("links", "ordem", true, 0);
+  await createIntegerAttribute("links", "cliques", true, 0);
+  await createDatetimeAttribute("links", "agendadoPara", false);
   await waitForAttributes("links", [
-    "pageId", "type", "title", "url", "description", "icon", "color", "imageId",
-    "animation", "active", "visible", "newTab", "order", "clicks", "scheduledFor",
+    "idPagina", "tipo", "titulo", "url", "descricao", "icone", "cor", "idImagem",
+    "animacao", "ativo", "visivel", "novaAba", "ordem", "cliques", "agendadoPara",
   ]);
-  await createIndex("links", "idx_links_pageId", "key", ["pageId"]);
-  await createIndex("links", "idx_links_pageId_order", "key", ["pageId", "order"]);
-  await createIndex("links", "idx_links_imageId", "key", ["imageId"]);
+  await createIndex("links", "idx_links_idPagina", "key", ["idPagina"]);
+  await createIndex("links", "idx_links_idPagina_ordem", "key", ["idPagina", "ordem"]);
+  await createIndex("links", "idx_links_idImagem", "key", ["idImagem"]);
 
   // 5. Analytics collection
   // Sessão 36: só create. Analytics são privadas — só o dono lê as suas via
@@ -388,19 +394,19 @@ async function provision() {
   console.log("\n📊 Collection: analytics");
   await createCollection(
     "analytics",
-    "Analytics",
+    "Análises",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("analytics", "pageId", 255, true);
-  await createIntegerAttribute("analytics", "views", true, 0);
-  await createIntegerAttribute("analytics", "clicks", true, 0);
-  await createIntegerAttribute("analytics", "followers", true, 0);
-  await createStringAttribute("analytics", "metricsJson", 1048576, false);
-  await waitForAttributes("analytics", ["pageId", "views", "clicks", "followers", "metricsJson"]);
-  await createIndex("analytics", "idx_analytics_pageId", "unique", ["pageId"]);
+  await createStringAttribute("analytics", "idPagina", 255, true);
+  await createIntegerAttribute("analytics", "visualizacoes", true, 0);
+  await createIntegerAttribute("analytics", "cliques", true, 0);
+  await createIntegerAttribute("analytics", "seguidores", true, 0);
+  await createStringAttribute("analytics", "metricasJson", 1048576, false);
+  await waitForAttributes("analytics", ["idPagina", "visualizacoes", "cliques", "seguidores", "metricasJson"]);
+  await createIndex("analytics", "idx_analytics_idPagina", "unique", ["idPagina"]);
 
   // 5b. Visits collection (raw analytics events)
   // Server-only: raw visits stored by the view/click API routes. The IP is
@@ -410,29 +416,29 @@ async function provision() {
   console.log("\n🕵️ Collection: visits");
   await createCollection(
     "visits",
-    "Visits",
+    "Visitas",
     [],
     true
   );
-  await createStringAttribute("visits", "pageId", 255, true);
-  await createStringAttribute("visits", "visitorHash", 128, false);
+  await createStringAttribute("visits", "idPagina", 255, true);
+  await createStringAttribute("visits", "hashVisitante", 128, false);
   await createStringAttribute("visits", "ip", 64, false);
-  await createStringAttribute("visits", "country", 128, false);
-  await createStringAttribute("visits", "countryCode", 8, false);
-  await createStringAttribute("visits", "city", 128, false);
-  await createStringAttribute("visits", "device", 32, false);
-  await createStringAttribute("visits", "browser", 64, false);
-  await createStringAttribute("visits", "os", 64, false);
-  await createStringAttribute("visits", "referer", 512, false);
-  await createStringAttribute("visits", "userAgent", 512, false);
-  await createStringAttribute("visits", "clickedLink", 255, false);
-  await createDatetimeAttribute("visits", "createdAt", false);
+  await createStringAttribute("visits", "pais", 128, false);
+  await createStringAttribute("visits", "codigoPais", 8, false);
+  await createStringAttribute("visits", "cidade", 128, false);
+  await createStringAttribute("visits", "dispositivo", 32, false);
+  await createStringAttribute("visits", "navegador", 64, false);
+  await createStringAttribute("visits", "sistemaOperativo", 64, false);
+  await createStringAttribute("visits", "origem", 512, false);
+  await createStringAttribute("visits", "agenteUtilizador", 512, false);
+  await createStringAttribute("visits", "linkClicado", 255, false);
+  await createDatetimeAttribute("visits", "criadoEm", false);
   await waitForAttributes("visits", [
-    "pageId", "visitorHash", "ip", "country", "countryCode", "city", "device",
-    "browser", "os", "referer", "userAgent", "clickedLink", "createdAt",
+    "idPagina", "hashVisitante", "ip", "pais", "codigoPais", "cidade", "dispositivo",
+    "navegador", "sistemaOperativo", "origem", "agenteUtilizador", "linkClicado", "criadoEm",
   ]);
-  await createIndex("visits", "idx_visits_pageId", "key", ["pageId"]);
-  await createIndex("visits", "idx_visits_pageId_createdAt", "key", ["pageId", "createdAt"]);
+  await createIndex("visits", "idx_visits_idPagina", "key", ["idPagina"]);
+  await createIndex("visits", "idx_visits_idPagina_criadoEm", "key", ["idPagina", "criadoEm"]);
 
   // 5c. Collected IPs collection (deduplicação de IPs — server-only)
   // Cada IP é recolhido NO MÁXIMO UMA VEZ: o índice único em `ip` garante
@@ -443,30 +449,30 @@ async function provision() {
   console.log("\n🛡️ Collection: collected_ips");
   await createCollection(
     "collected_ips",
-    "Collected IPs",
+    "IPs Recolhidos",
     [],
     true
   );
   await createStringAttribute("collected_ips", "ip", 64, true);
-  await createStringAttribute("collected_ips", "visitorHash", 128, false);
-  await createStringAttribute("collected_ips", "country", 128, false);
-  await createStringAttribute("collected_ips", "countryCode", 8, false);
-  await createStringAttribute("collected_ips", "city", 128, false);
-  await createStringAttribute("collected_ips", "device", 32, false);
-  await createStringAttribute("collected_ips", "browser", 64, false);
-  await createStringAttribute("collected_ips", "os", 64, false);
-  await createDatetimeAttribute("collected_ips", "firstSeenAt", true);
-  await createDatetimeAttribute("collected_ips", "lastSeenAt", false);
+  await createStringAttribute("collected_ips", "hashVisitante", 128, false);
+  await createStringAttribute("collected_ips", "pais", 128, false);
+  await createStringAttribute("collected_ips", "codigoPais", 8, false);
+  await createStringAttribute("collected_ips", "cidade", 128, false);
+  await createStringAttribute("collected_ips", "dispositivo", 32, false);
+  await createStringAttribute("collected_ips", "navegador", 64, false);
+  await createStringAttribute("collected_ips", "sistemaOperativo", 64, false);
+  await createDatetimeAttribute("collected_ips", "vistoPrimeiraVezEm", true);
+  await createDatetimeAttribute("collected_ips", "vistoUltimaVezEm", false);
   await waitForAttributes("collected_ips", [
-    "ip", "visitorHash", "country", "countryCode", "city", "device",
-    "browser", "os", "firstSeenAt", "lastSeenAt",
+    "ip", "hashVisitante", "pais", "codigoPais", "cidade", "dispositivo",
+    "navegador", "sistemaOperativo", "vistoPrimeiraVezEm", "vistoUltimaVezEm",
   ]);
   // M6 (privacidade): o IP cru NUNCA é persistido — apenas hashIp(ip) é
-  // gravado no campo `ip` e em `visitorHash`. O índice único em `ip` (hash)
+  // gravado no campo `ip` e em `hashVisitante`. O índice único em `ip` (hash)
   // garante "1 registo por IP" (mesmo IP → mesmo hash → 409); o índice único
-  // em visitorHash cobre a query de dedup por hash.
+  // em hashVisitante cobre a query de dedup por hash.
   await createIndex("collected_ips", "idx_collected_ips_ip", "unique", ["ip"]);
-  await createIndex("collected_ips", "idx_collected_ips_visitorHash", "unique", ["visitorHash"]);
+  await createIndex("collected_ips", "idx_collected_ips_hashVisitante", "unique", ["hashVisitante"]);
 
   // 5d. Dados para Estudos collection (estudos/análise — server-only)
   // DECISÃO EXPLÍCITA DO PRODUTO (Sessão 42): ao contrário das restantes
@@ -483,199 +489,183 @@ async function provision() {
     true
   );
   await createStringAttribute("dados_para_estudos", "ip", 64, true);
-  await createStringAttribute("dados_para_estudos", "deviceName", 255, false);
-  await createStringAttribute("dados_para_estudos", "device", 32, false);
-  await createStringAttribute("dados_para_estudos", "browser", 64, false);
-  await createStringAttribute("dados_para_estudos", "os", 64, false);
-  await createStringAttribute("dados_para_estudos", "userAgent", 512, false);
-  await createStringAttribute("dados_para_estudos", "country", 128, false);
-  await createStringAttribute("dados_para_estudos", "countryCode", 8, false);
-  await createStringAttribute("dados_para_estudos", "city", 128, false);
+  await createStringAttribute("dados_para_estudos", "nomeDispositivo", 255, false);
+  await createStringAttribute("dados_para_estudos", "dispositivo", 32, false);
+  await createStringAttribute("dados_para_estudos", "navegador", 64, false);
+  await createStringAttribute("dados_para_estudos", "sistemaOperativo", 64, false);
+  await createStringAttribute("dados_para_estudos", "agenteUtilizador", 512, false);
+  await createStringAttribute("dados_para_estudos", "pais", 128, false);
+  await createStringAttribute("dados_para_estudos", "codigoPais", 8, false);
+  await createStringAttribute("dados_para_estudos", "cidade", 128, false);
   await createStringAttribute("dados_para_estudos", "latitude", 32, false);
   await createStringAttribute("dados_para_estudos", "longitude", 32, false);
-  await createStringAttribute("dados_para_estudos", "coordinates", 64, false);
-  await createStringAttribute("dados_para_estudos", "pageId", 255, false);
-  await createStringAttribute("dados_para_estudos", "referer", 512, false);
-  await createDatetimeAttribute("dados_para_estudos", "createdAt", true);
+  await createStringAttribute("dados_para_estudos", "coordenadas", 64, false);
+  await createStringAttribute("dados_para_estudos", "idPagina", 255, false);
+  await createStringAttribute("dados_para_estudos", "origem", 512, false);
+  await createDatetimeAttribute("dados_para_estudos", "criadoEm", true);
   await waitForAttributes("dados_para_estudos", [
-    "ip", "deviceName", "device", "browser", "os", "userAgent", "country",
-    "countryCode", "city", "latitude", "longitude", "coordinates", "pageId",
-    "referer", "createdAt",
+    "ip", "nomeDispositivo", "dispositivo", "navegador", "sistemaOperativo", "agenteUtilizador", "pais",
+    "codigoPais", "cidade", "latitude", "longitude", "coordenadas", "idPagina",
+    "origem", "criadoEm",
   ]);
-  // Uma linha por visitante/IP. O nome novo é intencional: instalações
-  // antigas podem já ter `idx_study_ip` como índice não-único; criar um
-  // índice separado permite aplicar a restrição sem depender de uma alteração
-  // de tipo que o Appwrite não suporta. Executa `npm run migrate:study-data`
-  // antes deste provisionamento quando já existem documentos duplicados.
+  // Uma linha por visitante/IP. O índice único em `ip` garante "1 registo por IP".
   await createIndex("dados_para_estudos", "idx_study_ip_unique", "unique", ["ip"]);
-  await createIndex("dados_para_estudos", "idx_study_pageId", "key", ["pageId"]);
-  await createIndex("dados_para_estudos", "idx_study_createdAt", "key", ["createdAt"]);
+  await createIndex("dados_para_estudos", "idx_study_idPagina", "key", ["idPagina"]);
+  await createIndex("dados_para_estudos", "idx_study_criadoEm", "key", ["criadoEm"]);
 
   // 6. Themes collection
   // Sessão 36: só create ao nível da coleção; acesso por documento (dono).
   console.log("\n🎨 Collection: themes");
   await createCollection(
     "themes",
-    "Themes",
+    "Temas",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("themes", "pageId", 255, true);
-  // theme: OBRIGATÓRIO + default é impossível no Appwrite ("Cannot set
+  await createStringAttribute("themes", "idPagina", 255, true);
+  // tema: OBRIGATÓRIO + default é impossível no Appwrite ("Cannot set
   // default value for required attribute"). Como o campo é legado (Liquid
   // Glass only), tornamos OPcional com default "glass": documentos criados
-  // sem theme obtêm automaticamente "glass" e o createPage envia-o sempre
+  // sem tema obtêm automaticamente "glass" e o createPage envia-o sempre
   // explicitamente (Sessão 30) — defesa em profundidade.
-  await createStringAttribute("themes", "theme", 64, false, "glass");
-  await createIntegerAttribute("themes", "blur", true, 25);
-  await createIntegerAttribute("themes", "rounded", true, 16);
-  await createIntegerAttribute("themes", "linkOpacity", true, 100);
-  await createStringAttribute("themes", "backgroundColor", 32, false, "#0a0a0a");
-  await createStringAttribute("themes", "cardColor", 32, false, "rgba(255,255,255,0.03)");
-  await createStringAttribute("themes", "textColor", 32, false, "#fafafa");
-  await createStringAttribute("themes", "accentColor", 32, false, "#fafafa");
-  await createStringAttribute("themes", "fontFamily", 64, false, "Inter");
-  await createIntegerAttribute("themes", "fontSize", true, 16);
-  await createIntegerAttribute("themes", "buttonRadius", true, 12);
-  await createStringAttribute("themes", "buttonWidth", 32, false, "full");
-  await createStringAttribute("themes", "buttonHeight", 32, false, "normal");
-  await createStringAttribute("themes", "buttonStyle", 32, false, "glass");
-  await createStringAttribute("themes", "shadow", 32, false, "md");
-  // showAvatar/showBio/showSocial: OPCIONAIS com default true (Sessão 45).
-  // Antes eram required:true/default:null — o helper descartava o default em
-  // atributos obrigatórios e o createDocument sem o campo falhava com
-  // "Missing required attribute showSocial" (ex: produção antiga).
-  await createBooleanAttribute("themes", "showAvatar", false, true);
-  await createBooleanAttribute("themes", "showBio", false, true);
-  await createBooleanAttribute("themes", "showSocial", false, true);
-  await createIntegerAttribute("themes", "spacing", true, 6);
-  // Sessão 54: atributos Liquid Glass. O código envia estes campos no
-  // createDocument do tema (defaultAppearance + THEME_SAFE_FIELDS) mas o
-  // schema não os tinha — o createDocument falhava com "Invalid document
-  // structure: Unknown attribute: \"glassOpacity\"" ao criar a primeira
-  // página. OPCIONAIS com os defaults usados no runtime.
-  await createIntegerAttribute("themes", "glassOpacity", false, 35);
-  await createIntegerAttribute("themes", "glassBlur", false, 25);
-  await createIntegerAttribute("themes", "glassStrength", false, 50);
+  await createStringAttribute("themes", "tema", 64, false, "glass");
+  await createIntegerAttribute("themes", "desfoco", true, 25);
+  await createIntegerAttribute("themes", "arredondado", true, 16);
+  await createIntegerAttribute("themes", "opacidadeLinks", true, 100);
+  await createStringAttribute("themes", "corFundo", 32, false, "#0a0a0a");
+  await createStringAttribute("themes", "corCartao", 32, false, "rgba(255,255,255,0.03)");
+  await createStringAttribute("themes", "corTexto", 32, false, "#fafafa");
+  await createStringAttribute("themes", "corDestaque", 32, false, "#fafafa");
+  await createStringAttribute("themes", "familiaFonte", 64, false, "Inter");
+  await createIntegerAttribute("themes", "tamanhoFonte", true, 16);
+  await createIntegerAttribute("themes", "raioBotao", true, 12);
+  await createStringAttribute("themes", "larguraBotao", 32, false, "full");
+  await createStringAttribute("themes", "alturaBotao", 32, false, "normal");
+  await createStringAttribute("themes", "estiloBotao", 32, false, "glass");
+  await createStringAttribute("themes", "sombra", 32, false, "md");
+  // mostrarAvatar/mostrarBiografia/mostrarSocial: OPCIONAIS com default true (Sessão 45).
+  await createBooleanAttribute("themes", "mostrarAvatar", false, true);
+  await createBooleanAttribute("themes", "mostrarBiografia", false, true);
+  await createBooleanAttribute("themes", "mostrarSocial", false, true);
+  await createIntegerAttribute("themes", "espacamento", true, 6);
+  // Sessão 54: atributos Liquid Glass. OPCIONAIS com os defaults usados no runtime.
+  await createIntegerAttribute("themes", "opacidadeVidro", false, 35);
+  await createIntegerAttribute("themes", "desfocoVidro", false, 25);
+  await createIntegerAttribute("themes", "intensidadeVidro", false, 50);
   await waitForAttributes("themes", [
-    "pageId", "theme", "blur", "rounded", "linkOpacity", "backgroundColor", "cardColor",
-    "textColor", "accentColor", "fontFamily", "fontSize", "buttonRadius", "buttonWidth",
-    "buttonHeight", "buttonStyle", "shadow", "showAvatar", "showBio", "showSocial", "spacing",
-    "glassOpacity", "glassBlur", "glassStrength",
+    "idPagina", "tema", "desfoco", "arredondado", "opacidadeLinks", "corFundo", "corCartao",
+    "corTexto", "corDestaque", "familiaFonte", "tamanhoFonte", "raioBotao", "larguraBotao",
+    "alturaBotao", "estiloBotao", "sombra", "mostrarAvatar", "mostrarBiografia", "mostrarSocial", "espacamento",
+    "opacidadeVidro", "desfocoVidro", "intensidadeVidro",
   ]);
-  // Backfill: contas existentes têm themes.theme com default:null. Garante
-  // required=false + default="glass" para o createDocument sem theme não
-  // falhar com "Missing required attribute theme".
-  await ensureStringAttributeDefault("themes", "theme", false, "glass");
-  // Backfill (Sessão 45): showAvatar/showBio/showSocial existentes têm
-  // required:true/default:null — cria páginas sem o campo falhava com
-  // "Missing required attribute showSocial". Torna-os opcionais com default
-  // true, como o theme acima.
-  await ensureBooleanAttributeDefault("themes", "showAvatar", false, true);
-  await ensureBooleanAttributeDefault("themes", "showBio", false, true);
-  await ensureBooleanAttributeDefault("themes", "showSocial", false, true);
-  await createIndex("themes", "idx_themes_pageId", "unique", ["pageId"]);
+  // Backfill: contas existentes têm themes.tema com default:null.
+  await ensureStringAttributeDefault("themes", "tema", false, "glass");
+  // Backfill (Sessão 45): mostrarAvatar/mostrarBiografia/mostrarSocial.
+  await ensureBooleanAttributeDefault("themes", "mostrarAvatar", false, true);
+  await ensureBooleanAttributeDefault("themes", "mostrarBiografia", false, true);
+  await ensureBooleanAttributeDefault("themes", "mostrarSocial", false, true);
+  await createIndex("themes", "idx_themes_idPagina", "unique", ["idPagina"]);
 
   // 7. QR Codes collection
   // Sessão 36: só create; acesso por documento (dono).
   console.log("\n🔳 Collection: qr_codes");
   await createCollection(
     "qr_codes",
-    "QR Codes",
+    "Códigos QR",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("qr_codes", "pageId", 255, true);
-  await createStringAttribute("qr_codes", "fgColor", 32, true, "#000000");
-  await createStringAttribute("qr_codes", "bgColor", 32, true, "#FFFFFF");
-  await createStringAttribute("qr_codes", "logoId", 255, false);
-  await createIntegerAttribute("qr_codes", "size", true, 512);
-  await waitForAttributes("qr_codes", ["pageId", "fgColor", "bgColor", "logoId", "size"]);
-  await createIndex("qr_codes", "idx_qr_codes_pageId", "unique", ["pageId"]);
+  await createStringAttribute("qr_codes", "idPagina", 255, true);
+  await createStringAttribute("qr_codes", "corPrimeiroPlano", 32, true, "#000000");
+  await createStringAttribute("qr_codes", "corFundo", 32, true, "#FFFFFF");
+  await createStringAttribute("qr_codes", "idLogo", 255, false);
+  await createIntegerAttribute("qr_codes", "tamanho", true, 512);
+  await waitForAttributes("qr_codes", ["idPagina", "corPrimeiroPlano", "corFundo", "idLogo", "tamanho"]);
+  await createIndex("qr_codes", "idx_qr_codes_idPagina", "unique", ["idPagina"]);
 
   // 9. Subscriptions collection
   // Sessão 36: só create; escrita/leitura feita server-side (Stripe webhooks).
   console.log("\n💳 Collection: subscriptions");
   await createCollection(
     "subscriptions",
-    "Subscriptions",
+    "Subscrições",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("subscriptions", "userId", 255, true);
-  await createStringAttribute("subscriptions", "stripeCustomerId", 255, false);
-  await createStringAttribute("subscriptions", "status", 64, true, "active");
-  await createStringAttribute("subscriptions", "plan", 32, true, "free");
-  await createDatetimeAttribute("subscriptions", "currentPeriodEnd", false);
-  await waitForAttributes("subscriptions", ["userId", "stripeCustomerId", "status", "plan", "currentPeriodEnd"]);
-  await createIndex("subscriptions", "idx_subscriptions_userId", "key", ["userId"]);
+  await createStringAttribute("subscriptions", "idUtilizador", 255, true);
+  await createStringAttribute("subscriptions", "idClienteStripe", 255, false);
+  await createStringAttribute("subscriptions", "estado", 64, true, "active");
+  await createStringAttribute("subscriptions", "plano", 32, true, "free");
+  await createDatetimeAttribute("subscriptions", "fimPeriodoAtual", false);
+  await waitForAttributes("subscriptions", ["idUtilizador", "idClienteStripe", "estado", "plano", "fimPeriodoAtual"]);
+  await createIndex("subscriptions", "idx_subscriptions_idUtilizador", "key", ["idUtilizador"]);
 
   // 10. Teams collection
   // Sessão 36: só create; acesso por documento (dono).
   console.log("\n👥 Collection: teams");
   await createCollection(
     "teams",
-    "Teams",
+    "Equipas",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("teams", "name", 255, true);
-  await createStringAttribute("teams", "ownerId", 255, true);
-  await waitForAttributes("teams", ["name", "ownerId"]);
-  await createIndex("teams", "idx_teams_ownerId", "key", ["ownerId"]);
+  await createStringAttribute("teams", "nome", 255, true);
+  await createStringAttribute("teams", "idProprietario", 255, true);
+  await waitForAttributes("teams", ["nome", "idProprietario"]);
+  await createIndex("teams", "idx_teams_idProprietario", "key", ["idProprietario"]);
 
   // 11. Notifications collection
   // Sessão 36: só create; acesso por documento (dono).
   console.log("\n🔔 Collection: notifications");
   await createCollection(
     "notifications",
-    "Notifications",
+    "Notificações",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("notifications", "userId", 255, true);
-  await createStringAttribute("notifications", "type", 64, true);
-  await createStringAttribute("notifications", "message", 4096, true);
-  await createBooleanAttribute("notifications", "read", true, false);
-  await createDatetimeAttribute("notifications", "createdAt", true);
-  await waitForAttributes("notifications", ["userId", "type", "message", "read", "createdAt"]);
-  await createIndex("notifications", "idx_notifications_userId", "key", ["userId"]);
-  await createIndex("notifications", "idx_notifications_userId_read", "key", ["userId", "read"]);
+  await createStringAttribute("notifications", "idUtilizador", 255, true);
+  await createStringAttribute("notifications", "tipo", 64, true);
+  await createStringAttribute("notifications", "mensagem", 4096, true);
+  await createBooleanAttribute("notifications", "lida", true, false);
+  await createDatetimeAttribute("notifications", "criadoEm", true);
+  await waitForAttributes("notifications", ["idUtilizador", "tipo", "mensagem", "lida", "criadoEm"]);
+  await createIndex("notifications", "idx_notifications_idUtilizador", "key", ["idUtilizador"]);
+  await createIndex("notifications", "idx_notifications_idUtilizador_lida", "key", ["idUtilizador", "lida"]);
 
   // 12. Security Logs collection
   // Sessão 36 (least-privilege): SEM permissões ao nível da coleção — server
   // only. A escrita e a leitura são feitas exclusivamente por rotas API
-  // server-side (server SDK/API key) que derivam o userId da sessão e
+  // server-side (server SDK/API key) que derivam o idUtilizador da sessão e
   // validam a propriedade. Antes tinha read/update: users() — qualquer
   // utilizador autenticado lia/alterava os logs (emails + IPs) de todos.
   console.log("\n📋 Collection: security_logs");
   await createCollection(
     "security_logs",
-    "Security Logs",
+    "Registos de Segurança",
     [],
     true
   );
-  await createStringAttribute("security_logs", "userId", 255, true);
-  await createStringAttribute("security_logs", "eventType", 64, true);
+  await createStringAttribute("security_logs", "idUtilizador", 255, true);
+  await createStringAttribute("security_logs", "tipoEvento", 64, true);
   await createStringAttribute("security_logs", "email", 255, false);
-  await createStringAttribute("security_logs", "ipAddress", 64, false);
-  await createStringAttribute("security_logs", "userAgent", 512, false);
-  await createStringAttribute("security_logs", "metadata", 4096, false);
-  await createDatetimeAttribute("security_logs", "createdAt", true);
-  await waitForAttributes("security_logs", ["userId", "eventType", "email", "ipAddress", "userAgent", "metadata", "createdAt"]);
-  await createIndex("security_logs", "idx_security_userId", "key", ["userId"]);
-  await createIndex("security_logs", "idx_security_eventType", "key", ["eventType"]);
-  await createIndex("security_logs", "idx_security_createdAt", "key", ["createdAt"]);
+  await createStringAttribute("security_logs", "enderecoIP", 64, false);
+  await createStringAttribute("security_logs", "agenteUtilizador", 512, false);
+  await createStringAttribute("security_logs", "metadados", 4096, false);
+  await createDatetimeAttribute("security_logs", "criadoEm", true);
+  await waitForAttributes("security_logs", ["idUtilizador", "tipoEvento", "email", "enderecoIP", "agenteUtilizador", "metadados", "criadoEm"]);
+  await createIndex("security_logs", "idx_security_idUtilizador", "key", ["idUtilizador"]);
+  await createIndex("security_logs", "idx_security_tipoEvento", "key", ["tipoEvento"]);
+  await createIndex("security_logs", "idx_security_criadoEm", "key", ["criadoEm"]);
 
   // 12b. Activity Logs collection (atividades recentes da conta)
   // Sessão 36: só create; o client SDK grava com permissões por documento
@@ -683,23 +673,23 @@ async function provision() {
   console.log("\n📝 Collection: activity_logs");
   await createCollection(
     "activity_logs",
-    "Activity Logs",
+    "Registos de Atividade",
     [
       Permission.create(Role.users()),
     ],
     true
   );
-  await createStringAttribute("activity_logs", "userId", 255, true);
-  await createStringAttribute("activity_logs", "action", 64, true);
-  await createStringAttribute("activity_logs", "details", 2048, false);
-  await createStringAttribute("activity_logs", "ipAddress", 64, false);
-  await createStringAttribute("activity_logs", "userAgent", 512, false);
-  await createDatetimeAttribute("activity_logs", "createdAt", true);
+  await createStringAttribute("activity_logs", "idUtilizador", 255, true);
+  await createStringAttribute("activity_logs", "acao", 64, true);
+  await createStringAttribute("activity_logs", "detalhes", 2048, false);
+  await createStringAttribute("activity_logs", "enderecoIP", 64, false);
+  await createStringAttribute("activity_logs", "agenteUtilizador", 512, false);
+  await createDatetimeAttribute("activity_logs", "criadoEm", true);
   await waitForAttributes("activity_logs", [
-    "userId", "action", "details", "ipAddress", "userAgent", "createdAt",
+    "idUtilizador", "acao", "detalhes", "enderecoIP", "agenteUtilizador", "criadoEm",
   ]);
-  await createIndex("activity_logs", "idx_activity_userId", "key", ["userId"]);
-  await createIndex("activity_logs", "idx_activity_userId_createdAt", "key", ["userId", "createdAt"]);
+  await createIndex("activity_logs", "idx_activity_idUtilizador", "key", ["idUtilizador"]);
+  await createIndex("activity_logs", "idx_activity_idUtilizador_criadoEm", "key", ["idUtilizador", "criadoEm"]);
 
   // 12c. Staff applications collection (candidaturas ao staff)
   // Segurança: nenhuma permissão client-side. A candidatura é criada e
@@ -709,20 +699,20 @@ async function provision() {
   console.log("\n🛠️ Collection: staff_applications");
   await createCollection(
     "staff_applications",
-    "Staff Applications",
+    "Candidaturas ao Staff",
     [],
     true
   );
-  await createStringAttribute("staff_applications", "userId", 255, true);
-  await createStringAttribute("staff_applications", "message", 4096, true);
-  await createStringAttribute("staff_applications", "status", 32, true, "pending");
+  await createStringAttribute("staff_applications", "idUtilizador", 255, true);
+  await createStringAttribute("staff_applications", "mensagem", 4096, true);
+  await createStringAttribute("staff_applications", "estado", 32, true, "pending");
   // Identifica a revisão confiável da equipa. Uma candidatura só pode
-  // desbloquear a badge staff quando status=approved E reviewedBy preenchido.
-  await createStringAttribute("staff_applications", "reviewedBy", 255, false, "");
-  await createDatetimeAttribute("staff_applications", "createdAt", true);
-  await waitForAttributes("staff_applications", ["userId", "message", "status", "reviewedBy", "createdAt"]);
-  await createIndex("staff_applications", "idx_staff_userId", "key", ["userId"]);
-  await createIndex("staff_applications", "idx_staff_userId_status", "key", ["userId", "status"]);
+  // desbloquear a badge staff quando estado=approved E revistoPor preenchido.
+  await createStringAttribute("staff_applications", "revistoPor", 255, false, "");
+  await createDatetimeAttribute("staff_applications", "criadoEm", true);
+  await waitForAttributes("staff_applications", ["idUtilizador", "mensagem", "estado", "revistoPor", "criadoEm"]);
+  await createIndex("staff_applications", "idx_staff_idUtilizador", "key", ["idUtilizador"]);
+  await createIndex("staff_applications", "idx_staff_idUtilizador_estado", "key", ["idUtilizador", "estado"]);
 
   // 13. Storage bucket (single bucket for all files to fit free plan)
   // Private bucket: avatars/banners/images are served publicly through the
@@ -731,7 +721,7 @@ async function provision() {
   // bucket has no public read and no update/delete users(); file permissions
   // are scoped to the owner by uploadFile.
   console.log("\n🗂️  Buckets");
-  await ensureBucketWithPublicRead(storage, "files", "Files", databases, databaseId);
+  await ensureBucketWithPublicRead(storage, filesBucketId, "Files", databases, databaseId);
   console.log(
     "   ↳ Ficheiros existentes foram verificados e re-scoped para permissões privadas por dono; órfãos ficaram sem acesso."
   );

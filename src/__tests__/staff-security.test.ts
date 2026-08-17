@@ -9,9 +9,9 @@ describe("staff application security", () => {
   });
 
   it("requires a trusted reviewer before staff approval is accepted", () => {
-    expect(isStaffApplicationApproved({ status: "approved" })).toBe(false);
-    expect(isStaffApplicationApproved({ status: "approved", reviewedBy: "" })).toBe(false);
-    expect(isStaffApplicationApproved({ status: "approved", reviewedBy: "team-admin" })).toBe(true);
-    expect(isStaffApplicationApproved({ status: "pending", reviewedBy: "team-admin" })).toBe(false);
+    expect(isStaffApplicationApproved({ estado: "approved" })).toBe(false);
+    expect(isStaffApplicationApproved({ estado: "approved", revistoPor: "" })).toBe(false);
+    expect(isStaffApplicationApproved({ estado: "approved", revistoPor: "team-admin" })).toBe(true);
+    expect(isStaffApplicationApproved({ estado: "pending", revistoPor: "team-admin" })).toBe(false);
   });
 });

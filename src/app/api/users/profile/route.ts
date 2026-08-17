@@ -41,23 +41,23 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json().catch(() => null);
     // O nome é sanitizado (removem-se tags/scripts) antes de ser persistido e
     // renderizado no dashboard/página pública — defesa em profundidade.
-    const displayName = typeof body?.displayName === "string"
-      ? sanitizeDisplayName(body.displayName)
+    const nomeExibicao = typeof body?.nomeExibicao === "string"
+      ? sanitizeDisplayName(body.nomeExibicao)
       : "";
-    if (!displayName) {
+    if (!nomeExibicao) {
       return NextResponse.json({ error: "Nome inválido" }, { status: 400 });
     }
 
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, "users", [
-      Query.equal("userId", auth.user.$id),
+      Query.equal("idUtilizador", auth.user.$id),
       Query.limit(1),
     ]);
     const doc = docs.documents[0];
     if (!doc) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
-    await databases.updateDocument(databaseId, "users", doc.$id, { displayName });
-    return NextResponse.json({ displayName });
+    await databases.updateDocument(databaseId, "users", doc.$id, { nomeExibicao });
+    return NextResponse.json({ nomeExibicao });
   } catch (error) {
     const status = typeof error === "object" && error !== null && "status" in error && typeof (error as { status?: number }).status === "number"
       ? (error as { status: number }).status

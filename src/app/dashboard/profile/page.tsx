@@ -68,9 +68,9 @@ function Toggle({
 }
 
 export default function ProfilePage() {
-  const { page, pageId, updatePage, refreshPage, appearance, updateAppearance } =
+  const { page, idPagina, updatePage, refreshPage, appearance, updateAppearance } =
     useAuth();
-  const [username, setUsername] = useState(page?.username || "");
+  const [nomeUtilizador, setUsername] = useState(page?.nomeUtilizador || "");
 
   const [publishing, setPublishing] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
@@ -89,8 +89,8 @@ export default function ProfilePage() {
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setUsername(page?.username || "");
-  }, [page?.username]);
+    setUsername(page?.nomeUtilizador || "");
+  }, [page?.nomeUtilizador]);
 
   // Quando a imagem muda (nova foto, remoção ou refresh), o erro anterior
   // deixa de se aplicar e o novo URL tenta carregar normalmente.
@@ -105,11 +105,11 @@ export default function ProfilePage() {
   }, []);
 
   const handlePublish = useCallback(async () => {
-    if (!pageId || !page) return;
+    if (!idPagina || !page) return;
     setPublishing(true);
     try {
-      const next = !page.published;
-      await updatePage({ published: next });
+      const next = !page.publicado;
+      await updatePage({ publicado: next });
       await refreshPage();
       showToast(
         next ? "Página publicada com sucesso." : "Página despublicada.",
@@ -120,28 +120,28 @@ export default function ProfilePage() {
     } finally {
       setPublishing(false);
     }
-  }, [page, pageId, updatePage, refreshPage, showToast]);
+  }, [page, idPagina, updatePage, refreshPage, showToast]);
 
   const handlePreview = useCallback(() => {
-    const publicUsername = page?.username || username;
+    const publicUsername = page?.nomeUtilizador || nomeUtilizador;
     if (!publicUsername) {
       showToast("Utilizador ainda não disponível.", "error");
       return;
     }
-    if (!page?.published) {
+    if (!page?.publicado) {
       showToast("Publica a página antes de pré-visualizar.", "error");
       return;
     }
     const win = window.open(`/@${publicUsername}`, "_blank");
     if (win) win.opener = null;
-  }, [page, username, showToast]);
+  }, [page, nomeUtilizador, showToast]);
 
   const handleFileChange = async (
     e: React.ChangeEvent<HTMLInputElement>,
     target: "avatar" | "banner"
   ) => {
     const file = e.target.files?.[0];
-    if (!file || !pageId) return;
+    if (!file || !idPagina) return;
     setUploadError(null);
     // Validação de segurança: tipo e tamanho antes de tocar no storage.
     if (!VALID_TYPES.includes(file.type)) {
@@ -157,9 +157,9 @@ export default function ProfilePage() {
       const uploaded = await uploadFile(Buckets.files, file);
       try {
         if (target === "avatar") {
-          await updatePageAvatar(pageId, uploaded.$id);
+          await updatePageAvatar(idPagina, uploaded.$id);
         } else {
-          await updatePageBanner(pageId, uploaded.$id);
+          await updatePageBanner(idPagina, uploaded.$id);
         }
       } catch (referenceError) {
         // Avoid leaving an unreferenced private file when the page update fails.
@@ -179,12 +179,12 @@ export default function ProfilePage() {
   };
 
   const handleRemoveImage = async (target: "avatar" | "banner") => {
-    if (!pageId) return;
+    if (!idPagina) return;
     try {
       if (target === "avatar") {
-        await removePageAvatar(pageId);
+        await removePageAvatar(idPagina);
       } else {
-        await removePageBanner(pageId);
+        await removePageBanner(idPagina);
       }
       await refreshPage();
     } catch (error) {
@@ -202,7 +202,7 @@ export default function ProfilePage() {
           <span
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-              page?.published
+              page?.publicado
                 ? "bg-emerald-500/10 text-emerald-400"
                 : "bg-amber-500/10 text-amber-400"
             )}
@@ -210,23 +210,23 @@ export default function ProfilePage() {
             <span
               className={cn(
                 "h-1.5 w-1.5 rounded-full",
-                page?.published ? "bg-emerald-400" : "bg-amber-400"
+                page?.publicado ? "bg-emerald-400" : "bg-amber-400"
               )}
             />
-            {page?.published ? "Publicado" : "Não publicado"}
+            {page?.publicado ? "Publicado" : "Não publicado"}
           </span>
 
           <button
             type="button"
             onClick={handlePreview}
-            disabled={!page?.published || !page?.username}
+            disabled={!page?.publicado || !page?.nomeUtilizador}
             title={
-              page?.published
+              page?.publicado
                 ? "Abrir página pública"
                 : "Publica a página para poder pré-visualizar"
             }
             aria-label={
-              page?.published
+              page?.publicado
                 ? "Abrir página pública"
                 : "Publica a página para poder pré-visualizar"
             }
@@ -242,19 +242,19 @@ export default function ProfilePage() {
             disabled={publishing}
             className={cn(
               "inline-flex items-center gap-1.5 !h-9 !px-3 text-xs rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)]",
-              page?.published
+              page?.publicado
                 ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
                 : "bg-emerald-500 text-white hover:bg-emerald-600"
             )}
           >
             {publishing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
-            ) : page?.published ? (
+            ) : page?.publicado ? (
               <EyeOff className="h-4 w-4" />
             ) : (
               <Globe2 className="h-4 w-4" />
             )}
-            {page?.published ? "Despublicar" : "Publicar"}
+            {page?.publicado ? "Despublicar" : "Publicar"}
           </button>
         </div>
       </SectionHeader>
@@ -394,13 +394,13 @@ export default function ProfilePage() {
           <div className="space-y-2 pt-2">
             <Toggle
               label="Mostrar avatar"
-              checked={appearance.showAvatar}
-              onChange={(checked) => updateAppearance({ showAvatar: checked })}
+              checked={appearance.mostrarAvatar}
+              onChange={(checked) => updateAppearance({ mostrarAvatar: checked })}
             />
             <Toggle
               label="Mostrar bio"
-              checked={appearance.showBio}
-              onChange={(checked) => updateAppearance({ showBio: checked })}
+              checked={appearance.mostrarBiografia}
+              onChange={(checked) => updateAppearance({ mostrarBiografia: checked })}
             />
           </div>
         </div>

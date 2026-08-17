@@ -13,7 +13,7 @@
  *    para nunca deixar um valor inválido chegar ao DOM.
  */
 
-export const ALLOWED_THEMES = ["light", "dark", "system"] as const;
+export const ALLOWED_THEMES = ["light", "dark", "gray", "system"] as const;
 
 export type AllowedTheme = (typeof ALLOWED_THEMES)[number];
 
@@ -92,7 +92,7 @@ export function sanitizeStoredTheme(): AllowedTheme {
  * defaultTheme="dark" do layout) e acompanha mudanças de sistema/cross-tab.
  */
 export const THEME_SCRIPT = `(function () {
-  var ALLOWED = ["light", "dark", "system"];
+  var ALLOWED = ["light", "dark", "gray", "system"];
   var KEY = "theme";
   var FALLBACK = "dark";
   function isAllowed(v) {
@@ -106,11 +106,15 @@ export const THEME_SCRIPT = `(function () {
     return isAllowed(raw) ? raw : FALLBACK;
   }
   function apply(t) {
-    var dark =
-      t === "dark" ||
-      (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
-    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    var sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var light = t === "light" || (t === "system" && !sysDark);
+    var gray = t === "gray";
+    var dark = t === "dark" || (t === "system" && sysDark);
+    var root = document.documentElement;
+    root.classList.toggle("dark", dark || gray);
+    root.classList.toggle("gray", gray);
+    root.classList.toggle("light", light);
+    root.style.colorScheme = light ? "light" : "dark";
   }
   apply(current());
   try {
@@ -126,7 +130,7 @@ export const THEME_SCRIPT = `(function () {
 })();`;
 
 export const THEME_SANITIZER_SCRIPT = `(function () {
-  var ALLOWED = ["light", "dark", "system"];
+  var ALLOWED = ["light", "dark", "gray", "system"];
   var KEY = "theme";
   var FALLBACK = "system";
   function isAllowed(v) {

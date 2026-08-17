@@ -53,14 +53,14 @@ function exportAnalyticsCSV(analytics: ReturnType<typeof useAuth>["analytics"]) 
 
   lines.push("Métricas");
   lines.push("Visualizações,Cliques,CTR,Visitantes");
-  lines.push(`${analytics.views},${analytics.clicks},${analytics.ctr},${analytics.uniqueVisitors}`);
+  lines.push(`${analytics.visualizacoes},${analytics.cliques},${analytics.ctr},${analytics.uniqueVisitors}`);
   lines.push("");
 
   if (analytics.dailyStats.length > 0) {
     lines.push("Estatísticas diárias");
     lines.push("Data,Visualizações,Cliques");
     analytics.dailyStats.forEach((d) => {
-      lines.push(`${d.day},${d.views},${d.clicks}`);
+      lines.push(`${d.day},${d.visualizacoes},${d.cliques}`);
     });
     lines.push("");
   }
@@ -69,7 +69,7 @@ function exportAnalyticsCSV(analytics: ReturnType<typeof useAuth>["analytics"]) 
     lines.push("Top links");
     lines.push("Título,Cliques,CTR");
     analytics.topLinks.forEach((l) => {
-      lines.push(`${escapeCsv(l.title)},${l.clicks},${l.ctr}`);
+      lines.push(`${escapeCsv(l.titulo)},${l.cliques},${l.ctr}`);
     });
     lines.push("");
   }
@@ -78,7 +78,7 @@ function exportAnalyticsCSV(analytics: ReturnType<typeof useAuth>["analytics"]) 
     lines.push("Países");
     lines.push("País,Visitas");
     analytics.topCountries.forEach((c) => {
-      lines.push(`${escapeCsv(c.country)},${c.count}`);
+      lines.push(`${escapeCsv(c.pais)},${c.count}`);
     });
     lines.push("");
   }
@@ -131,8 +131,8 @@ export default function AnalyticsPage() {
 
   const safe = useMemo(
     () => ({
-      views: analytics?.views ?? 0,
-      clicks: analytics?.clicks ?? 0,
+      visualizacoes: analytics?.visualizacoes ?? 0,
+      cliques: analytics?.cliques ?? 0,
       ctr: analytics?.ctr ?? 0,
       uniqueVisitors: analytics?.uniqueVisitors ?? 0,
       weeklyGrowth: analytics?.weeklyGrowth ?? 0,
@@ -147,7 +147,7 @@ export default function AnalyticsPage() {
 
   const chartData = useMemo(() => {
     if (safe.dailyStats.length >= range) {
-      return safe.dailyStats.slice(-range).map((d) => ({ name: d.day.slice(5), views: d.views, clicks: d.clicks }));
+      return safe.dailyStats.slice(-range).map((d) => ({ name: d.day.slice(5), visualizacoes: d.visualizacoes, cliques: d.cliques }));
     }
     return [];
   }, [safe.dailyStats, range]);
@@ -155,16 +155,16 @@ export default function AnalyticsPage() {
   const deviceData = useMemo(
     () =>
       safe.topDevices.map((d) => ({
-        name: d.type === "mobile" ? "Telemóvel" : d.type === "desktop" ? "Desktop" : "Tablet",
-        type: d.type,
+        name: d.tipo === "mobile" ? "Telemóvel" : d.tipo === "desktop" ? "Desktop" : "Tablet",
+        tipo: d.tipo,
         value: d.percentage,
       })),
     [safe.topDevices]
   );
 
   const metrics = [
-    { label: "Visualizações", value: formatNumber(safe.views), icon: Eye, trend: safe.weeklyGrowth },
-    { label: "Cliques", value: formatNumber(safe.clicks), icon: MousePointer, trend: safe.weeklyGrowth },
+    { label: "Visualizações", value: formatNumber(safe.visualizacoes), icon: Eye, trend: safe.weeklyGrowth },
+    { label: "Cliques", value: formatNumber(safe.cliques), icon: MousePointer, trend: safe.weeklyGrowth },
     { label: "CTR", value: `${safe.ctr}%`, icon: Percent },
     { label: "Visitantes", value: formatNumber(safe.uniqueVisitors), icon: Users, trend: safe.monthlyGrowth },
   ];
@@ -310,7 +310,7 @@ export default function AnalyticsPage() {
           </div>
           <div className="mt-2 space-y-2">
             {deviceData.map((device) => {
-              const Icon = deviceIcons[device.type] || Smartphone;
+              const Icon = deviceIcons[device.tipo] || Smartphone;
               return (
                 <div key={device.name} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2 text-white/70">
@@ -342,7 +342,7 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {recentVisitors.map((visitor) => (
               <div
-                // O mesmo visitante (visitorHash) pode voltar várias vezes — a
+                // O mesmo visitante (hashVisitante) pode voltar várias vezes — a
                 // chave tem de ser única por ACESSO (id + hora), não por visitante.
                 key={`${visitor.id}-${visitor.time}`}
                 className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
@@ -353,12 +353,12 @@ export default function AnalyticsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-white/90 truncate">
                     <span className="text-base leading-none" aria-hidden="true">
-                      {countryFlag(visitor.countryCode)}
+                      {countryFlag(visitor.codigoPais)}
                     </span>
-                    <span className="truncate">{visitor.country || "Desconhecido"}</span>
+                    <span className="truncate">{visitor.pais || "Desconhecido"}</span>
                   </p>
                   <p className="text-xs text-white/40 truncate">
-                    {visitor.browser} • {visitor.os}
+                    {visitor.navegador} • {visitor.sistemaOperativo}
                   </p>
                 </div>
                 <div

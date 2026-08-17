@@ -102,25 +102,25 @@ function ConfirmEmailForm() {
   }, [autoPolling, router]);
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#030303] px-4">
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[var(--background)] px-4">
       <div className="gradient-orb" aria-hidden="true"><div className="gradient-orb-1" /><div className="gradient-orb-2" /><div className="gradient-orb-3" /><div className="gradient-orb-radial" /></div>
       <div className="relative z-10 w-full max-w-[440px]">
-        <Link href="/login" className="mb-6 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/60 transition-colors hover:bg-white/[0.06] hover:text-white/90">
+        <Link href="/login" className="mb-6 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-white/[0.06] hover:text-[var(--foreground)]">
           <ArrowLeft className="h-4 w-4" /> Voltar ao login
         </Link>
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size={48} className="mb-4 brightness-150 contrast-125" />
-          <h1 className="text-2xl font-semibold tracking-tight text-white/90">Confirma o teu email</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Confirma o teu email</h1>
         </div>
         <GlassCard className="p-6 sm:p-8">
           <div className="relative z-10 text-center">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.06] ring-1 ring-white/10">
-              <MailCheck className="h-6 w-6 text-white/80" />
+              <MailCheck className="h-6 w-6 text-[var(--foreground)]" />
             </div>
 
-            <h2 className="mt-5 text-lg font-semibold text-white/90">Enviámos um email de confirmação para</h2>
-            <p className="mt-1 text-sm font-medium text-white/70 break-all">{email || "o teu endereço"}</p>
-            <p className="mt-3 text-sm text-white/55">
+            <h2 className="mt-5 text-lg font-semibold text-[var(--foreground)]">Enviámos um email de confirmação para</h2>
+            <p className="mt-1 text-sm font-medium text-[var(--foreground)]/80 break-all">{email || "o teu endereço"}</p>
+            <p className="mt-3 text-sm text-[var(--muted-foreground)]">
               Abre o email e clica em «Confirmar email» para ativar a tua conta.
               Se não vires a mensagem, verifica a pasta de spam.
             </p>
@@ -157,7 +157,7 @@ function ConfirmEmailForm() {
               </p>
             )}
 
-            <div className="my-6 flex items-center gap-3 text-white/25">
+            <div className="my-6 flex items-center gap-3 text-[var(--muted-foreground)]/60">
               <div className="h-px flex-1 bg-white/10" />
               <span className="text-xs uppercase tracking-wider">ou</span>
               <div className="h-px flex-1 bg-white/10" />
@@ -167,7 +167,7 @@ function ConfirmEmailForm() {
               type="button"
               onClick={checkVerified}
               disabled={checking}
-              className="inline-flex w-full items-center justify-center gap-2 !h-10 rounded-xl bg-white/[0.06] text-sm font-medium text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.1] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 !h-10 rounded-xl bg-white/[0.06] text-sm font-medium text-[var(--foreground)]/80 ring-1 ring-white/10 transition-colors hover:bg-white/[0.1] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {checking ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> A verificar...</>
@@ -177,14 +177,14 @@ function ConfirmEmailForm() {
             </button>
 
             {checkMsg === "not-verified" && (
-              <p className="mt-3 text-xs text-white/50">
+              <p className="mt-3 text-xs text-[var(--muted-foreground)]">
                 Ainda não verificaste o teu email. Abre a mensagem que enviámos e clica no link.
               </p>
             )}
             {checkMsg === "must-login" && (
-              <p className="mt-3 text-xs text-white/50">
+              <p className="mt-3 text-xs text-[var(--muted-foreground)]">
                 Entra na tua conta para confirmar o estado do email.{" "}
-                <Link href="/login" className="text-white/80 underline underline-offset-2 hover:text-white">Entrar</Link>
+                <Link href="/login" className="text-[var(--foreground)]/80 underline underline-offset-2 hover:text-[var(--foreground)]">Entrar</Link>
               </p>
             )}
             {checkMsg === "failed" && (
@@ -193,7 +193,7 @@ function ConfirmEmailForm() {
               </p>
             )}
 
-            <p className="mt-5 text-xs text-white/40">
+            <p className="mt-5 text-xs text-[var(--muted-foreground)]/70">
               {autoPolling ? "A verificar automaticamente o estado do teu email..." : "Esta página verifica o estado do teu email."}
             </p>
           </div>
@@ -205,7 +205,7 @@ function ConfirmEmailForm() {
 
 export default function ConfirmEmailPage() {
   return (
-    <Suspense fallback={<main className="flex min-h-dvh items-center justify-center bg-[#030303]"><Loader2 className="h-5 w-5 animate-spin text-white/50" /></main>}>
+    <Suspense fallback={<main className="flex min-h-dvh items-center justify-center bg-[var(--background)]"><Loader2 className="h-5 w-5 animate-spin text-[var(--muted-foreground)]" /></main>}>
       <ConfirmEmailForm />
     </Suspense>
   );

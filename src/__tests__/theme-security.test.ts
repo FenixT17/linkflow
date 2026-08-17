@@ -12,8 +12,8 @@ import {
 import { renderJsonLd } from "@/lib/seo";
 
 describe("theme security — whitelist", () => {
-  it("whitelist contém exatamente light, dark e system", () => {
-    expect([...ALLOWED_THEMES]).toEqual(["light", "dark", "system"]);
+  it("whitelist contém exatamente light, dark, gray e system", () => {
+    expect([...ALLOWED_THEMES]).toEqual(["light", "dark", "gray", "system"]);
     expect(FALLBACK_THEME).toBe("system");
     expect(THEME_STORAGE_KEY).toBe("theme");
   });
@@ -21,6 +21,7 @@ describe("theme security — whitelist", () => {
   it("isAllowedTheme aceita apenas valores da whitelist", () => {
     expect(isAllowedTheme("light")).toBe(true);
     expect(isAllowedTheme("dark")).toBe(true);
+    expect(isAllowedTheme("gray")).toBe(true);
     expect(isAllowedTheme("system")).toBe(true);
     expect(isAllowedTheme("blue")).toBe(false);
     expect(isAllowedTheme('"><img src=x onerror=alert(1)>')).toBe(false);
@@ -33,6 +34,7 @@ describe("theme security — whitelist", () => {
   it("getSafeTheme devolve sempre um valor da whitelist", () => {
     expect(getSafeTheme("light")).toBe("light");
     expect(getSafeTheme("dark")).toBe("dark");
+    expect(getSafeTheme("gray")).toBe("gray");
     expect(getSafeTheme("system")).toBe("system");
     // Valores inválidos → fallback "system"
     expect(getSafeTheme('"><script>alert(1)</script>')).toBe("system");

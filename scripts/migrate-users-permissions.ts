@@ -24,29 +24,29 @@ async function migrate() {
     const page = await databases.listDocuments(databaseId, "users", queries);
 
     for (const doc of page.documents) {
-      const userId = String(doc.userId ?? "").trim();
-      if (!userId) {
-        console.warn(`Skipping ${doc.$id}: missing userId`);
+      const idUtilizador = String(doc.idUtilizador ?? "").trim();
+      if (!idUtilizador) {
+        console.warn(`Skipping ${doc.$id}: missing idUtilizador`);
         continue;
       }
 
-      // The old client could update plan/email/userId. Until a trusted billing
+      // The old client could update plan/email/idUtilizador. Until a trusted billing
       // webhook exists, reset every legacy plan to the safe free baseline.
       await databases.updateDocument(
         databaseId,
         "users",
         doc.$id,
         {
-          userId,
+          idUtilizador,
           email: String(doc.email ?? ""),
-          displayName: String(doc.displayName ?? "Utilizador"),
+          nomeExibicao: String(doc.nomeExibicao ?? "Utilizador"),
           plan: "free",
           country: String(doc.country ?? ""),
-          countryCode: String(doc.countryCode ?? ""),
+          codigoPais: String(doc.codigoPais ?? ""),
           currency: String(doc.currency ?? "EUR"),
           createdAt: String(doc.createdAt ?? new Date().toISOString()),
         },
-        [Permission.read(Role.user(userId))]
+        [Permission.read(Role.user(idUtilizador))]
       );
       migrated++;
     }

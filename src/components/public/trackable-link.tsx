@@ -11,46 +11,46 @@ import { hasStudyConsent } from "@/lib/study-consent";
 
 interface TrackableLinkProps {
   link: LinkItem;
-  pageId: string;
+  idPagina: string;
   appearance: Appearance;
 }
 
-export function TrackableLink({ link, pageId, appearance }: TrackableLinkProps) {
+export function TrackableLink({ link, idPagina, appearance }: TrackableLinkProps) {
   const theme = getLiquidGlassClasses();
 
   const handleClick = () => {
-    void recordLinkClick(pageId, link.id, hasStudyConsent());
+    void recordLinkClick(idPagina, link.id, hasStudyConsent());
   };
 
   return (
     <a
       href={sanitizeUrl(link.url)}
-      target={link.newTab ? "_blank" : undefined}
+      target={link.novaAba ? "_blank" : undefined}
       rel="noopener noreferrer"
       onClick={handleClick}
       className={`group flex w-full items-center justify-between ${theme.linkClass} ${theme.linkHoverClass} transition-all duration-300`}
       style={{
-        borderRadius: appearance.rounded,
-        backdropFilter: `blur(${appearance.blur}px)`,
-        opacity: (appearance.linkOpacity ?? 100) / 100,
+        borderRadius: appearance.arredondado,
+        backdropFilter: `blur(${appearance.desfoco}px)`,
+        opacity: (appearance.opacidadeLinks ?? 100) / 100,
         borderColor: appearance.borderColor || "rgba(255,255,255,0.06)",
         borderWidth: appearance.borderWidth !== undefined ? `${appearance.borderWidth}px` : undefined,
       }}
     >
-      <span className="flex items-center gap-2.5 font-medium truncate pr-2 relative z-[1]" style={{ color: appearance.textColor }}>
-        {link.icon && (
+      <span className="flex items-center gap-2.5 font-medium truncate pr-2 relative z-[1]" style={{ color: appearance.corTexto }}>
+        {link.icone && (
           <PlatformIcon
-            platformId={link.icon}
+            platformId={link.icone}
             size={18}
-            color={getPlatform(link.icon)?.color ?? appearance.accentColor}
+            color={getPlatform(link.icone)?.color ?? appearance.corDestaque}
           />
         )}
-        <span className="truncate">{link.title || "Link"}</span>
+        <span className="truncate">{link.titulo || "Link"}</span>
       </span>
       <ExternalLink
         className={`h-4 w-4 shrink-0 relative z-[1] transition-colors duration-300 ${theme.linkIconClass}`}
         style={{
-          color: appearance.accentColor || "rgba(255,255,255,0.3)",
+          color: appearance.corDestaque || "rgba(255,255,255,0.3)",
         }}
       />
     </a>

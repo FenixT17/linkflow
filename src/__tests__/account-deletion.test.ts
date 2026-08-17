@@ -25,15 +25,15 @@ describe("account deletion inventory", () => {
     expect(ACCOUNT_COLLECTIONS.collectedIps).toBe("collected_ips");
   });
 
-  it("maps the owner field of user-scoped collections (teams uses ownerId, not userId)", () => {
-    // Regressão da Sessão 43: consultar `userId` na coleção teams falhava com
-    // "Attribute not found in schema: userId" e abortava a exclusão depois de
+  it("maps the owner field of user-scoped collections (teams uses idProprietario, not idUtilizador)", () => {
+    // Regressão da Sessão 43: consultar `idUtilizador` na coleção teams falhava com
+    // "Attribute not found in schema: idUtilizador" e abortava a exclusão depois de
     // as páginas já terem sido apagadas.
-    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.teams]).toBe("ownerId");
-    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.subscriptions]).toBe("userId");
-    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.notifications]).toBe("userId");
-    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.activityLogs]).toBe("userId");
-    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.staffApplications]).toBe("userId");
+    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.teams]).toBe("idProprietario");
+    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.subscriptions]).toBe("idUtilizador");
+    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.notifications]).toBe("idUtilizador");
+    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.activityLogs]).toBe("idUtilizador");
+    expect(USER_SCOPED_OWNER_FIELD[ACCOUNT_COLLECTIONS.staffApplications]).toBe("idUtilizador");
     // O mapa cobre EXATAMENTE as 5 coleções do loop de exclusão user-scoped.
     // users e securityLogs ficam de fora de propósito — têm lógica dedicada
     // (query própria + filtro em JS) — e não devem entrar no mapa.

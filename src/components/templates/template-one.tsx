@@ -11,7 +11,7 @@ export function TemplateOne({ profile, links, appearance, publicUrl }: TemplateP
   const bg = "#121214";
   const text = "#fafafa";
   const muted = "rgba(250,250,250,0.55)";
-  const font = appearance.fontFamily || "Inter";
+  const font = appearance.familiaFonte || "Inter";
 
   return (
     <div
@@ -26,23 +26,23 @@ export function TemplateOne({ profile, links, appearance, publicUrl }: TemplateP
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 py-16">
         {/* Perfil centrado */}
         <header className="flex flex-col items-center text-center">
-          {appearance.showAvatar !== false && (
+          {appearance.mostrarAvatar !== false && (
             <TemplateAvatar
               src={profile.avatar}
-              name={profile.displayName}
+              name={profile.nomeExibicao}
               size={88}
-              badges={profile.badges}
+              badges={profile.emblemas}
               className="ring-2 ring-white/15 shadow-[0_0_40px_-8px_rgba(255,255,255,0.25)]"
             />
           )}
-          <h1 className="mt-6 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
-          <ProfileBadges badges={profile.badges} className="mt-2" />
+          <h1 className="mt-6 text-2xl font-bold tracking-tight">{profile.nomeExibicao}</h1>
+          <ProfileBadges badges={profile.emblemas} className="mt-2" />
           <p className="mt-1 text-sm font-medium" style={{ color: muted }}>
-            @{profile.username}
+            @{profile.nomeUtilizador}
           </p>
-          {appearance.showBio !== false && profile.bio && (
+          {appearance.mostrarBiografia !== false && profile.biografia && (
             <p className="mt-3 max-w-xs text-sm leading-relaxed" style={{ color: muted }}>
-              {profile.bio}
+              {profile.biografia}
             </p>
           )}
         </header>
@@ -58,7 +58,7 @@ export function TemplateOne({ profile, links, appearance, publicUrl }: TemplateP
             <TemplateLinkPill
               key={link.id}
               link={link}
-              pageId={profile.$id}
+              idPagina={profile.$id}
               iconColor="#e4e4e7"
               iconBg="rgba(255,255,255,0.07)"
               className="bg-[#1c1c1f] ring-1 ring-white/[0.09] shadow-[0_10px_30px_-12px_rgba(0,0,0,0.8)] hover:bg-[#232327] hover:ring-white/[0.16]"
@@ -66,7 +66,7 @@ export function TemplateOne({ profile, links, appearance, publicUrl }: TemplateP
           ))}
         </nav>
 
-        <TemplateFooter textColor={muted} />
+        <TemplateFooter corTexto={muted} />
       </div>
     </div>
   );

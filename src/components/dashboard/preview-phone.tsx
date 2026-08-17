@@ -4,15 +4,15 @@ import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
 
 interface PreviewPhoneProps {
-  username?: string;
-  displayName?: string;
+  nomeUtilizador?: string;
+  nomeExibicao?: string;
   bio?: string;
   links: LinkItem[];
 }
 
 export function PreviewPhone({
-  username = "alex",
-  displayName = "Alex Creator",
+  nomeUtilizador = "alex",
+  nomeExibicao = "Alex Creator",
   bio = "Criador digital e designer",
   links,
 }: PreviewPhoneProps) {
@@ -24,8 +24,8 @@ export function PreviewPhone({
       <div className="relative overflow-hidden rounded-[2rem] bg-[var(--background)] border border-white/[0.08]">
         <div className="flex min-h-[420px] flex-col items-center px-4 py-10">
           <div className="h-20 w-20 rounded-full glass border border-white/[0.12] mb-3" />
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{displayName}</h3>
-          <p className="text-xs text-[var(--muted-foreground)]">@{username}</p>
+          <h3 className="text-base font-semibold text-[var(--foreground)]">{nomeExibicao}</h3>
+          <p className="text-xs text-[var(--muted-foreground)]">@{nomeUtilizador}</p>
           <p className="mt-2 text-center text-xs text-[var(--muted-foreground)] leading-relaxed">
             {bio}
           </p>
@@ -39,14 +39,14 @@ export function PreviewPhone({
                 className="glass-card-hover flex w-full items-center justify-between rounded-[var(--glass-radius)] glass px-4 py-3 text-sm text-[var(--foreground)]"
               >
                 <span className="flex items-center gap-2 truncate relative z-[1]">
-                  {link.icon && (
+                  {link.icone && (
                     <PlatformIcon
-                      platformId={link.icon}
+                      platformId={link.icone}
                       size={14}
-                      color={getPlatform(link.icon)?.color ?? "#A1A1AA"}
+                      color={getPlatform(link.icone)?.color ?? "#A1A1AA"}
                     />
                   )}
-                  <span className="truncate">{link.title}</span>
+                  <span className="truncate">{link.titulo}</span>
                 </span>
                 <ExternalLink className="h-3.5 w-3.5 text-[var(--muted-foreground)] shrink-0 relative z-[1]" />
               </a>

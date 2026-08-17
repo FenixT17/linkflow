@@ -20,7 +20,7 @@ const COLLECTION_USERS = "users";
  * NOTA (M3): o cliente chama este endpoint via fetchWithCsrf, por isso o
  * token CSRF já está validado aqui (csrfGuard) — postura consistente com o
  * resto das mutações. Além disso, verifica obrigatoriamente o cookie de
- * sessão do Appwrite e deriva o userId a partir da sessão, nunca do corpo.
+ * sessão do Appwrite e deriva o idUtilizador a partir da sessão, nunca do corpo.
  */
 export async function POST(request: NextRequest) {
   const csrfCheck = csrfGuard(request);
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return auth;
     }
     const { user } = auth;
-    const userId = user.$id;
+    const idUtilizador = user.$id;
 
     if (isDisposableEmail(user.email || "")) {
       try {
@@ -62,22 +62,22 @@ export async function POST(request: NextRequest) {
 
     // 2b. Recolhe o país do utilizador (via IP) para definir a moeda do plano
     let country = "";
-    let countryCode = "";
+    let codigoPais = "";
     let currency = "EUR";
     try {
       const geo = await resolveGeo(ip, request);
       country = geo.country ?? "";
-      countryCode = geo.countryCode?.toUpperCase() ?? "";
-      currency = currencyForCountry(countryCode);
+      codigoPais = geo.codigoPais?.toUpperCase() ?? "";
+      currency = currencyForCountry(codigoPais);
     } catch {
       // Sem GeoIP → fallback neutro (EUR)
     }
 
-    // 3. Verificar se já existe um documento para este userId
+    // 3. Verificar se já existe um documento para este idUtilizador
     const existing = await databases.listDocuments(
       databaseId,
       COLLECTION_USERS,
-      [Query.equal("userId", userId)]
+      [Query.equal("idUtilizador", idUtilizador)]
     );
 
     if (existing.documents.length === 0) {
@@ -91,41 +91,41 @@ export async function POST(request: NextRequest) {
         COLLECTION_USERS,
         ID.unique(),
         {
-          userId: userId.trim(),
+          idUtilizador: idUtilizador.trim(),
           email: user.email || "",
-          displayName: user.name || "Utilizador",
-          plan: "free",
-          country,
-          countryCode,
-          currency,
-          createdAt: user.$createdAt || new Date().toISOString(),
+          nomeExibicao: user.name || "Utilizador",
+          plano: "free",
+          pais: country,
+          codigoPais,
+          moeda: currency,
+          criadoEm: user.$createdAt || new Date().toISOString(),
         },
         [
-          Permission.read(Role.user(userId.trim())),
+          Permission.read(Role.user(idUtilizador.trim())),
         ]
       );
     } else {
       // 4b. Conta já existia — garante o país/moeda preenchidos (contas antigas)
       const doc = existing.documents[0];
       const needsGeo =
-        !String(doc.countryCode ?? "") && (countryCode || currency !== "EUR");
+        !String(doc.codigoPais ?? "") && (codigoPais || currency !== "EUR");
       if (needsGeo) {
         await databases.updateDocument(
           databaseId,
           COLLECTION_USERS,
           doc.$id,
           {
-            userId,
+            idUtilizador,
             email: user.email || String(doc.email ?? ""),
-            displayName: String(doc.displayName ?? user.name ?? "Utilizador"),
-            plan: ["free", "pro", "business", "enterprise"].includes(String(doc.plan))
-              ? String(doc.plan)
+            nomeExibicao: String(doc.nomeExibicao ?? user.name ?? "Utilizador"),
+            plano: ["free", "pro", "business", "enterprise"].includes(String(doc.plano))
+              ? String(doc.plano)
               : "free",
-            country,
-            countryCode,
-            currency,
+            pais: country,
+            codigoPais,
+            moeda: currency,
           },
-          [Permission.read(Role.user(userId))]
+          [Permission.read(Role.user(idUtilizador))]
         );
       }
     }

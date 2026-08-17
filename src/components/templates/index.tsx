@@ -12,7 +12,7 @@ const TEMPLATES: Record<PageTemplateId, (props: TemplateProps) => ReactNode> = {
 };
 
 /**
- * Renderizador de página pública — escolhe o template pelo pageTemplate.
+ * Renderizador de página pública — escolhe o template pelo modeloPagina.
  *
  * Para adicionar um novo template no futuro: criar o componente em
  * components/templates/ (ex: template-three.tsx), adicionar o id a
@@ -20,9 +20,9 @@ const TEMPLATES: Record<PageTemplateId, (props: TemplateProps) => ReactNode> = {
  * mapeá-lo aqui. Nada mais precisa de mudar.
  */
 export function PageTemplate({
-  pageTemplate = "template1",
+  modeloPagina = "template1",
   ...props
-}: TemplateProps & { pageTemplate?: PageTemplateId }) {
-  const Template = TEMPLATES[pageTemplate] ?? TemplateOne;
+}: TemplateProps & { modeloPagina?: PageTemplateId }) {
+  const Template = TEMPLATES[modeloPagina] ?? TemplateOne;
   return <Template {...props} />;
 }

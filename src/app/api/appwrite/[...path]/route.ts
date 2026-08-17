@@ -94,7 +94,24 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const headers = new Headers();
   request.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (["host", "content-length", "cookie", "x-fallback-cookies", "authorization", "x-appwrite-jwt", "x-appwrite-session"].includes(lower)) {
+    // Excluímos também os headers `x-forwarded-*` (host/proto/for/port) que o
+    // Next.js/middleware injetam: reencaminhá-los para o Appwrite quebra as
+    // chamadas — ex: `x-forwarded-proto: http` em dev faz o Appwrite/Cloudflare
+    // responder 301 (redirect http→https) a TODOS os pedidos do proxy, e o
+    // `x-forwarded-host` local não deve chegar ao upstream. O proxy constrói
+    // ele próprio o URL https absoluto do target.
+    if (
+      [
+        "host",
+        "content-length",
+        "cookie",
+        "x-fallback-cookies",
+        "authorization",
+        "x-appwrite-jwt",
+        "x-appwrite-session",
+      ].includes(lower) ||
+      lower.startsWith("x-forwarded-")
+    ) {
       return;
     }
     headers.set(key, value);
@@ -144,6 +161,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     redirect: "manual",
     cache: "no-store",
   });
+
 
   const responseHeaders = new Headers();
   upstream.headers.forEach((value, key) => {

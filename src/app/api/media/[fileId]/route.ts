@@ -13,9 +13,9 @@ import {
 async function isAuthorizedMediaFile(fileId: string, request: NextRequest): Promise<boolean> {
   const { databases } = createServerClient();
   const [avatarMatches, bannerMatches, linkMatches] = await Promise.all([
-    databases.listDocuments(databaseId, "pages", [Query.equal("avatarId", fileId), Query.limit(100)]),
-    databases.listDocuments(databaseId, "pages", [Query.equal("bannerId", fileId), Query.limit(100)]),
-    databases.listDocuments(databaseId, "links", [Query.equal("imageId", fileId), Query.limit(100)]),
+    databases.listDocuments(databaseId, "pages", [Query.equal("idAvatar", fileId), Query.limit(100)]),
+    databases.listDocuments(databaseId, "pages", [Query.equal("idBanner", fileId), Query.limit(100)]),
+    databases.listDocuments(databaseId, "links", [Query.equal("idImagem", fileId), Query.limit(100)]),
   ]);
 
   const pageIds = new Set<string>();
@@ -24,22 +24,22 @@ async function isAuthorizedMediaFile(fileId: string, request: NextRequest): Prom
   for (const result of [avatarMatches, bannerMatches]) {
     for (const document of result.documents) {
       pageIds.add(String(document.$id));
-      owners.add(String(document.userId ?? ""));
-      if (Boolean(document.published)) isPublished = true;
+      owners.add(String(document.idUtilizador ?? ""));
+      if (Boolean(document.publicado)) isPublished = true;
     }
   }
 
-  // Link images point to the page through pageId. Resolve each referenced
+  // Link images point to the page through idPagina. Resolve each referenced
   // page before allowing the API-key-backed proxy to read the file.
   for (const link of linkMatches.documents) {
-    const pageId = String(link.pageId ?? "");
-    if (pageId) pageIds.add(pageId);
+    const idPagina = String(link.idPagina ?? "");
+    if (idPagina) pageIds.add(idPagina);
   }
-  for (const pageId of pageIds) {
-    const page = await databases.getDocument(databaseId, "pages", pageId).catch(() => null);
+  for (const idPagina of pageIds) {
+    const page = await databases.getDocument(databaseId, "pages", idPagina).catch(() => null);
     if (page) {
-      owners.add(String(page.userId ?? ""));
-      if (Boolean(page.published)) isPublished = true;
+      owners.add(String(page.idUtilizador ?? ""));
+      if (Boolean(page.publicado)) isPublished = true;
     }
   }
 

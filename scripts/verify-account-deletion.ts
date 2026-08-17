@@ -9,7 +9,7 @@
  *     dados_para_estudos)
  *   - Zero documentos por utilizador (subscriptions, teams, notifications,
  *     activity_logs, staff_applications, users)
- *   - security_logs sem linhas do utilizador (userId / email-hash / metadata)
+ *   - security_logs sem linhas do utilizador (idUtilizador / email-hash / metadata)
  *   - collected_ips sem o hash do visitante de teste
  *   - Ficheiro do bucket apagado
  *
@@ -64,10 +64,10 @@ const stamp = Date.now();
 const email = `deletion-check-${stamp}@linkflow.app`;
 const password = "Teste!1234Delecao";
 const name = "Deletion Check";
-const username = `dt${stamp}`;
-const visitorHash = `vh${stamp}`; // único por execução (índice único em collected_ips)
-let userId = "";
-let pageId = "";
+const nomeUtilizador = `dt${stamp}`;
+const hashVisitante = `vh${stamp}`; // único por execução (índice único em collected_ips)
+let idUtilizador = "";
+let idPagina = "";
 let fileId = "";
 
 function ownerPerms(uid: string): string[] {
@@ -92,7 +92,7 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "users",
     ID.unique(),
-    { userId: uid, email, displayName: name, plan: "free", country: "", countryCode: "", currency: "EUR", createdAt: now },
+    { idUtilizador: uid, email, nomeExibicao: name, plan: "free", country: "", codigoPais: "", currency: "EUR", createdAt: now },
     perms
   );
 
@@ -101,17 +101,17 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "pages",
     ID.unique(),
-    { userId: uid, username, displayName: name, bio: "teste exclusao", published: true, pageType: "minimal", pageTemplate: "template1", deleting: false },
+    { idUtilizador: uid, nomeUtilizador, nomeExibicao: name, bio: "teste exclusao", published: true, tipoPagina: "minimal", modeloPagina: "template1", deleting: false },
     perms
   );
-  pageId = page.$id;
+  idPagina = page.$id;
 
   // links
   await databases.createDocument(
     databaseId,
     "links",
     ID.unique(),
-    { pageId, type: "link", title: "Teste", url: "https://example.com", description: "", active: true, visible: true, newTab: true, order: 0, clicks: 0, animation: "none" },
+    { idPagina, type: "link", title: "Teste", url: "https://example.com", description: "", active: true, visible: true, novaAba: true, order: 0, clicks: 0, animation: "none" },
     perms
   );
 
@@ -120,7 +120,7 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "themes",
     ID.unique(),
-    { pageId, theme: "glass", blur: 25, rounded: 16, linkOpacity: 100, fontSize: 16, buttonRadius: 12, showAvatar: true, showBio: true, showSocial: true, spacing: 6 },
+    { idPagina, theme: "glass", blur: 25, rounded: 16, opacidadeLinks: 100, tamanhoFonte: 16, raioBotao: 12, mostrarAvatar: true, mostrarBiografia: true, mostrarSocial: true, spacing: 6 },
     perms
   );
 
@@ -130,18 +130,18 @@ async function createData(uid: string): Promise<void> {
     "analytics",
     ID.unique(),
     {
-      pageId,
+      idPagina,
       views: 5,
       clicks: 2,
-      followers: 1,
-      metricsJson: JSON.stringify({
-        topCountries: [{ country: "Portugal", countryCode: "PT", count: 5 }],
+      seguidores: 1,
+      metricasJson: JSON.stringify({
+        topCountries: [{ country: "Portugal", codigoPais: "PT", count: 5 }],
         topDevices: [],
         topLinks: [],
-        recentVisitors: [{ id: visitorHash, country: "Portugal", countryCode: "PT", device: "mobile", browser: "Chrome", os: "Android", time: now }],
+        recentVisitors: [{ id: hashVisitante, country: "Portugal", codigoPais: "PT", device: "mobile", browser: "Chrome", os: "Android", time: now }],
         dailyStats: [{ day: "2026-08-05", views: 5, clicks: 2 }],
-        visitorSet: [visitorHash],
-        dailyVisitors: [{ day: "2026-08-05", hashes: [visitorHash] }],
+        visitorSet: [hashVisitante],
+        dailyVisitors: [{ day: "2026-08-05", hashes: [hashVisitante] }],
         uniqueVisitors: 1,
         ctr: 40,
         weeklyGrowth: 0,
@@ -157,7 +157,7 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "visits",
     ID.unique(),
-    { pageId, visitorHash, ip: visitorHash, country: "Portugal", countryCode: "PT", device: "mobile", browser: "Chrome", os: "Android", createdAt: now }
+    { idPagina, hashVisitante, ip: hashVisitante, country: "Portugal", codigoPais: "PT", device: "mobile", browser: "Chrome", os: "Android", createdAt: now }
   );
 
   // collected_ips (server-only) — hash só usado pela página de teste
@@ -165,7 +165,7 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "collected_ips",
     ID.unique(),
-    { ip: visitorHash, visitorHash, country: "Portugal", countryCode: "PT", firstSeenAt: now, lastSeenAt: now }
+    { ip: hashVisitante, hashVisitante, country: "Portugal", codigoPais: "PT", vistoPrimeiraVezEm: now, vistoUltimaVezEm: now }
   );
 
   // dados_para_estudos (server-only)
@@ -173,29 +173,29 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "dados_para_estudos",
     ID.unique(),
-    { ip: "203.0.113.99", deviceName: "Pixel 7", device: "mobile", browser: "Chrome", os: "Android", userAgent: "Mozilla/5.0 test", latitude: "38.7223", longitude: "-9.1393", coordinates: "38.7223, -9.1393", pageId, referer: "https://example.com/", createdAt: now }
+    { ip: "203.0.113.99", nomeDispositivo: "Pixel 7", device: "mobile", browser: "Chrome", os: "Android", agenteUtilizador: "Mozilla/5.0 test", latitude: "38.7223", longitude: "-9.1393", coordenadas: "38.7223, -9.1393", idPagina, referer: "https://example.com/", createdAt: now }
   );
 
   // subscriptions / teams / notifications / activity_logs / staff_applications
-  await databases.createDocument(databaseId, "subscriptions", ID.unique(), { userId: uid, status: "active", plan: "free" }, perms);
-  await databases.createDocument(databaseId, "teams", ID.unique(), { name: "Equipa Teste", ownerId: uid }, perms);
-  await databases.createDocument(databaseId, "notifications", ID.unique(), { userId: uid, type: "test", message: "teste", read: false, createdAt: now }, perms);
-  await databases.createDocument(databaseId, "activity_logs", ID.unique(), { userId: uid, action: "link_created", createdAt: now }, perms);
-  await databases.createDocument(databaseId, "staff_applications", ID.unique(), { userId: uid, message: "Candidatura de teste para validar exclusão", status: "pending", createdAt: now }, perms);
+  await databases.createDocument(databaseId, "subscriptions", ID.unique(), { idUtilizador: uid, status: "active", plan: "free" }, perms);
+  await databases.createDocument(databaseId, "teams", ID.unique(), { name: "Equipa Teste", idProprietario: uid }, perms);
+  await databases.createDocument(databaseId, "notifications", ID.unique(), { idUtilizador: uid, type: "test", message: "teste", read: false, createdAt: now }, perms);
+  await databases.createDocument(databaseId, "activity_logs", ID.unique(), { idUtilizador: uid, action: "link_created", createdAt: now }, perms);
+  await databases.createDocument(databaseId, "staff_applications", ID.unique(), { idUtilizador: uid, message: "Candidatura de teste para validar exclusão", status: "pending", createdAt: now }, perms);
 
-  // security_logs: linha com userId, linha com email-hash (userId vazio —
+  // security_logs: linha com idUtilizador, linha com email-hash (idUtilizador vazio —
   // o atributo é obrigatório mas o log pode ser pré-autenticação), linha com
-  // metadata a referenciar o userId
-  await databases.createDocument(databaseId, "security_logs", ID.unique(), { userId: uid, eventType: "login", createdAt: now });
-  await databases.createDocument(databaseId, "security_logs", ID.unique(), { userId: "", eventType: "login_failed", email: await hashForLog(email), createdAt: now });
-  await databases.createDocument(databaseId, "security_logs", ID.unique(), { userId: "", eventType: "delete_account", metadata: JSON.stringify({ userId: uid }), createdAt: now });
+  // metadata a referenciar o idUtilizador
+  await databases.createDocument(databaseId, "security_logs", ID.unique(), { idUtilizador: uid, tipoEvento: "login", createdAt: now });
+  await databases.createDocument(databaseId, "security_logs", ID.unique(), { idUtilizador: "", tipoEvento: "login_failed", email: await hashForLog(email), createdAt: now });
+  await databases.createDocument(databaseId, "security_logs", ID.unique(), { idUtilizador: "", tipoEvento: "delete_account", metadata: JSON.stringify({ idUtilizador: uid }), createdAt: now });
 
   // qr_codes
   await databases.createDocument(
     databaseId,
     "qr_codes",
     ID.unique(),
-    { pageId, fgColor: "#000000", bgColor: "#FFFFFF", size: 512 },
+    { idPagina, corPrimeiroPlano: "#000000", corFundo: "#FFFFFF", size: 512 },
     perms
   );
 
@@ -235,17 +235,17 @@ async function verify(uid: string): Promise<Record<string, boolean>> {
 
   // 3. Coleções por página
   for (const coll of PAGE_SCOPED_COLLECTIONS) {
-    const r = await databases.listDocuments(databaseId, coll, [Query.equal("pageId", pageId)]);
+    const r = await databases.listDocuments(databaseId, coll, [Query.equal("idPagina", idPagina)]);
     results[`${coll}_limpa`] = r.total === 0;
   }
 
-  // 4. Coleções por utilizador (teams usa ownerId)
+  // 4. Coleções por utilizador (teams usa idProprietario)
   const userOwnerFields: Record<string, string> = {
-    [ACCOUNT_COLLECTIONS.subscriptions]: "userId",
-    [ACCOUNT_COLLECTIONS.teams]: "ownerId",
-    [ACCOUNT_COLLECTIONS.notifications]: "userId",
-    [ACCOUNT_COLLECTIONS.activityLogs]: "userId",
-    [ACCOUNT_COLLECTIONS.staffApplications]: "userId",
+    [ACCOUNT_COLLECTIONS.subscriptions]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.teams]: "idProprietario",
+    [ACCOUNT_COLLECTIONS.notifications]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.activityLogs]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.staffApplications]: "idUtilizador",
   };
   for (const [coll, field] of Object.entries(userOwnerFields)) {
     const r = await databases.listDocuments(databaseId, coll, [Query.equal(field, uid)]);
@@ -253,16 +253,16 @@ async function verify(uid: string): Promise<Record<string, boolean>> {
   }
 
   // 5. Perfil na coleção users
-  const userDocs = await databases.listDocuments(databaseId, "users", [Query.equal("userId", uid)]);
+  const userDocs = await databases.listDocuments(databaseId, "users", [Query.equal("idUtilizador", uid)]);
   results.users_perfil_limpo = userDocs.total === 0;
 
-  // 6. security_logs (userId / email-hash / metadata)
+  // 6. security_logs (idUtilizador / email-hash / metadata)
   const emailHash = await hashForLog(email);
   const securityLogs = await databases.listDocuments(databaseId, "security_logs");
   const leaked = securityLogs.documents.filter((d) => {
     const doc = d as Record<string, unknown>;
     return (
-      String(doc.userId ?? "") === uid ||
+      String(doc.idUtilizador ?? "") === uid ||
       String(doc.metadata ?? "").includes(uid) ||
       String(doc.email ?? "") === emailHash
     );
@@ -270,7 +270,7 @@ async function verify(uid: string): Promise<Record<string, boolean>> {
   results.security_logs_limpos = leaked.length === 0;
 
   // 7. collected_ips — o hash de teste só era usado pela página de teste
-  const ips = await databases.listDocuments(databaseId, "collected_ips", [Query.equal("visitorHash", visitorHash)]);
+  const ips = await databases.listDocuments(databaseId, "collected_ips", [Query.equal("hashVisitante", hashVisitante)]);
   results.collected_ips_limpos = ips.total === 0;
 
   // 8. Ficheiro apagado
@@ -290,22 +290,22 @@ async function forceCleanup(uid: string): Promise<void> {
     if (fileId) await storage.deleteFile(filesBucketId, fileId).catch(() => {});
   } catch {}
   try {
-    const ips = await databases.listDocuments(databaseId, "collected_ips", [Query.equal("visitorHash", visitorHash)]);
+    const ips = await databases.listDocuments(databaseId, "collected_ips", [Query.equal("hashVisitante", hashVisitante)]);
     for (const d of ips.documents) await databases.deleteDocument(databaseId, "collected_ips", d.$id);
   } catch {}
   for (const coll of PAGE_SCOPED_COLLECTIONS) {
     try {
-      const r = await databases.listDocuments(databaseId, coll, [Query.equal("pageId", pageId)]);
+      const r = await databases.listDocuments(databaseId, coll, [Query.equal("idPagina", idPagina)]);
       for (const d of r.documents) await databases.deleteDocument(databaseId, coll, d.$id);
     } catch {}
   }
   const cleanupOwnerFields: Record<string, string> = {
-    [ACCOUNT_COLLECTIONS.users]: "userId",
-    [ACCOUNT_COLLECTIONS.subscriptions]: "userId",
-    [ACCOUNT_COLLECTIONS.teams]: "ownerId",
-    [ACCOUNT_COLLECTIONS.notifications]: "userId",
-    [ACCOUNT_COLLECTIONS.activityLogs]: "userId",
-    [ACCOUNT_COLLECTIONS.staffApplications]: "userId",
+    [ACCOUNT_COLLECTIONS.users]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.subscriptions]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.teams]: "idProprietario",
+    [ACCOUNT_COLLECTIONS.notifications]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.activityLogs]: "idUtilizador",
+    [ACCOUNT_COLLECTIONS.staffApplications]: "idUtilizador",
   };
   for (const [coll, field] of Object.entries(cleanupOwnerFields)) {
     try {
@@ -322,17 +322,17 @@ async function main(): Promise<void> {
   console.log(`   ↳ Utilizador de teste: ${email}`);
 
   try {
-    userId = await createIdentity();
-    console.log(`   ↳ Identidade criada: ${userId}`);
-    await createData(userId);
-    console.log(`   ↳ Página criada: ${pageId}`);
+    idUtilizador = await createIdentity();
+    console.log(`   ↳ Identidade criada: ${idUtilizador}`);
+    await createData(idUtilizador);
+    console.log(`   ↳ Página criada: ${idPagina}`);
     console.log("   ↳ Dados criados em 14 coleções + 1 ficheiro\n");
 
     console.log("   ▶ Executando deleteAccountData()...");
-    await deleteAccountData(userId, email);
+    await deleteAccountData(idUtilizador, email);
     console.log("   ↳ deleteAccountData() concluído sem erros\n");
 
-    const results = await verify(userId);
+    const results = await verify(idUtilizador);
     console.log("📋 Resultados:");
     let allPass = true;
     for (const [check, ok] of Object.entries(results)) {
@@ -342,14 +342,14 @@ async function main(): Promise<void> {
     if (!allPass) {
       // deleteAccountData correu mas sobrou algo — limpar o teste para não poluir a BD.
       console.log("   → Limpeza dos resíduos...");
-      if (userId) await forceCleanup(userId).catch(() => {});
+      if (idUtilizador) await forceCleanup(idUtilizador).catch(() => {});
     }
     console.log(allPass ? "\n🎉 EXCLUSÃO DE CONTA 100% VALIDADA" : "\n❌ HÁ RESÍDUOS — ver acima");
     process.exit(allPass ? 0 : 1);
   } catch (error) {
     console.error("\n❌ Validação falhou:", (error as Error).message);
     console.error("   → Limpeza de emergência...");
-    if (userId) await forceCleanup(userId).catch(() => {});
+    if (idUtilizador) await forceCleanup(idUtilizador).catch(() => {});
     process.exit(1);
   }
 }

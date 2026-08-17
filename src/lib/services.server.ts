@@ -22,10 +22,10 @@ const Collections = {
 } as const;
 
 export const getPublicPageByUsername = cache(
-  async function getPublicPageByUsername(username: string): Promise<PageProfile & { $id: string }> {
+  async function getPublicPageByUsername(nomeUtilizador: string): Promise<PageProfile & { $id: string }> {
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, Collections.pages, [
-      Query.equal("username", username.toLowerCase()),
+      Query.equal("nomeUtilizador", nomeUtilizador.toLowerCase()),
       Query.limit(5),
     ]);
     const doc = docs.documents
@@ -36,17 +36,17 @@ export const getPublicPageByUsername = cache(
     }
     return {
       $id: doc.$id,
-      username: String(doc.username),
-      displayName: String(doc.displayName),
-      bio: String(doc.bio ?? ""),
-      avatar: doc.avatarId ? getFileUrl(String(doc.avatarId)) : undefined,
-      banner: doc.bannerId ? getFileUrl(String(doc.bannerId)) : undefined,
-      published: Boolean(doc.published),
-      pageType: (doc.pageType as PageType) ?? "minimal",
-      pageTemplate: (doc.pageTemplate as PageTemplateId) ?? "template1",
-      // `pages.badges` is user-editable, so staff is never trusted from it.
+      nomeUtilizador: String(doc.nomeUtilizador),
+      nomeExibicao: String(doc.nomeExibicao),
+      biografia: String(doc.biografia ?? ""),
+      avatar: doc.idAvatar ? getFileUrl(String(doc.idAvatar)) : undefined,
+      banner: doc.idBanner ? getFileUrl(String(doc.idBanner)) : undefined,
+      publicado: Boolean(doc.publicado),
+      tipoPagina: (doc.tipoPagina as PageType) ?? "minimal",
+      modeloPagina: (doc.modeloPagina as PageTemplateId) ?? "template1",
+      // `pages.emblemas` is user-editable, so staff is never trusted from it.
       // The staff badge is derived only from a server-side approved application.
-      badges: await getPublicBadges(String(doc.userId), doc.badges),
+      emblemas: await getPublicBadges(String(doc.idUtilizador), doc.emblemas),
     } as PageProfile & { $id: string };
   }
 );
@@ -55,93 +55,93 @@ export async function getPublicPublishedUsernames(limit = 1000): Promise<string[
   const { databases } = createServerClient();
   const docs = await databases.listDocuments(databaseId, Collections.pages, [
     Query.limit(limit),
-    Query.orderAsc("username"),
-    Query.select(["username", "published", "deleting", "scheduledPublishAt", "scheduledUnpublishAt"]),
+    Query.orderAsc("nomeUtilizador"),
+    Query.select(["nomeUtilizador", "publicado", "aEliminar", "publicacaoAgendadaEm", "despublicacaoAgendadaEm"]),
   ]);
   return docs.documents
     .filter((doc) => isPublicAt(doc as unknown as Record<string, unknown>))
-    .map((doc) => String((doc as unknown as { username: string }).username));
+    .map((doc) => String((doc as unknown as { nomeUtilizador: string }).nomeUtilizador));
 }
 
-export async function getPublicLinksByPageId(pageId: string): Promise<LinkItem[]> {
+export async function getPublicLinksByPageId(idPagina: string): Promise<LinkItem[]> {
   const { databases } = createServerClient();
   const docs = await databases.listDocuments(databaseId, Collections.links, [
-    Query.equal("pageId", pageId),
-    Query.equal("visible", true),
-    Query.equal("active", true),
-    Query.orderAsc("order"),
+    Query.equal("idPagina", idPagina),
+    Query.equal("visivel", true),
+    Query.equal("ativo", true),
+    Query.orderAsc("ordem"),
   ]);
   const now = Date.now();
   return docs.documents.filter((doc) => {
     const d = doc as unknown as Record<string, unknown>;
-    return isLinkPublicAt(d.scheduledFor, now);
+    return isLinkPublicAt(d.agendadoPara, now);
   }).map((doc) => {
     const d = doc as unknown as Record<string, unknown> & { $id: string };
     return {
       id: d.$id,
-      type: String(d.type) as LinkItem["type"],
-      title: String(d.title),
-      description: d.description ? String(d.description) : undefined,
+      tipo: String(d.tipo) as LinkItem["tipo"],
+      titulo: String(d.titulo),
+      descricao: d.descricao ? String(d.descricao) : undefined,
       url: String(d.url),
-      icon: d.icon ? String(d.icon) : undefined,
-      color: d.color ? String(d.color) : undefined,
-      image: d.imageId ? getFileUrl(String(d.imageId)) : undefined,
-      animation: (d.animation as LinkItem["animation"]) ?? "none",
-      active: true,
-      visible: true,
-      newTab: Boolean(d.newTab),
-      order: Number(d.order),
-      clicks: 0,
-      scheduledFor: d.scheduledFor ? String(d.scheduledFor) : undefined,
+      icone: d.icone ? String(d.icone) : undefined,
+      cor: d.cor ? String(d.cor) : undefined,
+      image: d.idImagem ? getFileUrl(String(d.idImagem)) : undefined,
+      animacao: (d.animacao as LinkItem["animacao"]) ?? "none",
+      ativo: true,
+      visivel: true,
+      novaAba: Boolean(d.novaAba),
+      ordem: Number(d.ordem),
+      cliques: 0,
+      agendadoPara: d.agendadoPara ? String(d.agendadoPara) : undefined,
     };
   });
 }
 
-export async function getPublicThemeByPageId(pageId: string): Promise<Appearance> {
+export async function getPublicThemeByPageId(idPagina: string): Promise<Appearance> {
   const { databases } = createServerClient();
   const docs = await databases.listDocuments(databaseId, Collections.themes, [
-    Query.equal("pageId", pageId),
+    Query.equal("idPagina", idPagina),
   ]);
   if (docs.documents.length === 0) {
     return defaultAppearance();
   }
   const doc = docs.documents[0] as unknown as Record<string, unknown>;
   return {
-    blur: Number(doc.blur),
-    rounded: Number(doc.rounded),
-    linkOpacity: Number(doc.linkOpacity),
-    backgroundColor: safeThemeColor(doc.backgroundColor, "#0a0a0a"),
-    cardColor: safeThemeColor(doc.cardColor, "rgba(255,255,255,0.03)"),
-    textColor: safeThemeColor(doc.textColor, "#fafafa"),
-    accentColor: safeThemeColor(doc.accentColor, "#fafafa"),
-    fontFamily: safeThemeFont(doc.fontFamily),
-    fontSize: Number(doc.fontSize),
-    buttonRadius: Number(doc.buttonRadius),
-    buttonWidth: String(doc.buttonWidth) as Appearance["buttonWidth"],
-    buttonHeight: String(doc.buttonHeight) as Appearance["buttonHeight"],
-    buttonStyle: String(doc.buttonStyle) as Appearance["buttonStyle"],
-    shadow: String(doc.shadow) as Appearance["shadow"],
-    showAvatar: Boolean(doc.showAvatar),
-    showBio: Boolean(doc.showBio),
-    showSocial: doc.showSocial !== undefined ? Boolean(doc.showSocial) : true,
-    spacing: Number(doc.spacing),
-    glassOpacity: doc.glassOpacity !== undefined ? Number(doc.glassOpacity) : 35,
-    glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
-    glassStrength: doc.glassStrength !== undefined ? Number(doc.glassStrength) : 50,
+    desfoco: Number(doc.desfoco),
+    arredondado: Number(doc.arredondado),
+    opacidadeLinks: Number(doc.opacidadeLinks),
+    corFundo: safeThemeColor(doc.corFundo, "#0a0a0a"),
+    corCartao: safeThemeColor(doc.corCartao, "rgba(255,255,255,0.03)"),
+    corTexto: safeThemeColor(doc.corTexto, "#fafafa"),
+    corDestaque: safeThemeColor(doc.corDestaque, "#fafafa"),
+    familiaFonte: safeThemeFont(doc.familiaFonte),
+    tamanhoFonte: Number(doc.tamanhoFonte),
+    raioBotao: Number(doc.raioBotao),
+    larguraBotao: String(doc.larguraBotao) as Appearance["larguraBotao"],
+    alturaBotao: String(doc.alturaBotao) as Appearance["alturaBotao"],
+    estiloBotao: String(doc.estiloBotao) as Appearance["estiloBotao"],
+    sombra: String(doc.sombra) as Appearance["sombra"],
+    mostrarAvatar: Boolean(doc.mostrarAvatar),
+    mostrarBiografia: Boolean(doc.mostrarBiografia),
+    mostrarSocial: doc.mostrarSocial !== undefined ? Boolean(doc.mostrarSocial) : true,
+    espacamento: Number(doc.espacamento),
+    opacidadeVidro: doc.opacidadeVidro !== undefined ? Number(doc.opacidadeVidro) : 35,
+    desfocoVidro: doc.desfocoVidro !== undefined ? Number(doc.desfocoVidro) : 25,
+    intensidadeVidro: doc.intensidadeVidro !== undefined ? Number(doc.intensidadeVidro) : 50,
   };
 }
 
-async function getPublicBadges(userId: string, rawBadges: unknown): Promise<string[]> {
+async function getPublicBadges(idUtilizador: string, rawBadges: unknown): Promise<string[]> {
   const badges = Array.isArray(rawBadges)
     ? rawBadges.filter((badge): badge is string => typeof badge === "string" && badge !== "staff")
     : [];
   const { databases } = createServerClient();
   const approved = await databases.listDocuments(databaseId, "staff_applications", [
-    Query.equal("userId", userId),
-    Query.equal("status", "approved"),
+    Query.equal("idUtilizador", idUtilizador),
+    Query.equal("estado", "approved"),
     Query.limit(1),
   ]);
-  const hasTrustedApproval = approved.documents.some((doc) => Boolean(String(doc.reviewedBy ?? "").trim()));
+  const hasTrustedApproval = approved.documents.some((doc) => Boolean(String(doc.revistoPor ?? "").trim()));
   return hasTrustedApproval ? [...badges, "staff"] : badges;
 }
 

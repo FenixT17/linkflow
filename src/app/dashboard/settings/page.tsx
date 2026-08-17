@@ -10,7 +10,7 @@ import { Save, Globe, Bell, Shield, Trash2, Mail, Lock, Smartphone, Loader2, Ale
 
 export default function SettingsPage() {
   const { account, deleteAccount } = useAuth();
-  const [name, setName] = useState(account?.displayName || "");
+  const [name, setName] = useState(account?.nomeExibicao || "");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -65,7 +65,7 @@ export default function SettingsPage() {
     try {
       const res = await fetchWithCsrf("/api/users/profile", {
         method: "PATCH",
-        body: JSON.stringify({ displayName: name.trim() }),
+        body: JSON.stringify({ nomeExibicao: name.trim() }),
       });
       if (!res.ok) throw new Error("Profile update failed");
       setMessage("Definições guardadas.");

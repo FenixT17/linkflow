@@ -1,7 +1,7 @@
 /**
  * Shared helper — private Storage bucket for server-proxied public media.
  *
- * Avatars/banners/link images are served on the public /u/[username] page
+ * Avatars/banners/link images are served on the public /u/[nomeUtilizador] page
  * through `/api/media/[fileId]`. The Worker reads them with the server API
  * key, so the Appwrite bucket no longer needs public read access. This makes
  * direct bulk downloads from the Appwrite Storage endpoint impossible without
@@ -25,18 +25,18 @@ const BUCKET_PERMS = [
 ];
 
 /** Permissões por ficheiro para o dono (update/delete restritos ao owner). */
-function filePermsForOwner(ownerId: string) {
+function filePermsForOwner(idProprietario: string) {
   return [
-    Permission.read(Role.user(ownerId)),
-    Permission.update(Role.user(ownerId)),
-    Permission.delete(Role.user(ownerId)),
+    Permission.read(Role.user(idProprietario)),
+    Permission.update(Role.user(idProprietario)),
+    Permission.delete(Role.user(idProprietario)),
   ];
 }
 
 /**
  * Backfill: aplica permissões por dono aos ficheiros existentes. O dono de
- * cada ficheiro é derivado das coleções pages (avatarId/bannerId) e links
- * (imageId). Ficheiros órfãos ficam sem permissões, para nunca permanecerem
+ * cada ficheiro é derivado das coleções pages (idAvatar/idBanner) e links
+ * (idImagem). Ficheiros órfãos ficam sem permissões, para nunca permanecerem
  * publicamente acessíveis depois da migração.
  */
 async function applyOwnerPermsToExistingFiles(
@@ -45,8 +45,8 @@ async function applyOwnerPermsToExistingFiles(
   databaseId: string,
   bucketId: string
 ) {
-  // Mapa fileId → ownerId derivado das páginas (avatar/banner) e dos links
-  // (imageId). Sem isto, as imagens de links ficariam órfãs (read-only para
+  // Mapa fileId → idProprietario derivado das páginas (avatar/banner) e dos links
+  // (idImagem). Sem isto, as imagens de links ficariam órfãs (read-only para
   // todos, sem update/delete para ninguém — storage leak irreversível).
   const ownerByFile = new Map<string, string>();
   const ownerByPage = new Map<string, string>();
@@ -55,34 +55,34 @@ async function applyOwnerPermsToExistingFiles(
     const { documents } = await databases.listDocuments(databaseId, "pages", [
       Query.limit(100),
       Query.offset(offset),
-      Query.select(["$id", "avatarId", "bannerId", "userId"]),
+      Query.select(["$id", "idAvatar", "idBanner", "idUtilizador"]),
     ]);
     for (const doc of documents) {
-      const ownerId = String(doc.userId ?? "");
-      if (!ownerId) continue;
-      ownerByPage.set(doc.$id, ownerId);
-      const avatarId = String(doc.avatarId ?? "");
-      if (avatarId) ownerByFile.set(avatarId, ownerId);
-      const bannerId = String(doc.bannerId ?? "");
-      if (bannerId) ownerByFile.set(bannerId, ownerId);
+      const idProprietario = String(doc.idUtilizador ?? "");
+      if (!idProprietario) continue;
+      ownerByPage.set(doc.$id, idProprietario);
+      const idAvatar = String(doc.idAvatar ?? "");
+      if (idAvatar) ownerByFile.set(idAvatar, idProprietario);
+      const idBanner = String(doc.idBanner ?? "");
+      if (idBanner) ownerByFile.set(idBanner, idProprietario);
     }
     if (documents.length < 100) break;
     offset += documents.length;
   }
 
-  // Imagens de links: imageId → dono da página dona do link.
+  // Imagens de links: idImagem → dono da página dona do link.
   let linksOffset = 0;
   for (;;) {
     const { documents } = await databases.listDocuments(databaseId, "links", [
       Query.limit(100),
       Query.offset(linksOffset),
-      Query.select(["pageId", "imageId"]),
+      Query.select(["idPagina", "idImagem"]),
     ]);
     for (const doc of documents) {
-      const imageId = String(doc.imageId ?? "");
-      if (!imageId) continue;
-      const ownerId = ownerByPage.get(String(doc.pageId ?? ""));
-      if (ownerId) ownerByFile.set(imageId, ownerId);
+      const idImagem = String(doc.idImagem ?? "");
+      if (!idImagem) continue;
+      const idProprietario = ownerByPage.get(String(doc.idPagina ?? ""));
+      if (idProprietario) ownerByFile.set(idImagem, idProprietario);
     }
     if (documents.length < 100) break;
     linksOffset += documents.length;
@@ -95,12 +95,12 @@ async function applyOwnerPermsToExistingFiles(
       Query.offset(filesOffset),
     ]);
     for (const file of files) {
-      const ownerId = ownerByFile.get(file.$id);
+      const idProprietario = ownerByFile.get(file.$id);
       try {
         // Orphans get no permissions; owned files are readable only through
         // the server proxy (the owner still retains dashboard management).
-        await storage.updateFile(bucketId, file.$id, file.name, ownerId ? filePermsForOwner(ownerId) : []);
-        console.log(`   ↳ File ${file.$id} scoped to owner ${ownerId}.`);
+        await storage.updateFile(bucketId, file.$id, file.name, idProprietario ? filePermsForOwner(idProprietario) : []);
+        console.log(`   ↳ File ${file.$id} scoped to owner ${idProprietario}.`);
       } catch (e: unknown) {
         console.warn(
           `   ↳ Failed to scope file ${file.$id}: ${e instanceof Error ? e.message : String(e)}`

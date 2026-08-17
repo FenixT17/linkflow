@@ -18,14 +18,14 @@ export function normalizeStaffApplicationMessage(value: unknown): string {
 
 /**
  * An application is approvable only after a trusted reviewer is recorded.
- * `reviewedBy` is written by the team/server, never by the client.
+ * `revistoPor` is written by the team/server, never by the client.
  */
 export function isStaffApplicationApproved(application: {
-  status: StaffApplicationStatus | string;
-  reviewedBy?: string | null;
+  estado: StaffApplicationStatus | string;
+  revistoPor?: string | null;
 }): boolean {
-  // The server route/Console workflow must populate reviewedBy with a
+  // The server route/Console workflow must populate revistoPor with a
   // trusted team identity. This predicate is intentionally conservative;
   // legacy approvals are invalidated by the migration script.
-  return application.status === "approved" && Boolean(application.reviewedBy?.trim());
+  return application.estado === "approved" && Boolean(application.revistoPor?.trim());
 }

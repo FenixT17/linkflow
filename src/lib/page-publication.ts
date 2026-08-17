@@ -1,8 +1,8 @@
 export interface PublicationRecord {
-  published?: unknown;
-  deleting?: unknown;
-  scheduledPublishAt?: unknown;
-  scheduledUnpublishAt?: unknown;
+  publicado?: unknown;
+  aEliminar?: unknown;
+  publicacaoAgendadaEm?: unknown;
+  despublicacaoAgendadaEm?: unknown;
 }
 
 function parseDate(value: unknown): number | null {
@@ -16,21 +16,21 @@ export function isPublicAt(record: unknown, at = Date.now()): boolean {
   const candidate = record && typeof record === "object"
     ? record as PublicationRecord
     : {};
-  if (candidate.deleting === true) return false;
+  if (candidate.aEliminar === true) return false;
 
-  const publishAt = parseDate(candidate.scheduledPublishAt);
-  const unpublishAt = parseDate(candidate.scheduledUnpublishAt);
+  const publishAt = parseDate(candidate.publicacaoAgendadaEm);
+  const unpublishAt = parseDate(candidate.despublicacaoAgendadaEm);
 
-  if (candidate.published !== true && (publishAt === null || publishAt > at)) {
+  if (candidate.publicado !== true && (publishAt === null || publishAt > at)) {
     return false;
   }
   if (unpublishAt !== null && unpublishAt <= at) return false;
-  return candidate.published === true || (publishAt !== null && publishAt <= at);
+  return candidate.publicado === true || (publishAt !== null && publishAt <= at);
 }
 
 /** Retorna true quando um link cujo agendamento já chegou pode ser exibido. */
-export function isLinkPublicAt(scheduledFor: unknown, at = Date.now()): boolean {
-  if (typeof scheduledFor !== "string" || !scheduledFor.trim()) return true;
-  const timestamp = Date.parse(scheduledFor);
+export function isLinkPublicAt(agendadoPara: unknown, at = Date.now()): boolean {
+  if (typeof agendadoPara !== "string" || !agendadoPara.trim()) return true;
+  const timestamp = Date.parse(agendadoPara);
   return Number.isFinite(timestamp) && timestamp <= at;
 }

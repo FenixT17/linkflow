@@ -25,9 +25,9 @@ async function migrate() {
     const page = await databases.listDocuments(databaseId, collectionId, queries);
 
     for (const doc of page.documents) {
-      const userId = String(doc.userId ?? "").trim();
-      if (!userId) {
-        console.warn(`Skipping ${doc.$id}: missing userId`);
+      const idUtilizador = String(doc.idUtilizador ?? "").trim();
+      if (!idUtilizador) {
+        console.warn(`Skipping ${doc.$id}: missing idUtilizador`);
         continue;
       }
 
@@ -43,9 +43,9 @@ async function migrate() {
         doc.$id,
         {
           status: safeStatus,
-          reviewedBy: "",
+          revistoPor: "",
         },
-        [Permission.read(Role.user(userId))]
+        [Permission.read(Role.user(idUtilizador))]
       );
       migrated++;
     }

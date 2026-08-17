@@ -5,30 +5,30 @@ import {
   getSocialPlatforms,
 } from "@/lib/social";
 
-describe("buildSocialUrl — username → URL auto-generation", () => {
-  it("generates Instagram URL from username", () => {
+describe("buildSocialUrl — nomeUtilizador → URL auto-generation", () => {
+  it("generates Instagram URL from nomeUtilizador", () => {
     const result = buildSocialUrl("instagram", "joao");
     expect(result.url).toBe("https://instagram.com/joao");
-    expect(result.username).toBe("joao");
+    expect(result.nomeUtilizador).toBe("joao");
     expect(result.error).toBeUndefined();
   });
 
-  it("generates GitHub URL from username", () => {
+  it("generates GitHub URL from nomeUtilizador", () => {
     const result = buildSocialUrl("github", "octocat");
     expect(result.url).toBe("https://github.com/octocat");
-    expect(result.username).toBe("octocat");
+    expect(result.nomeUtilizador).toBe("octocat");
   });
 
-  it("generates Telegram URL from username", () => {
+  it("generates Telegram URL from nomeUtilizador", () => {
     const result = buildSocialUrl("telegram", "joao");
     expect(result.url).toBe("https://t.me/joao");
-    expect(result.username).toBe("joao");
+    expect(result.nomeUtilizador).toBe("joao");
   });
 
   it("handles leading @ in usernames", () => {
     const result = buildSocialUrl("tiktok", "@joao");
     expect(result.url).toBe("https://tiktok.com/@joao");
-    expect(result.username).toBe("joao");
+    expect(result.nomeUtilizador).toBe("joao");
   });
 
   it("trims whitespace and sanitizes unsafe chars in usernames", () => {
@@ -39,7 +39,7 @@ describe("buildSocialUrl — username → URL auto-generation", () => {
   it("generates mailto: for email from a bare address", () => {
     const result = buildSocialUrl("email", "ola@exemplo.com");
     expect(result.url).toBe("mailto:ola@exemplo.com");
-    expect(result.username).toBe("ola@exemplo.com");
+    expect(result.nomeUtilizador).toBe("ola@exemplo.com");
   });
 
   it("rejects invalid emails", () => {
@@ -109,7 +109,7 @@ describe("buildSocialUrl — full URL passthrough and validation", () => {
   it("accepts tel: only for WhatsApp", () => {
     const result = buildSocialUrl("whatsapp", "tel:+351912345678");
     expect(result.url).toBe("tel:+351912345678");
-    expect(result.username).toBe("+351912345678");
+    expect(result.nomeUtilizador).toBe("+351912345678");
   });
 
   it("rejects tel: for non-phone platforms", () => {

@@ -11,7 +11,7 @@ import {
 
 interface ThemeContextValue {
   theme: AllowedTheme;
-  resolvedTheme: "light" | "dark";
+  resolvedTheme: "light" | "dark" | "gray";
   systemTheme: "light" | "dark";
   setTheme: (theme: AllowedTheme) => void;
   themes: readonly string[];
@@ -66,9 +66,15 @@ export function ThemeProvider({
 
   const applyTheme = useCallback((next: AllowedTheme, system: "light" | "dark") => {
     const resolved = next === "system" ? system : next;
-    const dark = resolved === "dark";
-    document.documentElement.classList.toggle("dark", dark);
-    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    const root = document.documentElement;
+    // O modo escuro é o principal por defeito (defaultTheme="dark"). O modo
+    // cinza é um tema escuro com fundo acinzentado — mantém a classe .dark
+    // para que as variantes Tailwind `dark:` continuem a aplicar.
+    const isDark = resolved === "dark" || resolved === "gray";
+    root.classList.toggle("dark", isDark);
+    root.classList.toggle("gray", resolved === "gray");
+    root.classList.toggle("light", resolved === "light");
+    root.style.colorScheme = resolved === "light" ? "light" : "dark";
   }, []);
 
   // Aplica sempre que o tema ou o esquema do sistema mudam (inclui 1º mount).
@@ -97,7 +103,8 @@ export function ThemeProvider({
     }
   }, []);
 
-  const resolvedTheme: "light" | "dark" = theme === "system" ? systemTheme : theme;
+  const resolvedTheme: "light" | "dark" | "gray" =
+    theme === "system" ? systemTheme : theme;
 
   const value = useMemo<ThemeContextValue>(
     () => ({ theme, resolvedTheme, systemTheme, setTheme, themes: ALLOWED_THEMES }),

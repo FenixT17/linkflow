@@ -85,7 +85,7 @@ describe("resolveGeoWithCoordinates (tabela Dados para Estudos)", () => {
     const geo = await resolveGeoWithCoordinates("8.8.8.8");
     expect(geo.latitude).toBe(37.3361663);
     expect(geo.longitude).toBe(-121.8905913);
-    expect(geo.countryCode).toBe("US");
+    expect(geo.codigoPais).toBe("US");
     expect(geo.city).toBe("San Jose");
   });
 

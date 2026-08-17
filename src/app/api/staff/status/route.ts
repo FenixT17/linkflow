@@ -7,7 +7,7 @@ import { createServerClient, databaseId } from "@/lib/appwrite.server";
 
 const COLLECTION_STAFF_APPLICATIONS = "staff_applications";
 
-/** GET /api/staff/status — derives userId from the Appwrite session. */
+/** GET /api/staff/status — derives idUtilizador from the Appwrite session. */
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
   if (auth instanceof NextResponse) return auth;
@@ -15,29 +15,29 @@ export async function GET(request: NextRequest) {
   try {
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, COLLECTION_STAFF_APPLICATIONS, [
-      Query.equal("userId", auth.user.$id),
-      Query.orderDesc("createdAt"),
+      Query.equal("idUtilizador", auth.user.$id),
+      Query.orderDesc("criadoEm"),
       Query.limit(1),
     ]);
     const doc = docs.documents[0];
     if (!doc) return NextResponse.json({ application: null });
 
-    const rawStatus = String(doc.status ?? "pending") as StaffApplicationStatus;
-    const reviewedBy = doc.reviewedBy ? String(doc.reviewedBy) : undefined;
+    const rawStatus = String(doc.estado ?? "pending") as StaffApplicationStatus;
+    const revistoPor = doc.revistoPor ? String(doc.revistoPor) : undefined;
     const status: StaffApplicationStatus = rawStatus === "rejected"
       ? "rejected"
-      : isStaffApplicationApproved({ status: rawStatus, reviewedBy })
+      : isStaffApplicationApproved({ estado: rawStatus, revistoPor })
         ? "approved"
         : "pending";
 
     return NextResponse.json({
       application: {
         $id: doc.$id,
-        userId: String(doc.userId ?? ""),
-        message: String(doc.message ?? ""),
-        status,
-        reviewedBy,
-        createdAt: String(doc.createdAt ?? ""),
+        idUtilizador: String(doc.idUtilizador ?? ""),
+        mensagem: String(doc.mensagem ?? ""),
+        estado: status,
+        revistoPor,
+        criadoEm: String(doc.criadoEm ?? ""),
       },
     });
   } catch (error) {

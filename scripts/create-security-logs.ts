@@ -98,24 +98,24 @@ async function createSecurityLogs() {
   // Create attributes
   console.log("\n🔧 Creating attributes...");
   await run(
-    () => databases.createStringAttribute(databaseId, "security_logs", "userId", 255, true),
-    "attribute userId"
+    () => databases.createStringAttribute(databaseId, "security_logs", "idUtilizador", 255, true),
+    "attribute idUtilizador"
   );
   await run(
-    () => databases.createStringAttribute(databaseId, "security_logs", "eventType", 64, true),
-    "attribute eventType"
+    () => databases.createStringAttribute(databaseId, "security_logs", "tipoEvento", 64, true),
+    "attribute tipoEvento"
   );
   await run(
     () => databases.createStringAttribute(databaseId, "security_logs", "email", 255, false),
     "attribute email"
   );
   await run(
-    () => databases.createStringAttribute(databaseId, "security_logs", "ipAddress", 64, false),
-    "attribute ipAddress"
+    () => databases.createStringAttribute(databaseId, "security_logs", "enderecoIP", 64, false),
+    "attribute enderecoIP"
   );
   await run(
-    () => databases.createStringAttribute(databaseId, "security_logs", "userAgent", 512, false),
-    "attribute userAgent"
+    () => databases.createStringAttribute(databaseId, "security_logs", "agenteUtilizador", 512, false),
+    "attribute agenteUtilizador"
   );
   await run(
     () => databases.createStringAttribute(databaseId, "security_logs", "metadata", 4096, false),
@@ -128,18 +128,18 @@ async function createSecurityLogs() {
 
   // Wait for attributes
   await waitForAttributes("security_logs", [
-    "userId", "eventType", "email", "ipAddress",
-    "userAgent", "metadata", "createdAt",
+    "idUtilizador", "tipoEvento", "email", "enderecoIP",
+    "agenteUtilizador", "metadata", "createdAt",
   ]);
 
   // Create indexes
   console.log("\n📊 Creating indexes...");
   await run(
-    () => databases.createIndex(databaseId, "security_logs", "idx_security_userId", "key" as DatabasesIndexType, ["userId"]),
+    () => databases.createIndex(databaseId, "security_logs", "idx_security_userId", "key" as DatabasesIndexType, ["idUtilizador"]),
     "index idx_security_userId"
   );
   await run(
-    () => databases.createIndex(databaseId, "security_logs", "idx_security_eventType", "key" as DatabasesIndexType, ["eventType"]),
+    () => databases.createIndex(databaseId, "security_logs", "idx_security_eventType", "key" as DatabasesIndexType, ["tipoEvento"]),
     "index idx_security_eventType"
   );
   await run(

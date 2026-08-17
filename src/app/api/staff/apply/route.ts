@@ -12,7 +12,7 @@ const COLLECTION_STAFF_APPLICATIONS = "staff_applications";
  * POST /api/staff/apply
  *
  * Creates a pending application using the authenticated Appwrite account.
- * The client cannot choose userId, status, reviewer, or document permissions.
+ * The client cannot choose idUtilizador, status, reviewer, or document permissions.
  */
 export async function POST(request: NextRequest) {
   const csrfCheck = csrfGuard(request);
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
     const { databases } = createServerClient();
 
     const existing = await databases.listDocuments(databaseId, COLLECTION_STAFF_APPLICATIONS, [
-      Query.equal("userId", auth.user.$id),
-      Query.equal("status", "pending"),
+      Query.equal("idUtilizador", auth.user.$id),
+      Query.equal("estado", "pending"),
       Query.limit(1),
     ]);
     if (existing.documents.length > 0) {
@@ -54,11 +54,11 @@ export async function POST(request: NextRequest) {
       COLLECTION_STAFF_APPLICATIONS,
       ID.unique(),
       {
-        userId: auth.user.$id,
-        message,
-        status: "pending",
-        reviewedBy: "",
-        createdAt: new Date().toISOString(),
+        idUtilizador: auth.user.$id,
+        mensagem: message,
+        estado: "pending",
+        revistoPor: "",
+        criadoEm: new Date().toISOString(),
       },
       [Permission.read(Role.user(auth.user.$id))]
     );
@@ -66,10 +66,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       application: {
         $id: doc.$id,
-        userId: auth.user.$id,
-        message,
-        status: "pending",
-        createdAt: String(doc.createdAt ?? ""),
+        idUtilizador: auth.user.$id,
+        mensagem: message,
+        estado: "pending",
+        criadoEm: String(doc.criadoEm ?? ""),
       },
     }, { status: 201, headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {

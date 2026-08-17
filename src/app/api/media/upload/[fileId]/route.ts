@@ -6,10 +6,10 @@ import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-l
 
 const FILE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,35}$/;
 
-function isOwnedByUser(permissions: string[] | undefined, userId: string): boolean {
+function isOwnedByUser(permissions: string[] | undefined, idUtilizador: string): boolean {
   if (!Array.isArray(permissions)) return false;
   return permissions.some((permission) =>
-    permission.includes(`user:${userId}`) &&
+    permission.includes(`user:${idUtilizador}`) &&
     /^(read|update|delete)\("?user:/.test(permission),
   );
 }

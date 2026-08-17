@@ -45,11 +45,11 @@ async function createOwnedDocument<T extends Record<string, unknown>>(
   ]);
 }
 
-async function requireOwnerOfPage(pageId: string): Promise<Models.User<Models.Preferences>> {
+async function requireOwnerOfPage(idPagina: string): Promise<Models.User<Models.Preferences>> {
   const session = await getCurrentSessionOrThrow();
   try {
-    const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
-    if (!pageDoc || String(pageDoc.userId) !== session.$id) {
+    const pageDoc = await databases.getDocument(databaseId, Collections.pages, idPagina);
+    if (!pageDoc || String(pageDoc.idUtilizador) !== session.$id) {
       const error = new Error("Forbidden");
       (error as Error & { status?: number }).status = 403;
       throw error;
@@ -79,13 +79,13 @@ async function requireOwnerOfPage(pageId: string): Promise<Models.User<Models.Pr
  */
 export async function fetchUserGeo(): Promise<{
   country?: string;
-  countryCode?: string;
+  codigoPais?: string;
   currency?: string;
 }> {
   try {
     const res = await fetch("/api/geo/lookup", { credentials: "include" });
     if (!res.ok) return {};
-    return (await res.json()) as { country?: string; countryCode?: string; currency?: string };
+    return (await res.json()) as { country?: string; codigoPais?: string; currency?: string };
   } catch {
     return {};
   }
@@ -118,9 +118,9 @@ export async function registerUser(email: string, password: string, name: string
   const provisionData = await provision.json() as { profile?: UserAccount };
   const geo = provisionData.profile
     ? {
-        country: provisionData.profile.country,
-        countryCode: provisionData.profile.countryCode,
-        currency: provisionData.profile.currency,
+        pais: provisionData.profile.pais,
+        codigoPais: provisionData.profile.codigoPais,
+        moeda: provisionData.profile.moeda,
       }
     : {};
   return {
@@ -177,12 +177,12 @@ export async function requestPasswordReset(email: string): Promise<{ sent: boole
   return { sent: data.sent === true };
 }
 
-export async function completeEmailVerification(userId: string, secret: string) {
-  return account.updateEmailVerification(userId, secret);
+export async function completeEmailVerification(idUtilizador: string, secret: string) {
+  return account.updateEmailVerification(idUtilizador, secret);
 }
 
-export async function completePasswordReset(userId: string, secret: string, password: string) {
-  return account.updateRecovery(userId, secret, password);
+export async function completePasswordReset(idUtilizador: string, secret: string, password: string) {
+  return account.updateRecovery(idUtilizador, secret, password);
 }
 
 export async function loginUser(email: string, password: string, remember = true) {
@@ -289,9 +289,9 @@ export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences
     const res = await fetchWithAppwriteAuth("/api/auth/oauth/sync", {
       method: "POST",
       body: JSON.stringify({
-        userId: user.$id,
+        idUtilizador: user.$id,
         email: user.email,
-        displayName: user.name || "Utilizador",
+        nomeExibicao: user.name || "Utilizador",
         createdAt: user.$createdAt || new Date().toISOString(),
       }),
     });
@@ -311,22 +311,22 @@ export async function checkAndSyncOAuthUser(user: Models.User<Models.Preferences
   }
 }
 
-export async function getUserProfile(userId: string): Promise<UserAccount | null> {
+export async function getUserProfile(idUtilizador: string): Promise<UserAccount | null> {
   const docs = await databases.listDocuments(databaseId, Collections.users, [
-    Query.equal("userId", userId),
+    Query.equal("idUtilizador", idUtilizador),
   ]);
   if (docs.documents.length === 0) return null;
   const doc = docs.documents[0] as AppwriteDocument;
   return {
     email: String(doc.email),
-    displayName: String(doc.displayName),
-    createdAt: String(doc.createdAt),
-    plan: ["free", "pro", "business", "enterprise"].includes(String(doc.plan))
-      ? (String(doc.plan) as UserAccount["plan"])
+    nomeExibicao: String(doc.nomeExibicao),
+    criadoEm: String(doc.criadoEm),
+    plano: ["free", "pro", "business", "enterprise"].includes(String(doc.plano))
+      ? (String(doc.plano) as UserAccount["plano"])
       : "free",
-    country: doc.country ? String(doc.country) : undefined,
-    countryCode: doc.countryCode ? String(doc.countryCode) : undefined,
-    currency: doc.currency ? String(doc.currency) : undefined,
+    pais: doc.pais ? String(doc.pais) : undefined,
+    codigoPais: doc.codigoPais ? String(doc.codigoPais) : undefined,
+    moeda: doc.moeda ? String(doc.moeda) : undefined,
   };
 }
 
@@ -344,7 +344,7 @@ function isAlreadyExistsError(error: unknown): boolean {
 }
 
 /**
- * Traduz o 409 do Appwrite (índice único no username — "Document with the
+ * Traduz o 409 do Appwrite (índice único no nomeUtilizador — "Document with the
  * requested ID ... already exists") para uma mensagem amigável. Lança sempre.
  */
 function throwPageConflict(error: unknown): never {
@@ -356,23 +356,23 @@ function throwPageConflict(error: unknown): never {
   throw error;
 }
 
-export async function createPage(profile: Omit<PageProfile, "published">) {
+export async function createPage(profile: Omit<PageProfile, "publicado">) {
   const session = await getCurrentSession();
 
   // Idempotente: se o utilizador JÁ tem uma página (ex: dupla submissão do
   // botão ou tentativa anterior que ficou a meio), atualiza-a em vez de
-  // criar outra — o índice único no username rejeitaria a segunda com
+  // criar outra — o índice único no nomeUtilizador rejeitaria a segunda com
   // "Document with the requested ID ... already exists" (409).
   const existing = await getPageByUserId(session.$id).catch(() => null);
   if (existing) {
     try {
       // updatePage já regista a atividade (page_updated) e faz o owner check.
       return await updatePage(existing.$id, {
-        username: profile.username,
-        displayName: profile.displayName,
-        bio: profile.bio ?? "",
-        pageType: profile.pageType ?? existing.pageType ?? "minimal",
-        pageTemplate: profile.pageTemplate ?? existing.pageTemplate ?? "template1",
+        nomeUtilizador: profile.nomeUtilizador,
+        nomeExibicao: profile.nomeExibicao,
+        biografia: profile.biografia ?? "",
+        tipoPagina: profile.tipoPagina ?? existing.tipoPagina ?? "minimal",
+        modeloPagina: profile.modeloPagina ?? existing.modeloPagina ?? "template1",
       });
     } catch (error) {
       // Username alterado para um já usado por OUTRO utilizador → 409 cru.
@@ -384,26 +384,26 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
   try {
     doc = await databases.createDocument(databaseId, Collections.pages, ID.unique(), {
       ...profile,
-      userId: session.$id,
-      published: false,
-      pageType: profile.pageType ?? "minimal",
-      pageTemplate: profile.pageTemplate ?? "template1",
+      idUtilizador: session.$id,
+      publicado: false,
+      tipoPagina: profile.tipoPagina ?? "minimal",
+      modeloPagina: profile.modeloPagina ?? "template1",
     }, [
       Permission.read(Role.user(session.$id)),
       Permission.update(Role.user(session.$id)),
       Permission.delete(Role.user(session.$id)),
     ]);
   } catch (error) {
-    // Só o createDocument da página traduz o 409 para "username em uso" — os
+    // Só o createDocument da página traduz o 409 para "nomeUtilizador em uso" — os
     // 409 dos passos seguintes (theme/analytics) são outra coisa (ver abaixo).
     throwPageConflict(error);
   }
   // Registo de atividade: página criada
-  void logActivity("page_created", { username: profile.username, displayName: profile.displayName });
+  void logActivity("page_created", { nomeUtilizador: profile.nomeUtilizador, nomeExibicao: profile.nomeExibicao });
 
   // Create default theme and empty analytics for the page.
   // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
-  // único de pageId), NÃO é um conflito de username — ignoramos e seguimos
+  // único de idPagina), NÃO é um conflito de nomeUtilizador — ignoramos e seguimos
   // (getThemeByPageId/getAnalyticsByPageId têm fallbacks para dados ausentes).
   //
   // NOTA: o schema Appwrite da coleção themes tem o atributo `theme` como
@@ -411,18 +411,18 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
   // a usar apenas Liquid Glass, sem o campo o createDocument falha com
   // "Invalid document structure: Missing required attribute \"theme\"".
   await createOwnedDocument(Collections.themes, {
-    pageId: doc.$id,
+    idPagina: doc.$id,
     theme: "glass",
     ...defaultAppearance(),
   }).catch((error) => {
     if (!isAlreadyExistsError(error)) throw error;
   });
   await createOwnedDocument(Collections.analytics, {
-    pageId: doc.$id,
-    views: 0,
-    clicks: 0,
-    followers: 0,
-    metricsJson: JSON.stringify({
+    idPagina: doc.$id,
+    visualizacoes: 0,
+    cliques: 0,
+    seguidores: 0,
+    metricasJson: JSON.stringify({
       ctr: 0,
       weeklyGrowth: 0,
       monthlyGrowth: 0,
@@ -445,36 +445,36 @@ export async function createPage(profile: Omit<PageProfile, "published">) {
   return doc;
 }
 
-export async function getPageByUsername(username: string): Promise<(PageProfile & { $id: string }) | null> {
-  const docs = await databases.listDocuments(databaseId, Collections.pages, [
-    Query.equal("username", username.toLowerCase()),
-    Query.equal("published", true),
+export async function getPageByUsername(nomeUtilizador: string): Promise<(PageProfile & { $id: string }) | null> {
+  const docs =    await databases.listDocuments(databaseId, Collections.pages, [
+    Query.equal("nomeUtilizador", nomeUtilizador.toLowerCase()),
+    Query.equal("publicado", true),
   ]);
   if (docs.documents.length === 0) return null;
   const doc = docs.documents[0] as AppwriteDocument;
   return mapPageDocument(doc);
 }
 
-export async function getPageByUserId(userId: string): Promise<(PageProfile & { $id: string }) | null> {
+export async function getPageByUserId(idUtilizador: string): Promise<(PageProfile & { $id: string }) | null> {
   const docs = await databases.listDocuments(databaseId, Collections.pages, [
-    Query.equal("userId", userId),
+    Query.equal("idUtilizador", idUtilizador),
   ]);
   if (docs.documents.length === 0) return null;
   const doc = docs.documents[0] as AppwriteDocument;
   return mapPageDocument(doc);
 }
 
-export async function updatePage(pageId: string, patch: Partial<PageProfile>) {
-  await requireOwnerOfPage(pageId);
-  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, patch);
+export async function updatePage(idPagina: string, patch: Partial<PageProfile>) {
+  await requireOwnerOfPage(idPagina);
+  const doc = await databases.updateDocument(databaseId, Collections.pages, idPagina, patch);
   // Registo de atividade: página atualizada (inclui publicar/despublicar)
-  if (typeof patch.published === "boolean") {
+  if (typeof patch.publicado === "boolean") {
     void logActivity(
-      patch.published ? "page_published" : "page_unpublished",
-      { username: String(doc.username ?? "") }
+      patch.publicado ? "page_published" : "page_unpublished",
+      { nomeUtilizador: String(doc.nomeUtilizador ?? "") }
     );
   } else {
-    void logActivity("page_updated", { username: String(doc.username ?? "") });
+    void logActivity("page_updated", { nomeUtilizador: String(doc.nomeUtilizador ?? "") });
   }
   return doc;
 }
@@ -482,29 +482,29 @@ export async function updatePage(pageId: string, patch: Partial<PageProfile>) {
 function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
   return {
     $id: doc.$id,
-    username: String(doc.username),
-    displayName: String(doc.displayName),
-    bio: String(doc.bio ?? ""),
-    avatar: doc.avatarId ? getFilePreviewUrl(Buckets.files, String(doc.avatarId)) : undefined,
-    banner: doc.bannerId ? getFilePreviewUrl(Buckets.files, String(doc.bannerId)) : undefined,
-    published: Boolean(doc.published),
-    pageType: (doc.pageType as PageType) ?? "minimal",
-    pageTemplate: (doc.pageTemplate as PageTemplateId) ?? "template1",
-    badges: Array.isArray(doc.badges)
-      ? (doc.badges as string[]).filter((badge) => badge !== "staff")
+    nomeUtilizador: String(doc.nomeUtilizador),
+    nomeExibicao: String(doc.nomeExibicao),
+    biografia: String(doc.biografia ?? ""),
+    avatar: doc.idAvatar ? getFilePreviewUrl(Buckets.files, String(doc.idAvatar)) : undefined,
+    banner: doc.idBanner ? getFilePreviewUrl(Buckets.files, String(doc.idBanner)) : undefined,
+    publicado: Boolean(doc.publicado),
+    tipoPagina: (doc.tipoPagina as PageType) ?? "minimal",
+    modeloPagina: (doc.modeloPagina as PageTemplateId) ?? "template1",
+    emblemas: Array.isArray(doc.emblemas)
+      ? (doc.emblemas as string[]).filter((badge) => badge !== "staff")
       : [],
-    scheduledPublishAt: doc.scheduledPublishAt ? String(doc.scheduledPublishAt) : undefined,
-    scheduledUnpublishAt: doc.scheduledUnpublishAt ? String(doc.scheduledUnpublishAt) : undefined,
+    publicacaoAgendadaEm: doc.publicacaoAgendadaEm ? String(doc.publicacaoAgendadaEm) : undefined,
+    despublicacaoAgendadaEm: doc.despublicacaoAgendadaEm ? String(doc.despublicacaoAgendadaEm) : undefined,
   };
 }
 
 // ---------- Links ----------
 
-export async function getLinksByPageId(pageId: string): Promise<LinkItem[]> {
-  if (!pageId) return [];
+export async function getLinksByPageId(idPagina: string): Promise<LinkItem[]> {
+  if (!idPagina) return [];
   const docs = await databases.listDocuments(databaseId, Collections.links, [
-    Query.equal("pageId", pageId),
-    Query.orderAsc("order"),
+    Query.equal("idPagina", idPagina),
+    Query.orderAsc("ordem"),
   ]);
   return docs.documents.map((doc) => mapLinkDocument(doc as AppwriteDocument));
 }
@@ -512,20 +512,20 @@ export async function getLinksByPageId(pageId: string): Promise<LinkItem[]> {
 function mapLinkDocument(doc: AppwriteDocument): LinkItem {
   return {
     id: doc.$id,
-    type: doc.type as LinkItem["type"],
-    title: String(doc.title),
-    description: doc.description ? String(doc.description) : undefined,
+    tipo: doc.tipo as LinkItem["tipo"],
+    titulo: String(doc.titulo),
+    descricao: doc.descricao ? String(doc.descricao) : undefined,
     url: String(doc.url),
-    icon: doc.icon ? String(doc.icon) : undefined,
-    color: doc.color ? String(doc.color) : undefined,
-    image: doc.imageId ? getFilePreviewUrl(Buckets.files, String(doc.imageId)) : undefined,
-    animation: (doc.animation as LinkItem["animation"]) ?? "none",
-    active: Boolean(doc.active),
-    visible: Boolean(doc.visible),
-    newTab: Boolean(doc.newTab),
-    order: Number(doc.order),
-    clicks: Number(doc.clicks),
-    scheduledFor: doc.scheduledFor ? String(doc.scheduledFor) : undefined,
+    icone: doc.icone ? String(doc.icone) : undefined,
+    cor: doc.cor ? String(doc.cor) : undefined,
+    image: doc.idImagem ? getFilePreviewUrl(Buckets.files, String(doc.idImagem)) : undefined,
+    animacao: (doc.animacao as LinkItem["animacao"]) ?? "none",
+    ativo: Boolean(doc.ativo),
+    visivel: Boolean(doc.visivel),
+    novaAba: Boolean(doc.novaAba),
+    ordem: Number(doc.ordem),
+    cliques: Number(doc.cliques),
+    agendadoPara: doc.agendadoPara ? String(doc.agendadoPara) : undefined,
   };
 }
 
@@ -542,10 +542,10 @@ async function getCachedUserPlan(sessionId: string): Promise<string> {
     return cached.plan;
   }
   const userDocs = await databases.listDocuments(databaseId, Collections.users, [
-    Query.equal("userId", sessionId),
+    Query.equal("idUtilizador", sessionId),
     Query.limit(1),
   ]);
-  const plan = (userDocs.documents[0]?.plan as string) ?? "free";
+  const plan = (userDocs.documents[0]?.plano as string) ?? "free";
   planCache.set(sessionId, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
   // Evita crescimento infinito do mapa
   if (planCache.size > 500) {
@@ -557,15 +557,15 @@ async function getCachedUserPlan(sessionId: string): Promise<string> {
   return plan;
 }
 
-export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
-  const session = await requireOwnerOfPage(pageId);
+export async function createLink(idPagina: string, link: Omit<LinkItem, "id">) {
+  const session = await requireOwnerOfPage(idPagina);
 
   // Server-side enforcement: count existing links for free plan users
   const userPlan = await getCachedUserPlan(session.$id);
 
   if (userPlan === "free") {
     const existingLinks = await databases.listDocuments(databaseId, Collections.links, [
-      Query.equal("pageId", pageId),
+      Query.equal("idPagina", idPagina),
       Query.limit(4), // Só precisamos de saber se há 3 ou mais
     ]);
     if (existingLinks.total >= 3) {
@@ -576,58 +576,58 @@ export async function createLink(pageId: string, link: Omit<LinkItem, "id">) {
   }
 
   const created = await createOwnedDocument(Collections.links, {
-    pageId,
-    type: link.type,
-    title: link.title,
+    idPagina,
+    tipo: link.tipo,
+    titulo: link.titulo,
     url: link.url,
-    description: link.description,
-    icon: link.icon,
-    color: link.color,
-    imageId: link.image,
-    animation: link.animation,
-    active: link.active,
-    visible: link.visible,
-    newTab: link.newTab,
-    order: link.order,
-    clicks: link.clicks,
-    scheduledFor: link.scheduledFor,
+    descricao: link.descricao,
+    icone: link.icone,
+    cor: link.cor,
+    idImagem: link.image,
+    animacao: link.animacao,
+    ativo: link.ativo,
+    visivel: link.visivel,
+    novaAba: link.novaAba,
+    ordem: link.ordem,
+    cliques: link.cliques,
+    agendadoPara: link.agendadoPara,
   }, session);
   // Registo de atividade: link criado
-  void logActivity("link_created", { title: link.title });
+  void logActivity("link_created", { titulo: link.titulo });
   return created;
 }
 
 export async function updateLink(linkId: string, patch: Partial<Omit<LinkItem, "id">>) {
   const linkDoc = await databases.getDocument(databaseId, Collections.links, linkId);
-  await requireOwnerOfPage(String(linkDoc.pageId));
+  await requireOwnerOfPage(String(linkDoc.idPagina));
   const appwritePatch: Record<string, unknown> = { ...patch };
   if ("image" in appwritePatch) {
-    appwritePatch.imageId = appwritePatch.image;
+    appwritePatch.idImagem = appwritePatch.image;
     delete appwritePatch.image;
   }
   const doc = await databases.updateDocument(databaseId, Collections.links, linkId, appwritePatch);
   // Registo de atividade: link atualizado — mas NÃO quando é apenas a ordem
   // (o drag-reorder dispara um updateLink por link e inundaria o feed).
-  const meaningfulKeys = Object.keys(appwritePatch).filter((k) => k !== "order");
+  const meaningfulKeys = Object.keys(appwritePatch).filter((k) => k !== "ordem");
   if (meaningfulKeys.length > 0) {
-    void logActivity("link_updated", { title: String(doc.title ?? "") });
+    void logActivity("link_updated", { titulo: String(doc.titulo ?? "") });
   }
   return doc;
 }
 
 export async function deleteLink(linkId: string) {
   const linkDoc = await databases.getDocument(databaseId, Collections.links, linkId);
-  await requireOwnerOfPage(String(linkDoc.pageId));
+  await requireOwnerOfPage(String(linkDoc.idPagina));
   await databases.deleteDocument(databaseId, Collections.links, linkId);
   // Registo de atividade: link eliminado
-  void logActivity("link_deleted", { title: String(linkDoc.title ?? "") });
+  void logActivity("link_deleted", { titulo: String(linkDoc.titulo ?? "") });
 }
 
 // ---------- Themes ----------
 
-export async function getThemeByPageId(pageId: string): Promise<Appearance & { $id: string }> {
+export async function getThemeByPageId(idPagina: string): Promise<Appearance & { $id: string }> {
   const docs = await databases.listDocuments(databaseId, Collections.themes, [
-    Query.equal("pageId", pageId),
+    Query.equal("idPagina", idPagina),
   ]);
   if (docs.documents.length === 0) {
     return { ...defaultAppearance(), $id: "" };
@@ -635,42 +635,42 @@ export async function getThemeByPageId(pageId: string): Promise<Appearance & { $
   const doc = docs.documents[0] as AppwriteDocument;
   return {
     $id: doc.$id,
-    blur: Number(doc.blur),
-    rounded: Number(doc.rounded),
-    linkOpacity: Number(doc.linkOpacity),
-    backgroundColor: safeThemeColor(doc.backgroundColor, "#0a0a0a"),
-    cardColor: safeThemeColor(doc.cardColor, "rgba(255,255,255,0.03)"),
-    textColor: safeThemeColor(doc.textColor, "#fafafa"),
-    accentColor: safeThemeColor(doc.accentColor, "#fafafa"),
-    fontFamily: safeThemeFont(doc.fontFamily),
-    fontSize: Number(doc.fontSize),
-    buttonRadius: Number(doc.buttonRadius),
-    buttonWidth: String(doc.buttonWidth) as Appearance["buttonWidth"],
-    buttonHeight: String(doc.buttonHeight) as Appearance["buttonHeight"],
-    buttonStyle: String(doc.buttonStyle) as Appearance["buttonStyle"],
-    shadow: String(doc.shadow) as Appearance["shadow"],
-    showAvatar: Boolean(doc.showAvatar),
-    showBio: Boolean(doc.showBio),
-    showSocial: doc.showSocial !== undefined ? Boolean(doc.showSocial) : true,
-    spacing: Number(doc.spacing),
-    glassOpacity: doc.glassOpacity !== undefined ? Number(doc.glassOpacity) : 35,
-    glassBlur: doc.glassBlur !== undefined ? Number(doc.glassBlur) : 25,
-    glassStrength: doc.glassStrength !== undefined ? Number(doc.glassStrength) : 50,
+    desfoco: Number(doc.desfoco),
+    arredondado: Number(doc.arredondado),
+    opacidadeLinks: Number(doc.opacidadeLinks),
+    corFundo: safeThemeColor(doc.corFundo, "#0a0a0a"),
+    corCartao: safeThemeColor(doc.corCartao, "rgba(255,255,255,0.03)"),
+    corTexto: safeThemeColor(doc.corTexto, "#fafafa"),
+    corDestaque: safeThemeColor(doc.corDestaque, "#fafafa"),
+    familiaFonte: safeThemeFont(doc.familiaFonte),
+    tamanhoFonte: Number(doc.tamanhoFonte),
+    raioBotao: Number(doc.raioBotao),
+    larguraBotao: String(doc.larguraBotao) as Appearance["larguraBotao"],
+    alturaBotao: String(doc.alturaBotao) as Appearance["alturaBotao"],
+    estiloBotao: String(doc.estiloBotao) as Appearance["estiloBotao"],
+    sombra: String(doc.sombra) as Appearance["sombra"],
+    mostrarAvatar: Boolean(doc.mostrarAvatar),
+    mostrarBiografia: Boolean(doc.mostrarBiografia),
+    mostrarSocial: doc.mostrarSocial !== undefined ? Boolean(doc.mostrarSocial) : true,
+    espacamento: Number(doc.espacamento),
+    opacidadeVidro: doc.opacidadeVidro !== undefined ? Number(doc.opacidadeVidro) : 35,
+    desfocoVidro: doc.desfocoVidro !== undefined ? Number(doc.desfocoVidro) : 25,
+    intensidadeVidro: doc.intensidadeVidro !== undefined ? Number(doc.intensidadeVidro) : 50,
   };
 }
 
 /** Campos que existem no schema Appwrite da coleção themes */
 const THEME_SAFE_FIELDS = [
-  "blur", "rounded", "linkOpacity",
-  "backgroundColor", "cardColor", "textColor", "accentColor",
-  "fontFamily", "fontSize", "buttonRadius", "buttonWidth", "buttonHeight", "buttonStyle", "shadow",
-  "showAvatar", "showBio", "showSocial", "spacing",
-  "glassOpacity", "glassBlur", "glassStrength",
+  "desfoco", "arredondado", "opacidadeLinks",
+  "corFundo", "corCartao", "corTexto", "corDestaque",
+  "familiaFonte", "tamanhoFonte", "raioBotao", "larguraBotao", "alturaBotao", "estiloBotao", "sombra",
+  "mostrarAvatar", "mostrarBiografia", "mostrarSocial", "espacamento",
+  "opacidadeVidro", "desfocoVidro", "intensidadeVidro",
 ] as const;
 
 export async function updateTheme(themeId: string, appearance: Appearance) {
   const themeDoc = await databases.getDocument(databaseId, Collections.themes, themeId);
-  await requireOwnerOfPage(String(themeDoc.pageId));
+  await requireOwnerOfPage(String(themeDoc.idPagina));
 
   // Apenas envia os campos que existem no schema Appwrite.
   const safePayload: Record<string, unknown> = {};
@@ -693,10 +693,10 @@ export async function updateTheme(themeId: string, appearance: Appearance) {
 // ---------- Security Logs ----------
 
 export async function createSecurityLog(input: SecurityLogInput) {
-  // Security logs must be created server-side so the userId is derived from the session.
+  // Security logs must be created server-side so the idUtilizador is derived from the session.
   // Pre-login (anonymous) events are sent to a dedicated endpoint that does not
-  // accept a client-provided userId and is rate-limited by IP.
-  const isAnonymous = input.userId === "anonymous";
+  // accept a client-provided idUtilizador and is rate-limited by IP.
+  const isAnonymous = input.idUtilizador === "anonymous";
   const endpoint = isAnonymous ? "/api/security/log-anonymous" : "/api/security/log";
   try {
     await fetchWithCsrf(endpoint, {
@@ -730,15 +730,15 @@ export async function getRecentSecurityLogs(_userId: string, limit = 50): Promis
 
 // ---------- Analytics ----------
 
-export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsData> {
+export async function getAnalyticsByPageId(idPagina: string): Promise<AnalyticsData> {
   const docs = await databases.listDocuments(databaseId, Collections.analytics, [
-    Query.equal("pageId", pageId),
+    Query.equal("idPagina", idPagina),
   ]);
   const doc = docs.documents[0] as AppwriteDocument | undefined;
   if (!doc) {
     return emptyAnalytics();
   }
-  const metrics: Partial<AnalyticsData> & { deviceLog?: string[]; visitorSet?: string[] } = JSON.parse(String(doc.metricsJson ?? "{}"));
+  const metrics: Partial<AnalyticsData> & { deviceLog?: string[]; visitorSet?: string[] } = JSON.parse(String(doc.metricasJson ?? "{}"));
 
   // topDevices: agregado real (contagens por tipo). Fallback: deviceLog legado.
   let topDevices: TopDevice[];
@@ -746,7 +746,7 @@ export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsDat
   if (storedDevices.length > 0) {
     const total = storedDevices.reduce((sum, d) => sum + (d.count || 0), 0);
     topDevices = storedDevices.map((d) => ({
-      type: d.type,
+      tipo: d.tipo,
       count: d.count || 0,
       percentage: total > 0 ? Math.round(((d.count || 0) / total) * 100) : 0,
     }));
@@ -758,10 +758,10 @@ export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsDat
         if (d in counts) counts[d] += 1;
       }
       const total = deviceLog.length;
-      topDevices = ["mobile", "desktop", "tablet"].map((type) => ({
-        type: type as TopDevice["type"],
-        count: counts[type],
-        percentage: Math.round((counts[type] / total) * 100),
+      topDevices = ["mobile", "desktop", "tablet"].map((tipo) => ({
+        tipo: tipo as TopDevice["tipo"],
+        count: counts[tipo],
+        percentage: Math.round((counts[tipo] / total) * 100),
       }));
     } else {
       topDevices = [];
@@ -771,15 +771,15 @@ export async function getAnalyticsByPageId(pageId: string): Promise<AnalyticsDat
   const uniqueVisitors = Number(metrics.uniqueVisitors ?? 0);
 
   return {
-    views: Number(doc.views),
-    clicks: Number(doc.clicks),
+    visualizacoes: Number(doc.visualizacoes),
+    cliques: Number(doc.cliques),
     ctr: Number(metrics.ctr ?? 0),
-    followers: Number(doc.followers),
+    seguidores: Number(doc.seguidores),
     uniqueVisitors,
     visitorGrowth: Number(metrics.visitorGrowth ?? 0),
     weeklyGrowth: Number(metrics.weeklyGrowth ?? 0),
     monthlyGrowth: Number(metrics.monthlyGrowth ?? 0),
-    topLinks: (Array.isArray(metrics.topLinks) ? metrics.topLinks : []).sort((a, b) => b.clicks - a.clicks),
+    topLinks: (Array.isArray(metrics.topLinks) ? metrics.topLinks : []).sort((a, b) => b.cliques - a.cliques),
     topCountries: (Array.isArray(metrics.topCountries) ? metrics.topCountries : []).sort((a, b) => b.count - a.count),
     topDevices,
     recentVisitors: Array.isArray(metrics.recentVisitors) ? metrics.recentVisitors : [],
@@ -840,12 +840,12 @@ export async function logActivity(
     const session = await getCurrentSessionOrThrow();
     const ip = await getClientIpForActivity();
     await databases.createDocument(databaseId, Collections.activityLogs, ID.unique(), {
-      userId: session.$id,
-      action,
-      details: details ? JSON.stringify(details).slice(0, 2000) : "",
-      ipAddress: ip ?? "",
-      userAgent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : "",
-      createdAt: new Date().toISOString(),
+      idUtilizador: session.$id,
+      acao: action,
+      detalhes: details ? JSON.stringify(details).slice(0, 2000) : "",
+      enderecoIP: ip ?? "",
+      agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 500) : "",
+      criadoEm: new Date().toISOString(),
     }, [
       Permission.read(Role.user(session.$id)),
       Permission.update(Role.user(session.$id)),
@@ -863,18 +863,18 @@ export async function getRecentActivities(limit = 15): Promise<ActivityEntry[]> 
   try {
     const session = await getCurrentSession();
     const docs = await databases.listDocuments(databaseId, Collections.activityLogs, [
-      Query.equal("userId", session.$id),
-      Query.orderDesc("createdAt"),
+      Query.equal("idUtilizador", session.$id),
+      Query.orderDesc("criadoEm"),
       Query.limit(Math.min(Math.max(limit, 1), 50)),
     ]);
     return docs.documents.map((doc) => ({
       $id: doc.$id,
-      userId: String(doc.userId ?? ""),
-      action: doc.action as ActivityAction,
-      details: doc.details ? String(doc.details) : undefined,
-      ipAddress: doc.ipAddress ? String(doc.ipAddress) : undefined,
-      userAgent: doc.userAgent ? String(doc.userAgent) : undefined,
-      createdAt: String(doc.createdAt ?? ""),
+      idUtilizador: String(doc.idUtilizador ?? ""),
+      acao: doc.acao as ActivityAction,
+      detalhes: doc.detalhes ? String(doc.detalhes) : undefined,
+      enderecoIP: doc.enderecoIP ? String(doc.enderecoIP) : undefined,
+      agenteUtilizador: doc.agenteUtilizador ? String(doc.agenteUtilizador) : undefined,
+      criadoEm: String(doc.criadoEm ?? ""),
     }));
   } catch {
     return [];
@@ -895,7 +895,7 @@ const TEAM_ONLY_BADGES = new Set<string>(["early", "partner"]);
  * - early / partner: exclusivas da equipa — sempre negadas ao utilizador.
  *
  * O badgeId é validado contra o registo (isBadgeId) antes de qualquer escrita,
- * e o userId é sempre derivado da sessão autenticada (nunca do body).
+ * e o idUtilizador é sempre derivado da sessão autenticada (nunca do body).
  */
 export async function grantBadge(badgeId: string): Promise<boolean> {
   if (!isBadgeId(badgeId)) {
@@ -918,7 +918,7 @@ export async function grantBadge(badgeId: string): Promise<boolean> {
   // Regra da badge pro: só com plano pago (origem real no registo users)
   if (badgeId === "pro") {
     const profile = await getUserProfile(session.$id);
-    if (!profile || profile.plan === "free") {
+    if (!profile || profile.plano === "free") {
       throw new Error("A badge Pro requer um plano pago.");
     }
   }
@@ -931,15 +931,15 @@ export async function grantBadge(badgeId: string): Promise<boolean> {
 
   // Nota: read-modify-write no array — a doação sequencial (verified depois
   // supporter) evita corridas na prática. Não há append atómico no client SDK.
-  const badges = Array.isArray(page.badges) ? page.badges.filter((badge) => badge !== "staff") : [];
+  const emblemas = Array.isArray(page.emblemas) ? page.emblemas.filter((badge) => badge !== "staff") : [];
   if (badgeId === "staff") {
     // A staff approval is authoritative server data; this client function no
     // longer writes the staff marker into the user-editable pages document.
     return false;
   }
-  if (badges.includes(badgeId)) return false;
+  if (emblemas.includes(badgeId)) return false;
   await databases.updateDocument(databaseId, Collections.pages, page.$id, {
-    badges: [...badges, badgeId],
+    emblemas: [...emblemas, badgeId],
   });
   void logActivity("badge_earned", { badge: badgeId });
   return true;
@@ -953,10 +953,10 @@ export async function revokeBadge(badgeId: string): Promise<void> {
   const page = await getPageByUserId(session.$id);
   if (!page) return;
   await requireOwnerOfPage(page.$id);
-  const badges = Array.isArray(page.badges) ? page.badges.filter((badge) => badge !== "staff") : [];
-  if (!badges.includes(badgeId)) return;
+  const emblemas = Array.isArray(page.emblemas) ? page.emblemas.filter((badge) => badge !== "staff") : [];
+  if (!emblemas.includes(badgeId)) return;
   await databases.updateDocument(databaseId, Collections.pages, page.$id, {
-    badges: badges.filter((b) => b !== badgeId),
+    emblemas: emblemas.filter((b) => b !== badgeId),
   });
 }
 
@@ -967,8 +967,8 @@ export async function revokeBadge(badgeId: string): Promise<void> {
  *   (revisão manual pela equipa — fora do âmbito do self-service).
  */
 export async function applyForStaff(message: string): Promise<StaffApplication> {
-  // A candidatura é criada server-side: o cliente nunca escolhe userId,
-  // status, reviewedBy ou permissões do documento.
+  // A candidatura é criada server-side: o cliente nunca escolhe idUtilizador,
+  // status, revistoPor ou permissões do documento.
   const trimmed = normalizeStaffApplicationMessage(message);
   const res = await fetchWithAppwriteAuth("/api/staff/apply", {
       method: "POST",
@@ -991,14 +991,14 @@ export async function applyForStaff(message: string): Promise<StaffApplication> 
  * existe sem moeda (contas antigas) — ex: botão "Detetar país" na Faturação.
  */
 export async function syncUserGeo(force = false): Promise<{
-  country?: string;
-  countryCode?: string;
-  currency?: string;
+  pais?: string;
+  codigoPais?: string;
+  moeda?: string;
 } | null> {
   try {
     const session = await getCurrentSession();
     const docs = await databases.listDocuments(databaseId, Collections.users, [
-      Query.equal("userId", session.$id),
+      Query.equal("idUtilizador", session.$id),
       Query.limit(1),
     ]);
     if (docs.documents.length === 0) return null;
@@ -1006,25 +1006,25 @@ export async function syncUserGeo(force = false): Promise<{
 
     // Já sincronizado — devolve o estado atual sem escrever (poupa quota).
     // O botão manual "Detetar país" passa force=true para re-detetar por IP.
-    const existingCode = String(doc.countryCode ?? "");
+    const existingCode = String(doc.codigoPais ?? "");
     if (existingCode && !force) {
       return {
-        country: String(doc.country ?? ""),
-        countryCode: existingCode,
-        currency: String(doc.currency ?? "EUR"),
+        pais: String(doc.pais ?? ""),
+        codigoPais: existingCode,
+        moeda: String(doc.moeda ?? "EUR"),
       };
     }
 
-    // Guard só pelo countryCode: a rota devolve sempre currency como
-    // fallback ("EUR") mesmo quando o país não resolve — sem countryCode
+    // Guard só pelo codigoPais: a rota devolve sempre currency como
+    // fallback ("EUR") mesmo quando o país não resolve — sem codigoPais
     // não há nada útil para persistir (evita writes vazios por sessão).
     const res = await fetchWithAppwriteAuth("/api/users/geo", {
       method: "POST",
       body: JSON.stringify({ force }),
     });
     if (!res.ok) return null;
-    const geo = await res.json() as { country?: string; countryCode?: string; currency?: string };
-    if (!geo.countryCode) return null;
+    const geo = await res.json() as { pais?: string; codigoPais?: string; moeda?: string };
+    if (!geo.codigoPais) return null;
     return geo;
   } catch {
     return null;
@@ -1034,7 +1034,7 @@ export async function syncUserGeo(force = false): Promise<{
 /** Última candidatura ao staff do utilizador (ou null se nunca se candidatou). */
 export async function getStaffApplicationStatus(): Promise<StaffApplication | null> {
   // A coleção staff_applications não é acessível pelo client SDK. A leitura
-  // passa pela rota server-side, que deriva userId da sessão e só devolve o
+  // passa pela rota server-side, que deriva idUtilizador da sessão e só devolve o
   // documento do utilizador autenticado.
   try {
     const res = await fetchWithAppwriteAuth("/api/staff/status", {
@@ -1099,44 +1099,44 @@ export async function deleteMediaFileServerSide(fileId: string): Promise<void> {
 
 // ---------- Avatar / Banner ----------
 
-export async function updatePageAvatar(pageId: string, fileId: string) {
-  await requireOwnerOfPage(pageId);
-  const current = await databases.getDocument(databaseId, Collections.pages, pageId);
-  const previousFileId = String(current.avatarId ?? "");
-  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
-    avatarId: fileId,
+export async function updatePageAvatar(idPagina: string, fileId: string) {
+  await requireOwnerOfPage(idPagina);
+  const current = await databases.getDocument(databaseId, Collections.pages, idPagina);
+  const previousFileId = String(current.idAvatar ?? "");
+  const doc = await databases.updateDocument(databaseId, Collections.pages, idPagina, {
+    idAvatar: fileId,
   });
   if (previousFileId && previousFileId !== fileId) {
     await deleteMediaFileServerSide(previousFileId);
   }
-  void logActivity("avatar_updated", { username: String(doc.username ?? "") });
+  void logActivity("avatar_updated", { nomeUtilizador: String(doc.nomeUtilizador ?? "") });
   return doc;
 }
 
-export async function updatePageBanner(pageId: string, fileId: string) {
-  await requireOwnerOfPage(pageId);
-  const current = await databases.getDocument(databaseId, Collections.pages, pageId);
-  const previousFileId = String(current.bannerId ?? "");
-  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
-    bannerId: fileId,
+export async function updatePageBanner(idPagina: string, fileId: string) {
+  await requireOwnerOfPage(idPagina);
+  const current = await databases.getDocument(databaseId, Collections.pages, idPagina);
+  const previousFileId = String(current.idBanner ?? "");
+  const doc = await databases.updateDocument(databaseId, Collections.pages, idPagina, {
+    idBanner: fileId,
   });
   if (previousFileId && previousFileId !== fileId) {
     await deleteMediaFileServerSide(previousFileId);
   }
-  void logActivity("banner_updated", { username: String(doc.username ?? "") });
+  void logActivity("banner_updated", { nomeUtilizador: String(doc.nomeUtilizador ?? "") });
   return doc;
 }
 
-export async function removePageAvatar(pageId: string) {
-  await requireOwnerOfPage(pageId);
-  const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
-  const currentFileId = String(pageDoc.avatarId ?? "");
+export async function removePageAvatar(idPagina: string) {
+  await requireOwnerOfPage(idPagina);
+  const pageDoc = await databases.getDocument(databaseId, Collections.pages, idPagina);
+  const currentFileId = String(pageDoc.idAvatar ?? "");
   // Limpa primeiro a referência e só depois apaga o ficheiro: se o update
   // falhar, a página continua a apontar para um ficheiro existente (nunca
   // deixa uma imagem partida); se o apagar falhar, fica um órfão recolhido
   // pela eliminação de conta.
-  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
-    avatarId: "",
+  const doc = await databases.updateDocument(databaseId, Collections.pages, idPagina, {
+    idAvatar: "",
   });
   if (currentFileId) {
     await deleteMediaFileServerSide(currentFileId);
@@ -1144,13 +1144,13 @@ export async function removePageAvatar(pageId: string) {
   return doc;
 }
 
-export async function removePageBanner(pageId: string) {
-  await requireOwnerOfPage(pageId);
-  const pageDoc = await databases.getDocument(databaseId, Collections.pages, pageId);
-  const currentFileId = String(pageDoc.bannerId ?? "");
+export async function removePageBanner(idPagina: string) {
+  await requireOwnerOfPage(idPagina);
+  const pageDoc = await databases.getDocument(databaseId, Collections.pages, idPagina);
+  const currentFileId = String(pageDoc.idBanner ?? "");
   // Mesma ordem segura do avatar: referência limpa antes de apagar o ficheiro.
-  const doc = await databases.updateDocument(databaseId, Collections.pages, pageId, {
-    bannerId: "",
+  const doc = await databases.updateDocument(databaseId, Collections.pages, idPagina, {
+    idBanner: "",
   });
   if (currentFileId) {
     await deleteMediaFileServerSide(currentFileId);

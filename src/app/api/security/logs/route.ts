@@ -25,20 +25,20 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") ?? "50", 10), 1), 100);
 
     const docs = await databases.listDocuments(databaseId, "security_logs", [
-      Query.equal("userId", user.$id),
-      Query.orderDesc("createdAt"),
+      Query.equal("idUtilizador", user.$id),
+      Query.orderDesc("criadoEm"),
       Query.limit(limit),
     ]);
 
     const logs = docs.documents.map((doc) => ({
       $id: doc.$id,
-      userId: String(doc.userId ?? ""),
-      eventType: String(doc.eventType ?? ""),
+      idUtilizador: String(doc.idUtilizador ?? ""),
+      tipoEvento: String(doc.tipoEvento ?? ""),
       email: doc.email ? String(doc.email) : undefined,
-      ipAddress: doc.ipAddress ? String(doc.ipAddress) : undefined,
-      userAgent: doc.userAgent ? String(doc.userAgent) : undefined,
-      metadata: doc.metadata ? String(doc.metadata) : undefined,
-      createdAt: String(doc.createdAt ?? ""),
+      enderecoIP: doc.enderecoIP ? String(doc.enderecoIP) : undefined,
+      agenteUtilizador: doc.agenteUtilizador ? String(doc.agenteUtilizador) : undefined,
+      metadados: doc.metadados ? String(doc.metadados) : undefined,
+      criadoEm: String(doc.criadoEm ?? ""),
     }));
 
     return NextResponse.json({ logs });

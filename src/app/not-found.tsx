@@ -22,13 +22,7 @@ export default function NotFound() {
           className="relative"
         >
           <motion.h1
-            className="text-[10rem] sm:text-[14rem] font-bold leading-none"
-            style={{
-              background: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundSize: "200% 200%",
-            }}
+            className="notfound-404 text-[10rem] sm:text-[14rem] font-bold leading-none"
             animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           >

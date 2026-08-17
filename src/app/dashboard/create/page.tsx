@@ -13,20 +13,20 @@ import { Sparkles, Loader2 } from "lucide-react";
 export default function CreatePage() {
   const router = useRouter();
   const { account, page, createPage } = useAuth();
-  const [username, setUsername] = useState(page?.username ?? account?.displayName?.toLowerCase().replace(/\s+/g, "") ?? "");
-  const [displayName, setDisplayName] = useState(page?.displayName ?? account?.displayName ?? "");
-  const [bio, setBio] = useState(page?.bio ?? "");
+  const [nomeUtilizador, setUsername] = useState(page?.nomeUtilizador ?? account?.nomeExibicao?.toLowerCase().replace(/\s+/g, "") ?? "");
+  const [nomeExibicao, setDisplayName] = useState(page?.nomeExibicao ?? account?.nomeExibicao ?? "");
+  const [bio, setBio] = useState(page?.biografia ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Bloqueia a dupla submissão (causa do 409 "already exists" no índice
-    // único do username — o createPage também já é idempotente).
+    // único do nomeUtilizador — o createPage também já é idempotente).
     if (saving) return;
     setError("");
-    const cleanUsername = sanitizeUsername(username);
-    const cleanDisplayName = sanitizeDisplayName(displayName);
+    const cleanUsername = sanitizeUsername(nomeUtilizador);
+    const cleanDisplayName = sanitizeDisplayName(nomeExibicao);
     const cleanBio = sanitizeBio(bio);
     if (!cleanUsername || !cleanDisplayName) {
       setError("Nome de utilizador e nome público são obrigatórios.");
@@ -34,7 +34,7 @@ export default function CreatePage() {
     }
     setSaving(true);
     try {
-      await createPage({ username: cleanUsername, displayName: cleanDisplayName, bio: cleanBio });
+      await createPage({ nomeUtilizador: cleanUsername, nomeExibicao: cleanDisplayName, biografia: cleanBio });
       router.push("/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erro ao criar página.");
@@ -60,21 +60,21 @@ export default function CreatePage() {
           <div className="relative z-[1]">
             <CsrfForm onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="username" className="text-sm font-medium text-[var(--foreground)]">
+                <label htmlFor="nomeUtilizador" className="text-sm font-medium text-[var(--foreground)]">
                   Nome de utilizador
                 </label>
                 <div className="flex items-center rounded-[var(--glass-radius)] glass-input px-4 py-2.5 text-sm">
                   <span className="text-[var(--muted-foreground)]">{siteUrl.replace(/^https?:\/\//, "")}/@</span>
-                  <input id="username" value={username} onChange={(e) => setUsername(e.target.value)}
+                  <input id="nomeUtilizador" value={nomeUtilizador} onChange={(e) => setUsername(e.target.value)}
                     placeholder="alex"
                     className="ml-1 min-w-0 flex-1 bg-transparent outline-none text-[var(--foreground)] placeholder:text-white/30" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="displayName" className="text-sm font-medium text-[var(--foreground)]">
+                <label htmlFor="nomeExibicao" className="text-sm font-medium text-[var(--foreground)]">
                   Nome público
                 </label>
-                <input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+                <input id="nomeExibicao" value={nomeExibicao} onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Alex Creator"
                   className="glass-input w-full px-4 py-2.5 text-sm" />
               </div>

@@ -19,13 +19,13 @@ const MAX_BODY_BYTES = 16 * 1024;
  * POST /api/security/log-anonymous
  *
  * Records security events that happen before the user is authenticated
- * (login attempts, suspicious input, etc.). The userId must NOT be trusted;
+ * (login attempts, suspicious input, etc.). The idUtilizador must NOT be trusted;
  * we record it as "anonymous" or derive nothing from the body. IP and
  * user agent are captured from the request for monitoring only.
  *
  * This endpoint is rate-limited to prevent log spam (5/min por IP).
  * Os logs são append-only (imutáveis) — não existe endpoint de edição ou
- * remoção, e o rate limit por IP + CSRF + validação de eventType cobrem os
+ * remoção, e o rate limit por IP + CSRF + validação de tipoEvento cobrem os
  * 11 eventTypes aceites. O email é guardado apenas como hash (nunca em
  * texto plano).
  */
@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const eventType = typeof body.eventType === "string" ? body.eventType.trim() : "";
-    if (!eventType || !VALID_EVENTS.includes(eventType as typeof VALID_EVENTS[number])) {
-      return NextResponse.json({ error: "Invalid eventType" }, { status: 400 });
+    const tipoEvento = typeof body.tipoEvento === "string" ? body.tipoEvento.trim() : "";
+    if (!tipoEvento || !VALID_EVENTS.includes(tipoEvento as typeof VALID_EVENTS[number])) {
+      return NextResponse.json({ error: "Invalid tipoEvento" }, { status: 400 });
     }
 
     const { databases } = createServerClient();
@@ -79,13 +79,13 @@ export async function POST(request: NextRequest) {
     const emailHash = rawEmail ? await hashForLog(rawEmail) : "";
 
     await databases.createDocument(databaseId, "security_logs", ID.unique(), {
-      userId: "anonymous",
-      eventType,
+      idUtilizador: "anonymous",
+      tipoEvento,
       email: emailHash,
-      ipAddress: ip,
-      userAgent: request.headers.get("user-agent") ?? "",
-      metadata: body.metadata ? JSON.stringify(body.metadata).slice(0, MAX_METADATA_BYTES) : "",
-      createdAt: new Date().toISOString(),
+      enderecoIP: ip,
+      agenteUtilizador: request.headers.get("user-agent") ?? "",
+      metadados: body.metadados ? JSON.stringify(body.metadados).slice(0, MAX_METADATA_BYTES) : "",
+      criadoEm: new Date().toISOString(),
     });
 
     return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });

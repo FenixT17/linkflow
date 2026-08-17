@@ -2401,3 +2401,172 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 **Validação:** typecheck ✅ · **225/225 testes** ✅.
 
 **Próximo passo (utilizador):** criar o projeto no Appwrite Cloud na região **Frankfurt**, copiar o Project ID para `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, criar uma API key (scopes: databases/collections/attributes/indexes/buckets/files/users) para `APPWRITE_API_KEY`, e correr `npm run provision`.
+
+### Sessão 82 — 17 Agosto 2026 — Re-setup do Appwrite Frankfurt: provision do schema concluído
+
+**Contexto:** continuação da Sessão 81 — o utilizador criou o projeto Appwrite na região Frankfurt e preencheu `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `APPWRITE_API_KEY` e `UPSTASH_REDIS_REST_URL/TOKEN` no `.env.local`. O objetivo era correr `npm run provision` para recriar todo o schema (o projeto anterior foi apagado, Sessão 77).
+
+**Tarefas realizadas:**
+1. **Provision do schema (Appwrite Frankfurt) — concluído com sucesso:**
+   - **15 coleções** criadas/verificadas, todas com `documentSecurity=true`: users, pages, links, analytics, visits, collected_ips, dados_para_estudos, themes, qr_codes, subscriptions, teams, notifications, security_logs, activity_logs, staff_applications
+   - Atributos, índices (incluindo os únicos: `idx_users_userId`, `idx_users_email`, `idx_pages_username`, `idx_analytics_pageId`, `idx_collected_ips_ip`, `idx_collected_ips_visitorHash`, `idx_study_ip_unique`, `idx_themes_pageId`, `idx_qr_codes_pageId`) e backfills (`themes.theme`/`showAvatar`/`showBio`/`showSocial`) verificados
+2. **Bug encontrado e corrigido — bucket hardcoded no provision:**
+   - O `.env.local` já apontava `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` para o bucket existente `6a811b4200020f06b25d` (criado manualmente na consola, nome "linkflow1"), mas o `scripts/provision-appwrite.ts` tinha o bucket **hardcoded como `"files"`** → o provision tentava criar/atualizar `files` e falhava com `Storage bucket with the requested ID could not be found`
+   - **Causa raiz:** no plano gratuito o Appwrite limita o nº de buckets (erro `additional_resource_not_allowed` 403 "maximum number of buckets allowed") — não é possível criar um bucket novo com ID fixo quando já existe um bucket no projeto. O helper `ensureBucketWithPublicRead` interpretava esse erro como "bucket já existe" e tentava `updateBucket("files")` → 404
+   - **Fix:** o provision passou a ler `filesBucketId` de `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` (fallback `APPWRITE_FILES_BUCKET_ID` → `"files"`), consistente com o runtime (`src/lib/appwrite.ts`/`appwrite.server.ts`), e passá-lo ao `ensureBucketWithPublicRead`
+   - **Aplicado ao Appwrite real:** bucket `6a811b4200020f06b25d` renomeado para "Files" e atualizado com permissões least-privilege `["create(\"users\")"]`, `fileSecurity=true` (privado, sem leitura pública — as imagens são servidas pelo proxy `/api/media/[fileId]`)
+3. **`.env.example` documentado** — nota sobre a limitação de buckets do plano gratuito (definir `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` com o ID do bucket existente em vez de tentar criar `files`)
+
+**Validação:** typecheck `tsc --noEmit` ✅ 0 erros · verificação real no Appwrite (buckets + 15 coleções + permissões) ✅.
+
+**Estado final:**
+- ✅ Schema completo no Appwrite Frankfurt (15 coleções + bucket privado)
+- ✅ `APPWRITE_API_KEY`, `UPSTASH_REDIS_REST_URL/TOKEN` e `NEXT_PUBLIC_APPWRITE_FILES_BUCKET_ID` preenchidos no `.env.local`
+- ✅ Provision idempotente — pode ser re-corrido sem efeitos colaterais
+- ⚠️ Alterações não commitadas: `scripts/provision-appwrite.ts` + `.env.example` (o `.env.local` está gitignored, não é commitado)
+- ⚠️ Sem deploy nem cloud (Netlify/Cloudflare/GitHub ainda por recriar — pendente da Sessão 77)
+- ⚠️ Upstash Redis configurado mas o rate limiting só é exercitado em runtime
+
+### Sessão 82.1 — 17 Agosto 2026 — Nomes das coleções em português
+
+**Pedido:** o utilizador quer as tabelas (coleções) do Appwrite em português. Escolhido o âmbito "só nomes de exibição" (os IDs `users`/`pages`/… ficam iguais — renomear IDs exigiria refactor de todo o código e o Appwrite não permite renomear IDs de coleção).
+
+**Tarefas realizadas:**
+1. **Nomes de exibição atualizados no Appwrite (15 coleções)** — preservando IDs, permissões e `documentSecurity`:
+   - `users` → "Utilizadores" · `pages` → "Páginas" · `links` → "Links" · `analytics` → "Análises" · `visits` → "Visitas" · `collected_ips` → "IPs Recolhidos" · `dados_para_estudos` → "Dados para Estudos" (já estava) · `themes` → "Temas" · `qr_codes` → "Códigos QR" · `subscriptions` → "Subscrições" · `teams` → "Equipas" · `notifications` → "Notificações" · `security_logs` → "Registos de Segurança" · `activity_logs` → "Registos de Atividade" · `staff_applications` → "Candidaturas ao Staff"
+2. **`scripts/provision-appwrite.ts` alinhado** — os nomes passados ao `createCollection` passaram a ser os portugueses, para que futuros runs do provision mantenham a consistência (idempotente — re-corrido com sucesso)
+3. **Verificação:** `npm run provision` ✅ concluído · nomes confirmados no Appwrite (15/15) · typecheck `tsc --noEmit` ✅ 0 erros
+
+**Estado final:**
+- ✅ Coleções com nomes de exibição em português (IDs inalterados — o código não foi tocado)
+- ⚠️ Alterações não commitadas: `scripts/provision-appwrite.ts` + `memoria.md` (raiz + frontend)
+
+### Sessão 82.2 — 17 Agosto 2026 — Verificação end-to-end + BUG CRÍTICO corrigido no proxy Appwrite
+
+**Contexto:** o utilizador pediu para configurar o código para que as funcionalidades funcionem sem erros. Verificação completa contra o Appwrite real (Frankfurt) + correção de um bug que partia todo o SDK cliente.
+
+**Health checks (todos ✅):** typecheck `tsc --noEmit` 0 erros · ESLint 0 erros · **225/225 testes** · build de produção ✅.
+
+**Testes end-to-end contra o Appwrite real (dev server :3000):**
+1. Registo (`POST /api/auth/register`) → 201, utilizador criado
+2. Login/sessão (`/api/auth/me`) → 200
+3. Provision do perfil (`/api/users/provision`) → 201, plano `free`
+4. Criação de página, tema e analytics via proxy → OK
+5. Publicação da página + página pública `/u/testecodebuff` → 200, título correto
+6. Tracking de views (`/api/view`) → 200
+7. Upload de media (`/api/media/upload`) → 201 (ficheiro no bucket)
+8. Proxy de media (`/api/media/[fileId]`) → 200, `image/png`, cache private
+
+**🐛 BUG CRÍTICO encontrado e corrigido — proxy `/api/appwrite/[...path]` partido:**
+- **Sintoma:** TODOS os pedidos do SDK cliente (browser) via proxy devolviam 301 (GET) ou 500 `general_protocol_unsupported` (POST) — criação de páginas, links, temas, QR codes, etc. ficavam impossíveis
+- **Causa raiz:** o proxy copiava os headers do request recebido para o upstream, incluindo os headers `x-forwarded-*` que o Next.js injeta em dev (`x-forwarded-proto: http`, `x-forwarded-host: localhost:3000`, …). O Appwrite/Cloudflare, ao ver `x-forwarded-proto: http`, respondia 301 (redirect http→https) a todos os pedidos do proxy
+- **Diagnóstico:** testes diretos ao Appwrite (200/409) vs via proxy (301/500) isolaram o proxy; logging temporário dos headers revelou o `x-forwarded-proto: http`; teste A/B com headers individuais confirmou o culpado
+- **Fix:** o proxy passou a excluir TODOS os headers `x-forwarded-*` (host/proto/for/port) do request reencaminhado (o proxy constrói ele próprio o URL https absoluto do target). Removido o logging de debug
+- **Verificação pós-fix:** GET e POST via proxy voltaram a funcionar (200/201); fluxo completo de criação de página via proxy validado
+- **Nota:** em produção (Cloudflare Worker, https) o `x-forwarded-proto` seria `https` e não causaria o redirect — o bug manifestava-se em dev local (http) e agora está corrigido em ambos
+
+**Limpeza:** removidos do Appwrite o utilizador de teste (`teste.codebuff.1708@gmail.com`), páginas, temas, analytics, visits e o ficheiro de upload de teste. Base de dados fica limpa.
+
+**⚠️ Pendência encontrada (não bloqueante):** `NEXT_PUBLIC_SITE_URL` no `.env.local` aponta para `https://linkflow-web.netlify.app` (domínio Netlify apagado na Sessão 77). Afeta canonical/OG/sitemap e o URL de verificação de email (email desativado). Definir o domínio real quando o deploy for recriado.
+
+**Estado final:**
+- ✅ Fluxos principais validados end-to-end contra o Appwrite Frankfurt
+- ✅ Proxy Appwrite corrigido (bug crítico)
+- ✅ Typecheck, ESLint e 225 testes a passar
+- ✅ Base de dados limpa (sem dados de teste)
+- ⚠️ Alterações não commitadas: `src/app/api/appwrite/[...path]/route.ts` (fix proxy) + `scripts/provision-appwrite.ts` + `.env.example` + `memoria.md`
+
+### Sessão 82.3 — 17 Agosto 2026 — Nomes dos campos/atributos em português
+
+**Objetivo:** renomear os **campos/atributos** de todas as coleções para português (a pedido do utilizador), mantendo os IDs das coleções.
+
+**Contexto:** a base de dados estava vazia (recriada na Sessão 82) — momento ideal para a refatoração sem migração de dados.
+
+**Schema (provision-appwrite.ts):** todos os atributos das 15 coleções renomeados para português. Exemplos:
+- `users`: `plan`→`plano`, `country`→`pais`, `currency`→`moeda`, `createdAt`→`criadoEm`
+- `pages`: `published`→`publicado`, `bio`→`biografia`, `badges`→`emblemas`, `deleting`→`aEliminar`
+- `links`: `type`→`tipo`, `title`→`titulo`, `icon`→`icone`, `active`→`ativo`, `visible`→`visivel`, `order`→`ordem`, `clicks`→`cliques`
+- `themes`: `blur`→`desfoco`, `rounded`→`arredondado`, `shadow`→`sombra`, `spacing`→`espacamento`
+- `analytics`: `views`→`visualizacoes`, `clicks`→`cliques`
+- `visits`/`collected_ips`/`dados_para_estudos`: `country`→`pais`, `city`→`cidade`, `device`→`dispositivo`, `browser`→`navegador`, `os`→`sistemaOperativo`, `referer`→`origem`, `createdAt`→`criadoEm`
+- `security_logs`/`activity_logs`: `metadata`→`metadados`, `action`→`acao`, `details`→`detalhes`, `createdAt`→`criadoEm`
+- `staff_applications`: `message`→`mensagem`, `status`→`estado`, `createdAt`→`criadoEm`
+
+**Refatoração do código (~90 ficheiros):**
+- `lib/types.ts`: tipos `LinkItem`, `PageProfile`, `UserAccount`, `AnalyticsData`, `Appearance`, `Visitor`, `TopLink`, `TopCountry`, `TopDevice`, `SecurityLogEntry`, `StaffApplication`, `ActivityEntry` atualizados para os novos nomes
+- `lib/services.ts`, `lib/services.server.ts`, `lib/analytics.ts`, `lib/page-publication.ts`, `lib/staff-security.ts`, `lib/account-deletion.server.ts`: leituras/escritas raw da DB atualizadas
+- Rotas API: `provision`, `geo`, `oauth/sync`, `click`, `view`, `security/log(s)`, `staff/apply|status`, `media/[fileId]`
+- Componentes/páginas dashboard e públicas: campos renomeados
+- Testes atualizados (fixtures de `LinkItem`/`PageProfile`, `staff-security`, `page-publication`)
+
+**🐛 BUG encontrado e corrigido — pasta de rota `[username]`:** o script de rename em massa renomeou o parâmetro no código (`username`→`nomeUtilizador`) mas não a pasta da rota `src/app/u/[username]`, o que fazia a página pública `/u/...` devolver 404 (`nomeUtilizador` undefined). **Fix:** pasta renomeada para `[nomeUtilizador]` (o URL `/u/...` não muda). Verificado: `/u/[nomeUtilizador]` renderiza 200.
+
+**🐛 BUG encontrado e corrigido — `media/[fileId]`:** `isAuthorizedMediaFile` lia `document.published`/`page.published` (nomes antigos) → media válida devolvia 404. **Fix:** `document.publicado`/`page.publicado`.
+
+**Verificação end-to-end contra o Appwrite real:** registo (201) → provision (201, `criadoEm`/`plano`/`moeda`) → criação de página/link/tema via proxy (201, campos PT) → publicação (200) → página pública `/u/[nomeUtilizador]` (200, renderiza bio/link) → tracking view/click (200) → upload media (201) → servir media via proxy (200).
+
+**Health checks:** typecheck ✅ · ESLint ✅ · **225/225 testes** ✅ · build de produção ✅ (rota `/u/[nomeUtilizador]`).
+
+**Limpeza:** dados de teste removidos do Appwrite (utilizador, página, link, tema, analytics, visits, ficheiro) + scripts temporários de diagnóstico apagados.
+
+**Nota:** os scripts de migração legados (`migrate-*.ts`) referenciam o schema antigo — são utilitários one-shot para dados legados (a DB está vazia, não são necessários). O `.next` foi limpo para remover tipos stale da rota antiga.
+
+### Sessão 82.4 — 17 Agosto 2026 — Correção de bugs de arranque + servidor dev em localhost:3000
+
+**Pedido:** "corrige todos os bugs e roda no localhost 3000".
+
+**Diagnóstico dos logs (`dev.log`/`dev2.log`/`dev-localhost.log`):**
+- `EADDRINUSE: address already in use :::3000` — tentativa de arranque com um servidor anterior ainda a ocupar a porta
+- `Cannot find module './1331.js'` / `Cannot read properties of undefined (reading '/_app')` — **cache `.next` desatualizada** (bundle antigo vs código novo após o rename massivo para PT da Sessão 82.3) — exatamente a Causa nº 1 documentada na secção "Evitar Erros de Hydration"
+
+**Correções aplicadas:**
+1. Confirmado que a porta 3000 estava livre (o único processo node era o agente Freebuff, PID 340)
+2. `rm -rf .next` — cache limpa (remove os módulos stale `./1331.js`/`./5611.js`)
+3. Dev server reiniciado com `npm run dev` (PID 10992) → **Ready em 8.8s**, a ouvir em `http://localhost:3000`
+
+**Verificação:**
+- typecheck `tsc --noEmit` ✅ 0 erros
+- ESLint ✅ 0 erros
+- **225/225 testes** ✅
+- Rotas verificadas via curl: `/` 200 · `/login` 200 · `/register` 200 · `/demo` 200 · `/api/csrf` 200 · `/u/teste` 404 (utilizador inexistente → `notFound()`, esperado) · `/@teste` 404 (rewrite → `/u/teste`, esperado)
+- Rota pública `/u/[nomeUtilizador]` compila e renderiza 200 para utilizador válido (confirmado na Sessão 82.3)
+- Rewrite `/@:username` → `/u/:username` em `next.config.ts` confirmado correto com a rota renomeada
+
+**Estado final:**
+- ✅ Servidor dev a correr em **http://localhost:3000** (cache limpa, sem erros no log)
+- ✅ Typecheck, ESLint e 225 testes a passar
+- ✅ Nenhuma alteração de código necessária — os erros eram de arranque (porta + cache stale)
+
+### Sessão 82.5 — 17 Agosto 2026 — Tema: botão corrigido + modo cinza (escuro continua principal)
+
+**Pedido:** "o tema já tem escuro, agora o botão deve funcionar; adiciona o modo cinza; analisa em todas as partes sem alterar a cor do logo; deve ficar bonito; não remover o tema atual nem torná-lo secundário — é o principal por padrão".
+
+**🐛 BUG principal — o botão de tema não mudava nada:** o `applyTheme` (provider + `THEME_SCRIPT`) só alternava a classe `.dark` no `<html>`, mas o CSS define o modo claro com a classe `.light` — que **nunca era adicionada**. Ao clicar para claro, o `.dark` era removido mas o `.light` não era aplicado, ficando sempre com os valores escuros de `:root`. **Fix:** `applyTheme` agora alterna corretamente `.dark` / `.light` / `.gray` (e `colorScheme`).
+
+**Modo cinza (novo):**
+- `lib/theme-security.ts`: `'gray'` adicionado à whitelist (`ALLOWED_THEMES`), ao `THEME_SCRIPT` e ao `THEME_SANITIZER_SCRIPT` (pré-hidratação e sanitização DOM XSS continuam a cobrir o novo tema)
+- `globals.css`: bloco `.gray` com paleta grafite elegante (`--background: #1c1c1e`, `--foreground: #f5f5f7`, glass ajustado) — o cinza mantém a classe `.dark` para as variantes `dark:` continuarem a aplicar (é um tema escuro com fundo acinzentado)
+- `theme-toggle.tsx`: ciclo **escuro → cinza → claro → escuro** com ícones Moon / Contrast / Sun e labels em português
+- `theme-provider.tsx`: `defaultTheme="dark"` mantido (o escuro continua o principal por padrão); `resolvedTheme` passa a devolver `"light" | "dark" | "gray"`
+
+**Análise em todas as partes (páginas públicas):** as páginas de auth ainda usavam `bg-[#030303]` + `text-white/*` hardcoded — convertidas para variáveis de tema (`var(--background)` / `var(--foreground)` / `var(--muted-foreground)`): `login`, `forgot-password`, `reset-password`, `verify-email`, `verify-email/sent` (o `register` já estava convertido). Home, navbar, footer, demo, not-found já usavam variáveis. **Logo inalterado** (mantém `brightness-150 contrast-125` pré-existente).
+
+**Decisão de âmbito — dashboard:** o dashboard (área autenticada) é deliberadamente escuro (sidebar sempre escuro + dezenas de `text-white/*`). Convertê-lo para variáveis quebraria no modo claro (texto branco sobre fundo claro). Mantido escuro por design — consistente com "o escuro é o principal".
+
+**Verificação:** typecheck ✅ · ESLint ✅ · **225/225 testes** ✅ (testes de theme-security atualizados para a whitelist com `gray`) · CSS servido contém `#1c1c1e` e o `THEME_SCRIPT` pré-hidratação com `classList.toggle("gray")` · rotas `/` e `/login` 200.
+
+**Follow-up — contraste no modo claro (mesmo dia):** elementos com texto/ícones brancos hardcoded ficavam invisíveis sobre o fundo claro (`#f5f5f7`). Corrigido:
+- **Hero (`page.tsx`):** título com gradiente `from-white via-white/80 to-white/40` → classe `.hero-gradient-text` com variante `.light` (gradiente escuro) em `globals.css`
+- **404 (`not-found.tsx`):** watermark "404" com gradiente branco inline → classe `.notfound-404` com variante `.light`
+- **OAuth buttons (login + register):** `text-white/90`/`border-white/[0.08]` → `text-[var(--foreground)]`/`border-[var(--border)]` + hover `bg-[var(--foreground)]/[0.05]`
+- **Register:** checks de password falhados `text-white/40` → `text-[var(--muted-foreground)]`
+- **Spinners de loading públicos** (`page.tsx`, `register`): `border-white/*` → `border-[var(--muted-foreground)]/*` + `border-t-[var(--foreground)]`
+
+**Verificação:** typecheck ✅ · ESLint ✅ · **225/225 testes** ✅ · CSS servido contém `.hero-gradient-text` e `.notfound-404` (variantes dark+light) · rotas `/`, `/login`, `/register`, `/demo` 200.
+
+**Follow-up — contraste das bordas dos cartões (mesmo dia):** as bordas glass (`rgba(255,255,255, var(--glass-border-opacity))` hardcoded a branco) ficavam invisíveis no modo claro e demasiado subtis no escuro. Corrigido em `globals.css`:
+- Nova variável theme-aware `--glass-border-rgb` (`255,255,255` no escuro/cinza · `0,0,0` no claro) — todas as declarações de borda passaram a usar `rgba(var(--glass-border-rgb), …)` (base, hover, nav, modal, input, card, badge, tooltip, toggle, divider, etc.); os reflexos `--glass-reflex-*` mantêm-se brancos (highlight do vidro)
+- Opacidade das bordas aumentada para mais contraste: `--glass-border-opacity-value` escuro 8%→12%, claro 10%→14%, cinza 9%→12%
+- Bordas de foco fixas (`glass-input:focus`, `glass-toggle[checked]`) passaram a `rgba(var(--glass-border-rgb), 0.25)`
+
+**Verificação:** typecheck ✅ (CSS não afeta TS) · dev server recompilou sem erros (1718 módulos) · CSS servido contém `--glass-border-rgb` · rotas 200. O modo escuro mantém o aspeto (bordas brancas ligeiramente mais fortes); o claro ganha bordas escuras visíveis.

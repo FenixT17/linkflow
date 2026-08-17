@@ -38,7 +38,7 @@ const HomeSections = dynamic(() => import("@/components/home/home-sections"), {
   ssr: false,
   loading: () => (
     <div className="py-24 text-center">
-      <div className="inline-block h-6 w-6 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+      <div className="inline-block h-6 w-6 rounded-full border-2 border-[var(--muted-foreground)]/20 border-t-[var(--foreground)]/60 animate-spin" />
     </div>
   ),
 });
@@ -183,7 +183,7 @@ export default function Home() {
               >
                 Um Link.
                 <br />
-                <span className="bg-gradient-to-r from-white via-white/80 to-white/40 bg-clip-text text-transparent">
+                <span className="hero-gradient-text bg-clip-text text-transparent">
                   Possibilidades infinitas.
                 </span>
               </motion.h1>
@@ -294,7 +294,7 @@ export default function Home() {
       <Suspense
         fallback={
           <div className="py-32 text-center">
-            <div className="inline-block h-8 w-8 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+            <div className="inline-block h-8 w-8 rounded-full border-2 border-[var(--muted-foreground)]/20 border-t-[var(--foreground)]/60 animate-spin" />
           </div>
         }
       >

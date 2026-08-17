@@ -19,7 +19,7 @@ const MAX_SECRET_LENGTH = 4096;
  *
  * Quando o utilizador autoriza no provider (Google/GitHub), o Appwrite
  * redireciona para o `success` URL (definido no /api/auth/oauth/start) com
- * `userId` e `secret` anexados à query string. Para completar o login, a app
+ * `idUtilizador` e `secret` anexados à query string. Para completar o login, a app
  * troca essas credenciais por uma sessão real via POST /account/sessions
  * (mesmo mecanismo documentado pelo Appwrite para OAuth web).
  *
@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=missing_project", request.url));
   }
 
-  const userId = request.nextUrl.searchParams.get("userId") ?? "";
+  const idUtilizador = request.nextUrl.searchParams.get("idUtilizador") ?? "";
   const secret = request.nextUrl.searchParams.get("secret") ?? "";
 
-  // Appwrite Cloud (web OAuth) NÃO anexa userId+secret ao success URL — a
+  // Appwrite Cloud (web OAuth) NÃO anexa idUtilizador+secret ao success URL — a
   // sessão fica no domínio do Appwrite (cookie `a_session_*`, SameSite=None)
   // e o browser completa a recuperação via o fallback do SDK já existente:
   //   getCurrentSession → /api/auth/me 401 → createOAuthAccount().get()
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
   //   → migrateLegacyBrowserSession → /api/auth/session → cookie HttpOnly.
   // Por isso, quando não há credenciais no URL, redireciona para o dashboard
   // para disparar esse fluxo (a sessão é criada no browser, não aqui).
-  if (!userId || !secret) {
+  if (!idUtilizador || !secret) {
     const returning = new URL("/dashboard", request.url);
     returning.searchParams.set("oauth", "returning");
     return NextResponse.redirect(returning);
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   // M2 (login CSRF): só completa a troca de credenciais se o browser iniciou
   // o fluxo OAuth nesta origem (cookie de estado semeado em /oauth/start).
-  // Um link forjado com userId+secret de terceiros não tem este cookie.
+  // Um link forjado com idUtilizador+secret de terceiros não tem este cookie.
   if (!hasOAuthStateCookie(request)) {
     return NextResponse.redirect(new URL("/login?error=oauth_state_missing", request.url));
   }
@@ -75,14 +75,14 @@ export async function GET(request: NextRequest) {
   try {
     // Endpoint público (sem API key). POST /account/sessions/token é o
     // `createSession` do SDK atual — o mecanismo oficial para completar o
-    // OAuth web com as credenciais userId+secret do success URL.
+    // OAuth web com as credenciais idUtilizador+secret do success URL.
     upstream = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/token`, {
       method: "POST",
       headers: {
         "X-Appwrite-Project": PROJECT_ID,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ userId, secret }),
+      body: JSON.stringify({ idUtilizador, secret }),
       redirect: "manual",
       cache: "no-store",
     });

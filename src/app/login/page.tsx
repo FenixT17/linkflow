@@ -45,10 +45,10 @@ function LoginForm() {
     const parsed = parseOAuthError(errorParam, errorDesc);
     if (parsed) {
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "oauth_failure",
-        userAgent: navigator.userAgent,
-        metadata: { error: parsed.message, rawError: errorParam, type: parsed.type },
+        idUtilizador: "anonymous",
+        tipoEvento: "oauth_failure",
+        agenteUtilizador: navigator.userAgent,
+        metadados: { error: parsed.message, rawError: errorParam, type: parsed.type },
       });
       setError(parsed.friendly);
 
@@ -98,7 +98,7 @@ function LoginForm() {
   };
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#030303] px-4">
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-[var(--background)] px-4">
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />
@@ -110,7 +110,7 @@ function LoginForm() {
         <div className="mb-6">
           <Link
             href="/"
-            className="group inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/60 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/90 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)]"
+            className="group inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-[var(--muted-foreground)] transition-all duration-200 hover:bg-white/[0.06] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)]"
             aria-label="Voltar à página inicial"
           >
             <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
@@ -120,10 +120,10 @@ function LoginForm() {
 
         <div className="mb-8 flex flex-col items-center text-center">
           <Logo size={48} className="mb-4 brightness-150 contrast-125" />
-          <h1 className="text-2xl font-semibold tracking-tight text-white/90">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
             Bem-vindo de volta
           </h1>
-          <p className="mt-2 text-sm text-white/50">
+          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
             Entre para continuar no LinkFlow
           </p>
         </div>
@@ -134,12 +134,12 @@ function LoginForm() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="email"
-                  className="text-sm font-medium text-white/80"
+                  className="text-sm font-medium text-[var(--foreground)]"
                 >
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
                   <input
                     id="email"
                     type="email"
@@ -157,12 +157,12 @@ function LoginForm() {
               <div className="space-y-1.5">
                 <label
                   htmlFor="password"
-                  className="text-sm font-medium text-white/80"
+                  className="text-sm font-medium text-[var(--foreground)]"
                 >
                   Palavra-passe
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)]" />
                   <input
                     id="password"
                     ref={passwordRef}
@@ -181,7 +181,7 @@ function LoginForm() {
                     type="button"
                     onClick={() => setShowPassword((p) => !p)}
                     disabled={loading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
                     aria-label={
                       showPassword ? "Ocultar palavra-passe" : "Mostrar palavra-passe"
                     }
@@ -199,7 +199,7 @@ function LoginForm() {
               </div>
 
               <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 text-white/50 cursor-pointer">
+                <label className="flex items-center gap-2 text-[var(--muted-foreground)] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={remember}
@@ -211,7 +211,7 @@ function LoginForm() {
                 </label>
                 <Link
                   href="/forgot-password"
-                  className={`text-white/70 hover:text-white transition-colors text-sm ${loading ? "pointer-events-none opacity-50" : ""}`}
+                  className={`text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors text-sm ${loading ? "pointer-events-none opacity-50" : ""}`}
                 >
                   Esqueceu a palavra-passe?
                 </Link>
@@ -251,7 +251,7 @@ function LoginForm() {
 
             <div className="my-6 flex items-center gap-3">
               <div className="h-px flex-1 bg-white/[0.08]" />
-              <span className="text-xs text-white/40">ou continuar com</span>
+              <span className="text-xs text-[var(--muted-foreground)]">ou continuar com</span>
               <div className="h-px flex-1 bg-white/[0.08]" />
             </div>
 
@@ -260,7 +260,7 @@ function LoginForm() {
                 type="button"
                 onClick={() => loginWithGoogle()}
                 disabled={loading}
-                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
+                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-[var(--border)] bg-white/[0.03] text-sm font-medium text-[var(--foreground)] transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-[var(--foreground)]/[0.05] hover:border-[var(--foreground)]/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >
                 <svg
                   className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110"
@@ -291,7 +291,7 @@ function LoginForm() {
                 type="button"
                 onClick={() => loginWithGitHub()}
                 disabled={loading}
-                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-white/[0.08] bg-white/[0.03] text-sm font-medium text-white/90 transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
+                className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-[var(--border)] bg-white/[0.03] text-sm font-medium text-[var(--foreground)] transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-[var(--foreground)]/[0.05] hover:border-[var(--foreground)]/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >
                 <svg
                   className="h-5 w-5 shrink-0 transition-transform duration-300 group-hover:scale-110"
@@ -305,11 +305,11 @@ function LoginForm() {
               </button>
             </div>
 
-            <p className="mt-6 text-center text-sm text-white/50">
+            <p className="mt-6 text-center text-sm text-[var(--muted-foreground)]">
               Ainda não tem conta?{" "}
               <Link
                 href="/register"
-                className="text-white/90 hover:underline font-medium transition-colors"
+                className="text-[var(--foreground)] hover:underline font-medium transition-colors"
               >
                 Criar conta
               </Link>
@@ -325,8 +325,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-dvh items-center justify-center bg-[#030303]">
-          <div className="flex items-center gap-3 text-white/50">
+        <main className="flex min-h-dvh items-center justify-center bg-[var(--background)]">
+          <div className="flex items-center gap-3 text-[var(--muted-foreground)]">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>A carregar...</span>
           </div>

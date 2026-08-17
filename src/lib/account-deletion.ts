@@ -38,30 +38,30 @@ export const PAGE_SCOPED_COLLECTIONS = [
 /**
  * Campo do dono por coleção user-scoped na exclusão de conta.
  *
- * ATENÇÃO (Sessão 43): a coleção `teams` usa `ownerId` como campo do dono,
- * NÃO `userId` — consultar `userId` aí falhava com "Attribute not found in
- * schema: userId" e abortava a exclusão depois de as páginas já terem sido
+ * ATENÇÃO (Sessão 43): a coleção `teams` usa `idProprietario` como campo do dono,
+ * NÃO `idUtilizador` — consultar `idUtilizador` aí falhava com "Attribute not found in
+ * schema: idUtilizador" e abortava a exclusão depois de as páginas já terem sido
  * apagadas. Este mapa é a fonte única da verdade para as queries de limpeza.
  */
 export const USER_SCOPED_OWNER_FIELD: Record<string, string> = {
-  [ACCOUNT_COLLECTIONS.subscriptions]: "userId",
-  [ACCOUNT_COLLECTIONS.teams]: "ownerId",
-  [ACCOUNT_COLLECTIONS.notifications]: "userId",
-  [ACCOUNT_COLLECTIONS.activityLogs]: "userId",
-  [ACCOUNT_COLLECTIONS.staffApplications]: "userId",
+  [ACCOUNT_COLLECTIONS.subscriptions]: "idUtilizador",
+  [ACCOUNT_COLLECTIONS.teams]: "idProprietario",
+  [ACCOUNT_COLLECTIONS.notifications]: "idUtilizador",
+  [ACCOUNT_COLLECTIONS.activityLogs]: "idUtilizador",
+  [ACCOUNT_COLLECTIONS.staffApplications]: "idUtilizador",
 };
 
 /**
  * Storage files are owned through per-file permissions such as
- * `delete("user:<userId>")`. Matching the permission is the only reliable
+ * `delete("user:<idUtilizador>")`. Matching the permission is the only reliable
  * way to find older uploads that are no longer referenced by a page.
  */
 export function fileBelongsToUser(
   permissions: readonly string[] | null | undefined,
-  userId: string
+  idUtilizador: string
 ): boolean {
-  if (!userId || !Array.isArray(permissions)) return false;
-  const ownerPermission = `user:${userId}`;
+  if (!idUtilizador || !Array.isArray(permissions)) return false;
+  const ownerPermission = `user:${idUtilizador}`;
   return permissions.some((permission) => {
     const normalized = permission.replace(/\s/g, "");
     return normalized === `delete("${ownerPermission}")`
@@ -77,12 +77,12 @@ export function addUniqueId(target: Set<string>, value: unknown): void {
 
 /** Extracts visitor hashes retained inside analytics JSON before the document is deleted. */
 export function collectAnalyticsVisitorHashes(
-  metricsJson: unknown,
+  metricasJson: unknown,
   target: Set<string>
 ): void {
-  if (typeof metricsJson !== "string" || !metricsJson) return;
+  if (typeof metricasJson !== "string" || !metricasJson) return;
   try {
-    const metrics = JSON.parse(metricsJson) as {
+    const metrics = JSON.parse(metricasJson) as {
       visitorSet?: unknown;
       dailyVisitors?: unknown;
       recentVisitors?: unknown;

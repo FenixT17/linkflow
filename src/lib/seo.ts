@@ -140,8 +140,8 @@ export function softwareApplicationJsonLd() {
 }
 
 export function profilePageJsonLd(
-  username: string,
-  displayName: string,
+  nomeUtilizador: string,
+  nomeExibicao: string,
   bio: string,
   url: string,
   image?: string
@@ -151,14 +151,14 @@ export function profilePageJsonLd(
     "@type": "ProfilePage",
     mainEntity: {
       "@type": "Person",
-      name: displayName,
+      name: nomeExibicao,
       description: bio,
       url,
       image: image || undefined,
       identifier: {
         "@type": "PropertyValue",
-        name: "username",
-        value: username,
+        name: "nomeUtilizador",
+        value: nomeUtilizador,
       },
     },
   };
@@ -206,7 +206,7 @@ export function webPageJsonLd(title: string, description: string, url: string) {
  * Serializa dados JSON-LD de forma segura para injeção num <script>.
  *
  * `JSON.stringify` NÃO escapa `<`, `>`, `&` nem U+2028/U+2029. Se um campo
- * controlado pelo utilizador (ex.: bio, displayName) contiver `</script>…`,
+ * controlado pelo utilizador (ex.: bio, nomeExibicao) contiver `</script>…`,
  * o valor quebraria o <script type="application/ld+json"> e permitiria
  * stored XSS (CWE-79). Este escape impede o breakout do script tag.
  */

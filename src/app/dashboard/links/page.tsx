@@ -93,7 +93,7 @@ function LinkQRModal({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `qr-${sanitizeFileName(link.title)}.png`;
+      a.download = `qr-${sanitizeFileName(link.titulo)}.png`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -113,11 +113,11 @@ function LinkQRModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-white/90 mb-1">QR Code</h3>
-        <p className="text-sm text-white/50 mb-4 truncate">{link.title}</p>
+        <p className="text-sm text-white/50 mb-4 truncate">{link.titulo}</p>
         <div className="flex justify-center mb-4">
           <Image
             src={qrUrl}
-            alt={`QR code for ${link.title}`}
+            alt={`QR code for ${link.titulo}`}
             width={240}
             height={240}
             className="rounded-xl"
@@ -161,8 +161,8 @@ function LinkEditor({
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-white/60">Título</label>
           <input
-            value={draft.title || ""}
-            onChange={(e) => onChange({ title: e.target.value })}
+            value={draft.titulo || ""}
+            onChange={(e) => onChange({ titulo: e.target.value })}
             placeholder="Ex: O meu site"
             className="glass-input w-full px-3 py-2 text-sm"
           />
@@ -237,7 +237,7 @@ function LinkCard({
   saving: boolean;
   onSave: (draft: Partial<LinkItem>) => void;
   onCancel: () => void;
-  onToggle: (field: "active" | "visible") => void;
+  onToggle: (field: "ativo" | "visivel") => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onCopy: () => void;
@@ -248,9 +248,9 @@ function LinkCard({
   onDragLeave: () => void;
 }) {
   const [draft, setDraft] = useState<Partial<LinkItem>>(link);
-  const platform = getPlatform(link.icon || "");
-  const isInactive = !link.active;
-  const isHidden = !link.visible;
+  const platform = getPlatform(link.icone || "");
+  const isInactive = !link.ativo;
+  const isHidden = !link.visivel;
 
   return (
     <div
@@ -302,32 +302,32 @@ function LinkCard({
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] ring-1 ring-white/[0.06]"
               style={{ color: platform?.color || "#fff" }}
             >
-              <PlatformIcon platformId={link.icon || "website"} size={20} color={platform?.color || "#fff"} />
+              <PlatformIcon platformId={link.icone || "website"} size={20} color={platform?.color || "#fff"} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-medium text-white/90 truncate">{link.title}</h3>
+                <h3 className="text-sm font-medium text-white/90 truncate">{link.titulo}</h3>
                 {isHidden && <LinkBadge>Oculto</LinkBadge>}
                 {isInactive && <LinkBadge variant="danger">Inativo</LinkBadge>}
-                {link.scheduledFor && <LinkBadge variant="warning">Agendado</LinkBadge>}
+                {link.agendadoPara && <LinkBadge variant="warning">Agendado</LinkBadge>}
               </div>
               <p className="text-xs text-white/40 truncate">{link.url}</p>
-              <p className="text-xs text-white/30 mt-1">{formatClicks(link.clicks)}</p>
+              <p className="text-xs text-white/30 mt-1">{formatClicks(link.cliques)}</p>
             </div>
             <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
               <button
-                onClick={() => onToggle("active")}
+                onClick={() => onToggle("ativo")}
                 className="p-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/80"
-                aria-label={link.active ? "Desativar" : "Ativar"}
+                aria-label={link.ativo ? "Desativar" : "Ativar"}
               >
-                {link.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {link.ativo ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
               <button
-                onClick={() => onToggle("visible")}
+                onClick={() => onToggle("visivel")}
                 className="p-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/80"
-                aria-label={link.visible ? "Ocultar" : "Mostrar"}
+                aria-label={link.visivel ? "Ocultar" : "Mostrar"}
               >
-                {link.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {link.visivel ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </button>
               <button
                 onClick={onCopy}
@@ -373,7 +373,7 @@ function LinkCard({
 }
 
 export default function LinksPage() {
-  const { links, setLinks, account, pageId } = useAuth();
+  const { links, setLinks, account, idPagina } = useAuth();
   const { showToast } = useToast();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -391,18 +391,18 @@ export default function LinksPage() {
   const [customMode, setCustomMode] = useState(false);
   const { verifyCsrf } = useCsrfAction();
 
-  const isFreePlan = !account || account.plan === "free";
+  const isFreePlan = !account || account.plano === "free";
   const linkLimit = isFreePlan ? FREE_LINK_LIMIT : Infinity;
   const canAddLink = links.length < linkLimit;
 
   const [newLink, setNewLink] = useState<Partial<LinkItem>>({
-    title: "",
+    titulo: "",
     url: "",
-    type: "link",
-    active: true,
-    visible: true,
-    newTab: true,
-    clicks: 0,
+    tipo: "link",
+    ativo: true,
+    visivel: true,
+    novaAba: true,
+    cliques: 0,
   });
 
   const debouncedSearch = search.trim().toLowerCase();
@@ -412,23 +412,23 @@ export default function LinksPage() {
     if (debouncedSearch) {
       result = result.filter(
         (l) =>
-          l.title.toLowerCase().includes(debouncedSearch) ||
+          l.titulo.toLowerCase().includes(debouncedSearch) ||
           l.url.toLowerCase().includes(debouncedSearch)
       );
     }
-    if (filter === "active") result = result.filter((l) => l.active && l.visible);
-    if (filter === "hidden") result = result.filter((l) => !l.visible);
-    if (filter === "inactive") result = result.filter((l) => !l.active);
-    if (filter === "scheduled") result = result.filter((l) => !!l.scheduledFor);
+    if (filter === "active") result = result.filter((l) => l.ativo && l.visivel);
+    if (filter === "hidden") result = result.filter((l) => !l.visivel);
+    if (filter === "inactive") result = result.filter((l) => !l.ativo);
+    if (filter === "scheduled") result = result.filter((l) => !!l.agendadoPara);
 
     if (sortBy === "title") {
-      result.sort((a, b) => a.title.localeCompare(b.title));
+      result.sort((a, b) => a.titulo.localeCompare(b.titulo));
     } else if (sortBy === "clicks") {
-      result.sort((a, b) => b.clicks - a.clicks);
+      result.sort((a, b) => b.cliques - a.cliques);
     } else if (sortBy === "date") {
-      result.sort((a, b) => b.order - a.order);
+      result.sort((a, b) => b.ordem - a.ordem);
     } else {
-      result.sort((a, b) => a.order - b.order);
+      result.sort((a, b) => a.ordem - b.ordem);
     }
 
     return result;
@@ -440,31 +440,31 @@ export default function LinksPage() {
   };
 
   const handleAdd = async () => {
-    if (!pageId) return;
+    if (!idPagina) return;
     if (!canAddLink) {
       showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
       return;
     }
-    if (!newLink.title?.trim() || !newLink.url?.trim()) return;
+    if (!newLink.titulo?.trim() || !newLink.url?.trim()) return;
     const csrfOk = await verifyCsrf();
     if (!csrfOk) return;
 
     setSavingId("add");
     try {
       const link: Omit<LinkItem, "id"> = {
-        type: "link",
-        title: newLink.title.trim(),
-        url: buildUrl(newLink.url, newLink.icon || undefined),
-        icon: newLink.icon || undefined,
-        active: true,
-        visible: true,
-        newTab: true,
-        order: Math.max(...links.map((l) => l.order), -1) + 1,
-        clicks: 0,
+        tipo: "link",
+        titulo: newLink.titulo.trim(),
+        url: buildUrl(newLink.url, newLink.icone || undefined),
+        icone: newLink.icone || undefined,
+        ativo: true,
+        visivel: true,
+        novaAba: true,
+        ordem: Math.max(...links.map((l) => l.ordem), -1) + 1,
+        cliques: 0,
       };
-      const doc = await createLink(pageId, link);
+      const doc = await createLink(idPagina, link);
       setLinks((prev) => [...prev, { ...link, id: doc.$id }]);
-      setNewLink({ title: "", url: "", type: "link", active: true, visible: true, newTab: true, clicks: 0 });
+      setNewLink({ titulo: "", url: "", tipo: "link", ativo: true, visivel: true, novaAba: true, cliques: 0 });
       setIsAdding(false);
       showMessage("Link adicionado.");
     } catch (err: unknown) {
@@ -502,7 +502,7 @@ export default function LinksPage() {
   }, [selectedPlatform, platformValue]);
 
   const handleAddPlatform = async () => {
-    if (!pageId || !selectedPlatform) return;
+    if (!idPagina || !selectedPlatform) return;
     if (!canAddLink) {
       showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
       return;
@@ -518,17 +518,17 @@ export default function LinksPage() {
     setSavingId("add");
     try {
       const link: Omit<LinkItem, "id"> = {
-        type: "link",
-        title: selectedPlatform.name,
+        tipo: "link",
+        titulo: selectedPlatform.name,
         url: built.url,
-        icon: selectedPlatform.id,
-        active: true,
-        visible: true,
-        newTab: true,
-        order: Math.max(...links.map((l) => l.order), -1) + 1,
-        clicks: 0,
+        icone: selectedPlatform.id,
+        ativo: true,
+        visivel: true,
+        novaAba: true,
+        ordem: Math.max(...links.map((l) => l.ordem), -1) + 1,
+        cliques: 0,
       };
-      const doc = await createLink(pageId, link);
+      const doc = await createLink(idPagina, link);
       setLinks((prev) => [...prev, { ...link, id: doc.$id }]);
       showMessage(`${selectedPlatform.name} adicionado.`);
       closeAdd();
@@ -552,10 +552,10 @@ export default function LinksPage() {
     }
   };
 
-  const handleToggle = async (id: string, field: "active" | "visible") => {
+  const handleToggle = async (id: string, field: "ativo" | "visivel") => {
     const link = links.find((l) => l.id === id);
     if (!link) return;
-    const next = field === "active" ? !link.active : !link.visible;
+    const next = field === "ativo" ? !link.ativo : !link.visivel;
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, [field]: next } : l)));
     try {
       await updateLink(id, { [field]: next });
@@ -565,7 +565,7 @@ export default function LinksPage() {
   };
 
   const handleDuplicate = async (link: LinkItem) => {
-    if (!pageId) return;
+    if (!idPagina) return;
     if (!canAddLink) {
       showMessage("Limite do plano atingido.", "error");
       return;
@@ -573,12 +573,12 @@ export default function LinksPage() {
     setSavingId(`dup-${link.id}`);
     const newLinkData: Omit<LinkItem, "id"> = {
       ...link,
-      title: `${link.title} (cópia)`,
-      order: Math.max(...links.map((l) => l.order), -1) + 1,
-      clicks: 0,
+      titulo: `${link.titulo} (cópia)`,
+      ordem: Math.max(...links.map((l) => l.ordem), -1) + 1,
+      cliques: 0,
     };
     try {
-      const doc = await createLink(pageId, newLinkData);
+      const doc = await createLink(idPagina, newLinkData);
       setLinks((prev) => [...prev, { ...newLinkData, id: doc.$id }]);
       showMessage("Link duplicado.");
     } catch {
@@ -598,9 +598,9 @@ export default function LinksPage() {
   };
 
   const reorder = (newOrder: LinkItem[]) => {
-    const final = newOrder.map((l, i) => ({ ...l, order: i }));
+    const final = newOrder.map((l, i) => ({ ...l, ordem: i }));
     setLinks(final);
-    Promise.all(final.map((l) => updateLink(l.id, { order: l.order }))).catch(() => {
+    Promise.all(final.map((l) => updateLink(l.id, { ordem: l.ordem }))).catch(() => {
       setLinks(links);
     });
   };
@@ -658,13 +658,13 @@ export default function LinksPage() {
   };
 
   const handleInlineSave = async (id: string, draft: Partial<LinkItem>) => {
-    if (!draft.title?.trim() || !draft.url?.trim()) return;
+    if (!draft.titulo?.trim() || !draft.url?.trim()) return;
     setSavingId(id);
     const link = links.find((l) => l.id === id);
     if (!link) return;
     const patch: Partial<LinkItem> = {
-      title: draft.title.trim(),
-      url: buildUrl(draft.url, link.icon || undefined),
+      titulo: draft.titulo.trim(),
+      url: buildUrl(draft.url, link.icone || undefined),
     };
     setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
     try {
@@ -878,8 +878,8 @@ export default function LinksPage() {
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
-                  value={newLink.title || ""}
-                  onChange={(e) => setNewLink((p) => ({ ...p, title: e.target.value }))}
+                  value={newLink.titulo || ""}
+                  onChange={(e) => setNewLink((p) => ({ ...p, titulo: e.target.value }))}
                   placeholder="Título"
                   className="glass-input px-3 py-2 text-sm"
                 />

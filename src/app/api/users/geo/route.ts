@@ -34,25 +34,25 @@ export async function POST(request: NextRequest) {
   try {
     const { databases } = createServerClient();
     const docs = await databases.listDocuments(databaseId, "users", [
-      Query.equal("userId", auth.user.$id),
+      Query.equal("idUtilizador", auth.user.$id),
       Query.limit(1),
     ]);
     const doc = docs.documents[0];
     if (!doc) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
     const geo = await resolveGeo(ip, request);
-    const countryCode = geo.countryCode?.toUpperCase() ?? "";
+    const codigoPais = geo.codigoPais?.toUpperCase() ?? "";
     const updated = await databases.updateDocument(databaseId, "users", doc.$id, {
-      country: geo.country ?? "",
-      countryCode,
-      currency: currencyForCountry(countryCode),
+      pais: geo.country ?? "",
+      codigoPais,
+      moeda: currencyForCountry(codigoPais),
     });
 
     return NextResponse.json(
       {
-        country: String(updated.country ?? ""),
-        countryCode: String(updated.countryCode ?? ""),
-        currency: String(updated.currency ?? "EUR"),
+        pais: String(updated.pais ?? ""),
+        codigoPais: String(updated.codigoPais ?? ""),
+        moeda: String(updated.moeda ?? "EUR"),
       },
       { headers: mergeRateLimitHeaders(undefined, rate) },
     );

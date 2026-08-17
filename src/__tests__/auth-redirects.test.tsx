@@ -86,8 +86,8 @@ describe("DashboardLayout auth guard", () => {
 
   it("renders children when user is authenticated with a page", () => {
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
-      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", nomeUtilizador: "ana", nomeExibicao: "Ana Silva" },
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
@@ -105,7 +105,7 @@ describe("DashboardLayout auth guard", () => {
   it("redirects to /dashboard/create when authenticated without a page", () => {
     mockReplace.mockClear();
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
       page: null,
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
@@ -126,7 +126,7 @@ describe("DashboardLayout auth guard", () => {
     mockReplace.mockClear();
     vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard/create");
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
       page: null,
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
@@ -150,8 +150,8 @@ describe("DashboardLayout auth guard", () => {
     mockReplace.mockClear();
     vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard");
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
-      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", nomeUtilizador: "ana", nomeExibicao: "Ana Silva" },
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 
@@ -171,8 +171,8 @@ describe("DashboardLayout auth guard", () => {
     mockReplace.mockClear();
     vi.spyOn(Navigation, "usePathname").mockReturnValue("/dashboard/create");
     mockUseAuth.mockReturnValue({
-      account: { displayName: "Ana Silva", email: "ana@example.com" },
-      page: { $id: "page123", username: "ana", displayName: "Ana Silva" },
+      account: { nomeExibicao: "Ana Silva", email: "ana@example.com" },
+      page: { $id: "page123", nomeUtilizador: "ana", nomeExibicao: "Ana Silva" },
       isLoading: false,
     } as unknown as ReturnType<typeof AuthContext.useAuth>);
 

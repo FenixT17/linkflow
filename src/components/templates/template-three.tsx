@@ -15,17 +15,17 @@ import type { TemplateProps } from "./types";
  * translúcido. Todos os dados continuam a vir da página e dos links reais.
  */
 export function TemplateThree({ profile, links, appearance, publicUrl }: TemplateProps) {
-  const background = appearance.backgroundColor || "#11161f";
-  const text = appearance.textColor || "#f7f8fb";
-  const accent = appearance.accentColor || "#dbe4f5";
+  const background = appearance.corFundo || "#11161f";
+  const text = appearance.corTexto || "#f7f8fb";
+  const accent = appearance.corDestaque || "#dbe4f5";
   const muted = "rgba(235,240,250,0.66)";
-  const glassOpacity = Math.min(1, Math.max(0.04, (appearance.glassOpacity ?? 35) / 100));
-  const glassBlur = Math.min(48, Math.max(8, appearance.glassBlur ?? 25));
-  const glassStrength = Math.min(1, Math.max(0, (appearance.glassStrength ?? 50) / 100));
-  const borderColor = appearance.borderColor || `rgba(225,235,255,${0.14 + glassStrength * 0.14})`;
+  const opacidadeVidro = Math.min(1, Math.max(0.04, (appearance.opacidadeVidro ?? 35) / 100));
+  const desfocoVidro = Math.min(48, Math.max(8, appearance.desfocoVidro ?? 25));
+  const intensidadeVidro = Math.min(1, Math.max(0, (appearance.intensidadeVidro ?? 50) / 100));
+  const borderColor = appearance.borderColor || `rgba(225,235,255,${0.14 + intensidadeVidro * 0.14})`;
   const borderWidth = Math.min(3, Math.max(1, appearance.borderWidth ?? 1));
-  const radius = Math.min(36, Math.max(16, appearance.rounded ?? 20));
-  const font = appearance.fontFamily || "Inter";
+  const radius = Math.min(36, Math.max(16, appearance.arredondado ?? 20));
+  const font = appearance.familiaFonte || "Inter";
   const safeBanner = profile.banner
     ? (() => {
         return sanitizeMediaUrl(profile.banner);
@@ -56,19 +56,19 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
           style={{
             borderRadius: radius,
             border: `${borderWidth}px solid ${borderColor}`,
-            backgroundColor: `rgba(16,22,32,${Math.min(0.9, glassOpacity + 0.34)})`,
-            backdropFilter: `blur(${glassBlur}px)`,
+            backgroundColor: `rgba(16,22,32,${Math.min(0.9, opacidadeVidro + 0.34)})`,
+            backdropFilter: `blur(${desfocoVidro}px)`,
           }}
         >
           <div
             className="relative h-48 overflow-hidden bg-[linear-gradient(135deg,#98a6bf_0%,#4f5b72_38%,#111722_72%,#303b50_100%)] sm:h-56"
             role={!safeBanner ? "img" : undefined}
-            aria-label={!safeBanner ? `Banner padrão de ${profile.displayName}` : undefined}
+            aria-label={!safeBanner ? `Banner padrão de ${profile.nomeExibicao}` : undefined}
           >
             {safeBanner && (
               <Image
                 src={safeBanner}
-                alt={`Banner de ${profile.displayName}`}
+                alt={`Banner de ${profile.nomeExibicao}`}
                 fill
                 sizes="(max-width: 640px) 100vw, 576px"
                 unoptimized
@@ -97,32 +97,32 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
           </div>
 
           <div className="relative flex flex-1 flex-col px-5 pb-9 sm:px-7 sm:pb-12">
-            {appearance.showAvatar !== false && (
+            {appearance.mostrarAvatar !== false && (
               <div className="-mt-14 flex justify-center sm:-mt-16">
                 <TemplateAvatar
                   src={profile.avatar}
-                  name={profile.displayName}
+                  name={profile.nomeExibicao}
                   size={112}
-                  badges={profile.badges}
+                  badges={profile.emblemas}
                   className="ring-[3px] ring-[#aebbd0]/80 shadow-[0_12px_38px_-8px_rgba(0,0,0,0.9)]"
                 />
               </div>
             )}
 
-            <header className={cn("text-center", appearance.showAvatar !== false ? "mt-5" : "pt-6")}>
+            <header className={cn("text-center", appearance.mostrarAvatar !== false ? "mt-5" : "pt-6")}>
               <h1
                 className="text-[clamp(1.5rem,5vw,2rem)] font-bold tracking-[-0.03em]"
-                style={{ fontSize: appearance.fontSize ? `${Math.min(24, Math.max(18, appearance.fontSize * 1.45))}px` : undefined }}
+                style={{ fontSize: appearance.tamanhoFonte ? `${Math.min(24, Math.max(18, appearance.tamanhoFonte * 1.45))}px` : undefined }}
               >
-                {profile.displayName}
+                {profile.nomeExibicao}
               </h1>
-              <ProfileBadges badges={profile.badges} className="mt-2" />
+              <ProfileBadges badges={profile.emblemas} className="mt-2" />
               <p className="mt-1 text-sm font-medium" style={{ color: muted }}>
-                @{profile.username}
+                @{profile.nomeUtilizador}
               </p>
-              {appearance.showBio !== false && profile.bio && (
+              {appearance.mostrarBiografia !== false && profile.biografia && (
                 <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed" style={{ color: muted }}>
-                  {profile.bio}
+                  {profile.biografia}
                 </p>
               )}
             </header>
@@ -137,13 +137,13 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
                 <TrackedLink
                   key={link.id}
                   link={link}
-                  pageId={profile.$id}
+                  idPagina={profile.$id}
                   className="group relative flex min-h-[58px] w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5 transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-18px_rgba(205,220,245,0.8)] active:scale-[0.985]"
                   style={{
                     color: text,
                     border: `${borderWidth}px solid ${borderColor}`,
-                    backgroundColor: `rgba(255,255,255,${glassOpacity})`,
-                    backdropFilter: `blur(${glassBlur}px)`,
+                    backgroundColor: `rgba(255,255,255,${opacidadeVidro})`,
+                    backdropFilter: `blur(${desfocoVidro}px)`,
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.12)",
                   }}
                 >
@@ -151,10 +151,10 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
                     className="relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08]"
                     aria-hidden="true"
                   >
-                    <PlatformIcon platformId={link.icon || "link"} size={20} color={accent} />
+                    <PlatformIcon platformId={link.icone || "link"} size={20} color={accent} />
                   </span>
                   <span className="relative z-[1] min-w-0 flex-1 truncate text-center text-sm font-medium tracking-[0.01em]">
-                    {link.title || "Link"}
+                    {link.titulo || "Link"}
                   </span>
                   <ChevronRight
                     className="relative z-[1] h-5 w-5 shrink-0 text-white/65 transition-transform duration-300 group-hover:translate-x-1"
@@ -170,7 +170,7 @@ export function TemplateThree({ profile, links, appearance, publicUrl }: Templat
           </div>
         </div>
 
-        <TemplateFooter textColor={muted} />
+        <TemplateFooter corTexto={muted} />
       </div>
     </div>
   );

@@ -21,20 +21,20 @@ export type LinkItemType =
 
 export interface LinkItem {
   id: string;
-  type: LinkItemType;
-  title: string;
-  description?: string;
+  tipo: LinkItemType;
+  titulo: string;
+  descricao?: string;
   url: string;
-  icon?: string;
-  color?: string;
+  icone?: string;
+  cor?: string;
   image?: string;
-  animation?: "fade" | "slide" | "scale" | "none";
-  active: boolean;
-  visible: boolean;
-  newTab: boolean;
-  order: number;
-  clicks: number;
-  scheduledFor?: string;
+  animacao?: "fade" | "slide" | "scale" | "none";
+  ativo: boolean;
+  visivel: boolean;
+  novaAba: boolean;
+  ordem: number;
+  cliques: number;
+  agendadoPara?: string;
 }
 
 export type PageType =
@@ -59,66 +59,66 @@ export type PageType =
 export type PageTemplateId = "template1" | "template2" | "template3";
 
 export interface PageProfile {
-  username: string;
-  displayName: string;
-  bio: string;
+  nomeUtilizador: string;
+  nomeExibicao: string;
+  biografia: string;
   avatar?: string;
   banner?: string;
-  published: boolean;
-  pageType?: PageType;
+  publicado: boolean;
+  tipoPagina?: PageType;
   /** Template de layout escolhido na aba Páginas — controla o render público */
-  pageTemplate?: PageTemplateId;
+  modeloPagina?: PageTemplateId;
   /** Badges ativas da página (ex: ["verified", "supporter"]) */
-  badges?: string[];
-  scheduledPublishAt?: string;
-  scheduledUnpublishAt?: string;
+  emblemas?: string[];
+  publicacaoAgendadaEm?: string;
+  despublicacaoAgendadaEm?: string;
 }
 
 export interface UserAccount {
   email: string;
-  displayName: string;
-  createdAt: string;
-  plan: PlanType;
+  nomeExibicao: string;
+  criadoEm: string;
+  plano: PlanType;
   /** País do utilizador (recolhido por IP no registo) — ex: "Portugal" */
-  country?: string;
+  pais?: string;
   /** Código ISO do país — ex: "PT" */
-  countryCode?: string;
+  codigoPais?: string;
   /** Moeda local do plano (ISO 4217) — ex: "EUR", "BRL" */
-  currency?: string;
+  moeda?: string;
 }
 
 export type PlanType = "free" | "pro" | "business" | "enterprise";
 
 export interface Appearance {
-  blur: number;
-  rounded: number;
-  linkOpacity: number;
-  backgroundColor?: string;
-  cardColor?: string;
-  textColor?: string;
-  accentColor?: string;
-  fontFamily?: string;
-  fontSize?: number;
-  buttonRadius?: number;
-  buttonWidth?: "narrow" | "normal" | "wide" | "full";
-  buttonHeight?: "compact" | "normal" | "tall";
-  buttonStyle?: "solid" | "outline" | "soft" | "glass";
-  shadow?: "none" | "sm" | "md" | "lg";
-  showAvatar: boolean;
-  showBio: boolean;
+  desfoco: number;
+  arredondado: number;
+  opacidadeLinks: number;
+  corFundo?: string;
+  corCartao?: string;
+  corTexto?: string;
+  corDestaque?: string;
+  familiaFonte?: string;
+  tamanhoFonte?: number;
+  raioBotao?: number;
+  larguraBotao?: "narrow" | "normal" | "wide" | "full";
+  alturaBotao?: "compact" | "normal" | "tall";
+  estiloBotao?: "solid" | "outline" | "soft" | "glass";
+  sombra?: "none" | "sm" | "md" | "lg";
+  mostrarAvatar: boolean;
+  mostrarBiografia: boolean;
   /** Mostra secção de links sociais em destaque */
-  showSocial: boolean;
-  spacing: number;
+  mostrarSocial: boolean;
+  espacamento: number;
   /** Glass-specific: cor da borda das barras (suportada em temas antigos) */
   borderColor?: string;
   /** Glass-specific: espessura da borda em pixels (suportada em temas antigos) */
   borderWidth?: number;
   /** Liquid Glass: opacidade global do vidro (0-100) */
-  glassOpacity?: number;
+  opacidadeVidro?: number;
   /** Liquid Glass: intensidade do blur (0-100) */
-  glassBlur?: number;
+  desfocoVidro?: number;
   /** Liquid Glass: intensidade do vidro (0-100) - controla brilho/reflexos */
-  glassStrength?: number;
+  intensidadeVidro?: number;
 }
 
 export interface UserSettings {
@@ -129,11 +129,11 @@ export interface UserSettings {
 }
 
 export interface AnalyticsData {
-  views: number;
-  clicks: number;
+  visualizacoes: number;
+  cliques: number;
   ctr: number;
-  followers: number;
-  /** Visitantes únicos (visitorHash distintos) */
+  seguidores: number;
+  /** Visitantes únicos (hashVisitante distintos) */
   uniqueVisitors: number;
   /** Crescimento real de visitantes: últimos 7 dias vs os 7 anteriores (%) */
   visitorGrowth: number;
@@ -149,55 +149,55 @@ export interface AnalyticsData {
 
 export interface TopLink {
   id: string;
-  title: string;
+  titulo: string;
   url?: string;
-  clicks: number;
+  cliques: number;
   ctr: number;
 }
 
 export interface TopCountry {
-  country: string;
-  countryCode?: string;
+  pais: string;
+  codigoPais?: string;
   region?: string;
-  city?: string;
+  cidade?: string;
   count: number;
 }
 
 export interface TopDevice {
-  type: "mobile" | "desktop" | "tablet";
+  tipo: "mobile" | "desktop" | "tablet";
   count: number;
   percentage: number;
 }
 
 export interface Visitor {
   id: string;
-  country: string;
-  countryCode?: string;
-  city?: string;
-  device: string;
-  browser: string;
-  os: string;
-  referer?: string;
+  pais: string;
+  codigoPais?: string;
+  cidade?: string;
+  dispositivo: string;
+  navegador: string;
+  sistemaOperativo: string;
+  origem?: string;
   time: string;
 }
 
 export interface HourlyStat {
   hour: string;
-  views: number;
-  clicks: number;
+  visualizacoes: number;
+  cliques: number;
 }
 
 export interface DailyStat {
   day: string;
-  views: number;
-  clicks: number;
+  visualizacoes: number;
+  cliques: number;
 }
 
 export interface QRCodeOptions {
-  fgColor: string;
-  bgColor: string;
+  corPrimeiroPlano: string;
+  corFundo: string;
   logo?: string;
-  size: number;
+  tamanho: number;
 }
 
 // ---------- Security Logs ----------
@@ -217,22 +217,22 @@ export type SecurityEventType =
 
 export interface SecurityLogEntry {
   $id: string;
-  userId: string;
-  eventType: SecurityEventType;
+  idUtilizador: string;
+  tipoEvento: SecurityEventType;
   email?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  metadata?: string; // JSON string with extra info
-  createdAt: string;
+  enderecoIP?: string;
+  agenteUtilizador?: string;
+  metadados?: string; // JSON string with extra info
+  criadoEm: string;
 }
 
 export interface SecurityLogInput {
-  userId: string;
-  eventType: SecurityEventType;
+  idUtilizador: string;
+  tipoEvento: SecurityEventType;
   email?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  metadata?: Record<string, unknown>;
+  enderecoIP?: string;
+  agenteUtilizador?: string;
+  metadados?: Record<string, unknown>;
 }
 
 // ---------- Activity Logs (Atividades recentes) ----------
@@ -272,20 +272,20 @@ export type StaffApplicationStatus = "pending" | "approved" | "rejected";
 /** Candidatura ao staff guardada na coleção staff_applications. */
 export interface StaffApplication {
   $id: string;
-  userId: string;
-  message: string;
-  status: StaffApplicationStatus;
+  idUtilizador: string;
+  mensagem: string;
+  estado: StaffApplicationStatus;
   /** Identificador da revisão confiável feita pela equipa/server. */
-  reviewedBy?: string;
-  createdAt: string;
+  revistoPor?: string;
+  criadoEm: string;
 }
 
 export interface ActivityEntry {
   $id: string;
-  userId: string;
-  action: ActivityAction;
-  details?: string; // JSON string with extra info (ex: link title)
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt: string;
+  idUtilizador: string;
+  acao: ActivityAction;
+  detalhes?: string; // JSON string with extra info (ex: link title)
+  enderecoIP?: string;
+  agenteUtilizador?: string;
+  criadoEm: string;
 }

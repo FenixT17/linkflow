@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   // Ao contrário do fluxo session (/account/sessions/oauth2/...), que guarda
   // a sessão num cookie a_session_* no domínio do Appwrite (bloqueado por 3P
   // cookie blocking e impossível de ler num Worker), o fluxo token anexa
-  // `userId`+`secret` ao success URL. O callback troca essas credenciais por
+  // `idUtilizador`+`secret` ao success URL. O callback troca essas credenciais por
   // uma sessão real server-side (POST /account/sessions/token) e define o
   // cookie HttpOnly da app — sem depender de cookies cross-site.
   const oauthUrl = new URL(
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   oauthUrl.searchParams.set("failure", new URL("/login", request.url).toString());
 
   // M2: marca o browser que iniciou o fluxo com um cookie de estado. O
-  // callback exige a sua presença antes de trocar userId+secret por sessão —
+  // callback exige a sua presença antes de trocar idUtilizador+secret por sessão —
   // impede login CSRF (um atacante não consegue semear este cookie no
   // browser da vítima).
   const response = NextResponse.redirect(oauthUrl, {

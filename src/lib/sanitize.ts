@@ -64,7 +64,7 @@ export function sanitizeMediaUrl(input: string): string {
 }
 
 /**
- * Sanitiza um username: apenas letras minúsculas, números e underscores.
+ * Sanitiza um nomeUtilizador: apenas letras minúsculas, números e underscores.
  */
 export function sanitizeUsername(input: string): string {
   if (!input) return "";

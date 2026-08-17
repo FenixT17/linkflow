@@ -128,7 +128,7 @@ const publicPages = [
   "src/app/login/layout.tsx",
   "src/app/register/layout.tsx",
   "src/app/demo/layout.tsx",
-  "src/app/u/[username]/page.tsx",
+  "src/app/u/[nomeUtilizador]/page.tsx",
 ];
 for (const page of publicPages) {
   if (fileExists(page)) {

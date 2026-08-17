@@ -9,7 +9,7 @@ import type { TopCountry, TopDevice, TopLink, Visitor } from "./types";
  * Coleção server-only onde cada IP é recolhido NO MÁXIMO UMA VEZ.
  *
  * PRIVACIDADE (M6 / RGPD-LGPD): o IP CRU nunca é persistido. A chave de
- * deduplicação é `visitorHash` = hashIp(ip) — um hash salgado não reversível.
+ * deduplicação é `hashVisitante` = hashIp(ip) — um hash salgado não reversível.
  * O campo `ip` da coleção (mantido por compatibilidade de schema) guarda
  * apenas esse hash, nunca o IP em texto plano.
  *
@@ -31,11 +31,11 @@ export async function collectIpIfNew(
   }
 
   // Nunca usar o IP cru: deduplicação e persistência apenas via hash salgado.
-  const visitorHash = hashIp(ip);
+  const hashVisitante = hashIp(ip);
 
   // 1. Verifica se o IP (via hash) já foi recolhido.
   const existing = await databases.listDocuments(databaseId, "collected_ips", [
-    Query.equal("visitorHash", visitorHash),
+    Query.equal("hashVisitante", hashVisitante),
     Query.limit(1),
   ]);
   if (existing.documents.length > 0) {
@@ -49,16 +49,16 @@ export async function collectIpIfNew(
     await databases.createDocument(databaseId, "collected_ips", ID.unique(), {
       // `ip` guarda apenas o hash (nunca o IP cru) — o índice único existente
       // continua a garantir "1 registo por IP" sem persistir PII.
-      ip: visitorHash,
-      visitorHash,
-      country: input.geo?.country ?? "",
-      countryCode: input.geo?.countryCode ?? "",
-      city: input.geo?.city ?? "",
-      device: input.device ?? detectDeviceType(input.userAgent),
-      browser: input.browser ?? "",
-      os: input.os ?? "",
-      firstSeenAt: now,
-      lastSeenAt: now,
+      ip: hashVisitante,
+      hashVisitante,
+      pais: input.geo?.country ?? "",
+      codigoPais: input.geo?.codigoPais ?? "",
+      cidade: input.geo?.city ?? "",
+      dispositivo: input.device ?? detectDeviceType(input.agenteUtilizador),
+      navegador: input.browser ?? "",
+      sistemaOperativo: input.os ?? "",
+      vistoPrimeiraVezEm: now,
+      vistoUltimaVezEm: now,
     });
     return { collected: true, alreadyExists: false };
   } catch (error) {
@@ -73,8 +73,8 @@ export async function collectIpIfNew(
 
 export interface DailyStat {
   day: string;
-  views: number;
-  clicks: number;
+  visualizacoes: number;
+  cliques: number;
 }
 
 /** Mantém o documento agregado abaixo do limite do atributo Appwrite. */
@@ -87,16 +87,17 @@ export function updateDailyStats(
 ): DailyStat[] {
   const today = new Date().toISOString().split("T")[0];
   const index = dailyStats.findIndex((s) => s.day === today);
+  const key = type === "views" ? "visualizacoes" : "cliques";
   const updated = index >= 0
     ? dailyStats.map((s, i) =>
-        i === index ? { ...s, [type]: (s[type] ?? 0) + 1 } : { ...s }
+        i === index ? { ...s, [key]: (s[key] ?? 0) + 1 } : { ...s }
       )
     : [
         ...dailyStats.map((s) => ({ ...s })),
         {
           day: today,
-          views: type === "views" ? 1 : 0,
-          clicks: type === "clicks" ? 1 : 0,
+          visualizacoes: type === "views" ? 1 : 0,
+          cliques: type === "clicks" ? 1 : 0,
         },
       ];
 
@@ -120,10 +121,10 @@ interface DailyVisitorDay {
 }
 
 export interface RecordAnalyticsEventInput {
-  pageId: string;
+  idPagina: string;
   ownerUserId: string;
   type: "views" | "clicks";
-  userAgent: string;
+  agenteUtilizador: string;
   ip: string;
   referer?: string;
   geo?: GeoInfo;
@@ -131,7 +132,7 @@ export interface RecordAnalyticsEventInput {
   os?: string;
   device?: DeviceType;
   /** Nome legível do dispositivo (ex: "Pixel 7" via sec-ch-ua-model). */
-  deviceName?: string;
+  nomeDispositivo?: string;
   linkId?: string;
   linkTitle?: string;
   linkUrl?: string;
@@ -143,14 +144,14 @@ export interface RecordAnalyticsEventInput {
  * Prioridade: nome explícito (UA-CH) → combinação dispositivo + OS → genérico.
  */
 export function buildStudyDeviceName(
-  deviceName: string | undefined,
+  nomeDispositivo: string | undefined,
   device: DeviceType | undefined,
   os: string | undefined,
-  userAgent: string
+  agenteUtilizador: string
 ): string {
-  const explicit = deviceName?.trim();
+  const explicit = nomeDispositivo?.trim();
   if (explicit) return explicit;
-  const deviceLabel = device ?? detectDeviceType(userAgent);
+  const deviceLabel = device ?? detectDeviceType(agenteUtilizador);
   const osLabel = os?.trim() || "Desconhecido";
   return `${deviceLabel} (${osLabel})`;
 }
@@ -168,23 +169,23 @@ export function formatCoordinates(latitude?: number, longitude?: number): string
 // ---------- Agregadores puros (sem I/O) ----------
 
 function upsertTopCountry(topCountries: TopCountry[], geo: GeoInfo | undefined): TopCountry[] {
-  const code = (geo?.countryCode || "XX").toUpperCase();
+  const code = (geo?.codigoPais || "XX").toUpperCase();
   const name = geo?.country || "Desconhecido";
-  const existing = topCountries.find((c) => (c.countryCode || "XX") === code);
+  const existing = topCountries.find((c) => (c.codigoPais || "XX") === code);
   if (existing) {
     existing.count += 1;
   } else {
-    topCountries.push({ country: name, countryCode: code, count: 1 });
+    topCountries.push({ pais: name, codigoPais: code, count: 1 });
   }
   return topCountries;
 }
 
 function upsertTopDevice(topDevices: TopDevice[], device: DeviceType): TopDevice[] {
-  const existing = topDevices.find((d) => d.type === device);
+  const existing = topDevices.find((d) => d.tipo === device);
   if (existing) {
     existing.count += 1;
   } else {
-    topDevices.push({ type: device, count: 1, percentage: 0 });
+    topDevices.push({ tipo: device, count: 1, percentage: 0 });
   }
   return topDevices;
 }
@@ -197,36 +198,36 @@ function upsertTopLink(
   if (!input.linkId) return topLinks;
   const existing = topLinks.find((l) => l.id === input.linkId);
   if (existing) {
-    existing.clicks += 1;
+    existing.cliques += 1;
   } else {
     topLinks.push({
       id: input.linkId,
-      title: input.linkTitle || "Link",
+      titulo: input.linkTitle || "Link",
       url: input.linkUrl,
-      clicks: 1,
+      cliques: 1,
       ctr: 0,
     });
   }
   // Mantém apenas os links mais relevantes para impedir crescimento infinito.
-  topLinks.sort((a, b) => b.clicks - a.clicks);
+  topLinks.sort((a, b) => b.cliques - a.cliques);
   const bounded = topLinks.slice(0, MAX_TOP_LINKS);
   // CTR real por link = cliques no link / total de cliques * 100
   return bounded.map((l) => ({
     ...l,
-    ctr: totalClicks > 0 ? Math.round((l.clicks / totalClicks) * 100) : 0,
+    ctr: totalClicks > 0 ? Math.round((l.cliques / totalClicks) * 100) : 0,
   }));
 }
 
-function buildRecentVisitor(input: RecordAnalyticsEventInput, visitorHash: string): Visitor {
+function buildRecentVisitor(input: RecordAnalyticsEventInput, hashVisitante: string): Visitor {
   return {
-    id: visitorHash,
-    country: input.geo?.country || "Desconhecido",
-    countryCode: input.geo?.countryCode,
-    city: input.geo?.city,
-    device: input.device ?? detectDeviceType(input.userAgent),
-    browser: input.browser || "Desconhecido",
-    os: input.os || "Desconhecido",
-    referer: input.referer,
+    id: hashVisitante,
+    pais: input.geo?.country || "Desconhecido",
+    codigoPais: input.geo?.codigoPais,
+    cidade: input.geo?.city,
+    dispositivo: input.device ?? detectDeviceType(input.agenteUtilizador),
+    navegador: input.browser || "Desconhecido",
+    sistemaOperativo: input.os || "Desconhecido",
+    origem: input.referer,
     time: new Date().toISOString(),
   };
 }
@@ -234,7 +235,7 @@ function buildRecentVisitor(input: RecordAnalyticsEventInput, visitorHash: strin
 // ---------- Crescimento (7 vs 7 dias) ----------
 
 /** Soma de views/cliques entre [now - fromDays, now - toDays] (toDays=0 → hoje). */
-function sumRange(dailyStats: DailyStat[], key: "views" | "clicks", fromDays: number, toDays = 0): number {
+function sumRange(dailyStats: DailyStat[], key: "visualizacoes" | "cliques", fromDays: number, toDays = 0): number {
   const now = new Date();
   const start = new Date(now);
   start.setDate(now.getDate() - fromDays);
@@ -289,7 +290,7 @@ function applyEventToMetrics(
   newClicks: number
 ): MetricsState {
   const metrics = { ...prevMetrics };
-  const device = input.device ?? detectDeviceType(input.userAgent);
+  const device = input.device ?? detectDeviceType(input.agenteUtilizador);
 
   // Agregados por tipo de evento (views → país/dispositivo/visitante; clicks → links)
   if (input.type === "views") {
@@ -303,12 +304,12 @@ function applyEventToMetrics(
     );
 
     // Visitantes únicos (dedup por hash do IP)
-    const visitorHash = hashIp(input.ip);
+    const hashVisitante = hashIp(input.ip);
     const visitorSet: string[] = Array.isArray(metrics.visitorSet)
       ? (metrics.visitorSet as string[])
       : [];
-    if (!visitorSet.includes(visitorHash)) {
-      visitorSet.push(visitorHash);
+    if (!visitorSet.includes(hashVisitante)) {
+      visitorSet.push(hashVisitante);
       if (visitorSet.length > MAX_VISITOR_SET) {
         visitorSet.splice(0, visitorSet.length - MAX_VISITOR_SET);
       }
@@ -327,11 +328,11 @@ function applyEventToMetrics(
     const dayIndex = dailyVisitors.findIndex((d) => d.day === today);
     if (dayIndex >= 0) {
       const day = dailyVisitors[dayIndex];
-      if (!day.hashes.includes(visitorHash) && day.hashes.length < MAX_DAILY_HASHES) {
-        day.hashes.push(visitorHash);
+      if (!day.hashes.includes(hashVisitante) && day.hashes.length < MAX_DAILY_HASHES) {
+        day.hashes.push(hashVisitante);
       }
     } else {
-      dailyVisitors.push({ day: today, hashes: [visitorHash] });
+      dailyVisitors.push({ day: today, hashes: [hashVisitante] });
       dailyVisitors.sort((a, b) => a.day.localeCompare(b.day));
       if (dailyVisitors.length > MAX_DAILY_VISITOR_DAYS) {
         dailyVisitors.splice(0, dailyVisitors.length - MAX_DAILY_VISITOR_DAYS);
@@ -344,7 +345,7 @@ function applyEventToMetrics(
     const recent: Visitor[] = Array.isArray(metrics.recentVisitors)
       ? (metrics.recentVisitors as Visitor[]).map((visitor) => ({ ...visitor }))
       : [];
-    recent.unshift(buildRecentVisitor(input, visitorHash));
+    recent.unshift(buildRecentVisitor(input, hashVisitante));
     metrics.recentVisitors = recent.slice(0, MAX_RECENT_VISITORS);
   } else {
     metrics.topLinks = upsertTopLink(
@@ -360,8 +361,8 @@ function applyEventToMetrics(
 
   // Crescimento real de visualizações (7 vs 7 dias) para os trends do dashboard
   const dailyStats = Array.isArray(metrics.dailyStats) ? (metrics.dailyStats as DailyStat[]) : [];
-  metrics.weeklyGrowth = computeGrowth(sumRange(dailyStats, "views", 7), sumRange(dailyStats, "views", 14, 7));
-  metrics.monthlyGrowth = computeGrowth(sumRange(dailyStats, "views", 30), sumRange(dailyStats, "views", 60, 30));
+  metrics.weeklyGrowth = computeGrowth(sumRange(dailyStats, "visualizacoes", 7), sumRange(dailyStats, "visualizacoes", 14, 7));
+  metrics.monthlyGrowth = computeGrowth(sumRange(dailyStats, "visualizacoes", 30), sumRange(dailyStats, "visualizacoes", 60, 30));
 
   return { metrics };
 }
@@ -373,18 +374,18 @@ function applyEventToMetrics(
 // Appwrite continua a proteger a criação inicial entre vários Workers.
 const analyticsLocks = new Map<string, Promise<void>>();
 
-async function withAnalyticsLock<T>(pageId: string, operation: () => Promise<T>): Promise<T> {
-  const previous = analyticsLocks.get(pageId) ?? Promise.resolve();
+async function withAnalyticsLock<T>(idPagina: string, operation: () => Promise<T>): Promise<T> {
+  const previous = analyticsLocks.get(idPagina) ?? Promise.resolve();
   let release!: () => void;
   const current = new Promise<void>((resolve) => { release = resolve; });
   const queued = previous.then(() => current);
-  analyticsLocks.set(pageId, queued);
+  analyticsLocks.set(idPagina, queued);
   await previous;
   try {
     return await operation();
   } finally {
     release();
-    if (analyticsLocks.get(pageId) === queued) analyticsLocks.delete(pageId);
+    if (analyticsLocks.get(idPagina) === queued) analyticsLocks.delete(idPagina);
   }
 }
 
@@ -419,27 +420,27 @@ async function incrementAnalyticsMetric(
   input: RecordAnalyticsEventInput
 ): Promise<void> {
   const fields = doc as Models.Document & Record<string, unknown>;
-  const prevViews = Number(fields.views) || 0;
-  const prevClicks = Number(fields.clicks) || 0;
+  const prevViews = Number(fields.visualizacoes) || 0;
+  const prevClicks = Number(fields.cliques) || 0;
   const newViews = prevViews + (input.type === "views" ? 1 : 0);
   const newClicks = prevClicks + (input.type === "clicks" ? 1 : 0);
 
-  let metricsJson: Record<string, unknown>;
+  let metricasJson: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(String(fields.metricsJson || "{}"));
-    metricsJson = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+    const parsed = JSON.parse(String(fields.metricasJson || "{}"));
+    metricasJson = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
   } catch {
-    metricsJson = {};
+    metricasJson = {};
   }
-  const dailyStats = Array.isArray(metricsJson.dailyStats) ? metricsJson.dailyStats as DailyStat[] : [];
+  const dailyStats = Array.isArray(metricasJson.dailyStats) ? metricasJson.dailyStats as DailyStat[] : [];
   const updatedDaily = updateDailyStats(dailyStats, input.type);
-  const { metrics } = applyEventToMetrics({ ...metricsJson, dailyStats: updatedDaily }, input, newViews, newClicks);
+  const { metrics } = applyEventToMetrics({ ...metricasJson, dailyStats: updatedDaily }, input, newViews, newClicks);
 
   const patch: Record<string, unknown> = {
-    metricsJson: JSON.stringify(metrics),
-    views: newViews,
-    clicks: newClicks,
-    followers: Number(metrics.uniqueVisitors ?? 0),
+    metricasJson: JSON.stringify(metrics),
+    visualizacoes: newViews,
+    cliques: newClicks,
+    seguidores: Number(metrics.uniqueVisitors ?? 0),
   };
 
   await databases.updateDocument(databaseId, "analytics", doc.$id, patch);
@@ -451,7 +452,7 @@ async function incrementAnalyticsMetric(
  * - Atualiza os agregados reais no documento analytics (países, dispositivos,
  *   links, visitantes únicos, CTR) — nunca dados simulados.
  * - Cria o documento se não existir (páginas antigas passam a ser contadas).
- * - Trata a race do índice único em pageId (409) re-consultando e atualizando.
+ * - Trata a race do índice único em idPagina (409) re-consultando e atualizando.
  * - Grava um registo bruto na coleção server-only `visits` (IP nunca exposto
  *   ao cliente — usado apenas para país, dedup e estatísticas).
  */
@@ -462,9 +463,9 @@ export async function recordAnalyticsEvent(
   const newViews = input.type === "views" ? 1 : 0;
   const newClicks = input.type === "clicks" ? 1 : 0;
 
-  await withAnalyticsLock(input.pageId, async () => {
+  await withAnalyticsLock(input.idPagina, async () => {
     const docs = await databases.listDocuments(databaseId, "analytics", [
-      Query.equal("pageId", input.pageId),
+      Query.equal("idPagina", input.idPagina),
     ]);
 
     if (docs.documents.length > 0) {
@@ -473,20 +474,20 @@ export async function recordAnalyticsEvent(
       const firstMetrics = createInitialMetrics(input, newViews, newClicks);
       try {
         await databases.createDocument(databaseId, "analytics", ID.unique(), {
-          pageId: input.pageId,
-          views: newViews,
-          clicks: newClicks,
-          followers: Number(firstMetrics.uniqueVisitors ?? 0),
-          metricsJson: JSON.stringify(firstMetrics),
+          idPagina: input.idPagina,
+          visualizacoes: newViews,
+          cliques: newClicks,
+          seguidores: Number(firstMetrics.uniqueVisitors ?? 0),
+          metricasJson: JSON.stringify(firstMetrics),
         }, [
           Permission.read(Role.user(input.ownerUserId)),
           Permission.update(Role.user(input.ownerUserId)),
           Permission.delete(Role.user(input.ownerUserId)),
         ]);
       } catch (createError) {
-        // Race: outro pedido criou o doc entretanto (índice único em pageId)
+        // Race: outro pedido criou o doc entretanto (índice único em idPagina)
         const retry = await databases.listDocuments(databaseId, "analytics", [
-          Query.equal("pageId", input.pageId),
+          Query.equal("idPagina", input.idPagina),
         ]);
         if (retry.documents.length === 0) throw createError;
         await incrementAnalyticsMetric(databases, retry.documents[0], input);
@@ -497,19 +498,19 @@ export async function recordAnalyticsEvent(
   // Registo bruto da visita (server-only — o cliente nunca lê esta coleção).
   try {
     await databases.createDocument(databaseId, "visits", ID.unique(), {
-      pageId: input.pageId,
-      visitorHash: hashIp(input.ip),
+      idPagina: input.idPagina,
+      hashVisitante: hashIp(input.ip),
       ip: hashIp(input.ip), // FASE 2: Nunca guarda IP em texto limpo — usa apenas o hash salgado não reversível
-      country: input.geo?.country ?? "",
-      countryCode: input.geo?.countryCode ?? "",
-      city: input.geo?.city ?? "",
-      device: input.device ?? detectDeviceType(input.userAgent),
-      browser: input.browser ?? "",
-      os: input.os ?? "",
-      referer: input.referer ?? "",
-      userAgent: input.userAgent.slice(0, 500),
-      clickedLink: input.linkId ?? "",
-      createdAt: new Date().toISOString(),
+      pais: input.geo?.country ?? "",
+      codigoPais: input.geo?.codigoPais ?? "",
+      cidade: input.geo?.city ?? "",
+      dispositivo: input.device ?? detectDeviceType(input.agenteUtilizador),
+      navegador: input.browser ?? "",
+      sistemaOperativo: input.os ?? "",
+      origem: input.referer ?? "",
+      agenteUtilizador: input.agenteUtilizador.slice(0, 500),
+      linkClicado: input.linkId ?? "",
+      criadoEm: new Date().toISOString(),
     });
   } catch (visitError) {
     // Nunca deve quebrar o tracking principal
@@ -588,26 +589,26 @@ async function collectStudyData(
   // (cache 24h) — compatíveis com Google Maps.
   const coords = await lookupCoordinates(ip);
   const country = input.geo?.country || coords.country || "";
-  const countryCode = input.geo?.countryCode || coords.countryCode || "";
+  const codigoPais = input.geo?.codigoPais || coords.codigoPais || "";
   const city = input.geo?.city || coords.city || "";
 
   try {
     await databases.createDocument(databaseId, "dados_para_estudos", ID.unique(), {
       ip: ip.slice(0, 64), // IP em texto bruto (decisão explícita do produto)
-      deviceName: buildStudyDeviceName(input.deviceName, input.device, input.os, input.userAgent).slice(0, 255),
-      device: (input.device ?? detectDeviceType(input.userAgent)).slice(0, 32),
-      browser: (input.browser || "").slice(0, 64),
-      os: (input.os || "").slice(0, 64),
-      userAgent: input.userAgent.slice(0, 512),
-      country: country.slice(0, 128),
-      countryCode: countryCode.slice(0, 8),
-      city: city.slice(0, 128),
+      nomeDispositivo: buildStudyDeviceName(input.nomeDispositivo, input.device, input.os, input.agenteUtilizador).slice(0, 255),
+      dispositivo: (input.device ?? detectDeviceType(input.agenteUtilizador)).slice(0, 32),
+      navegador: (input.browser || "").slice(0, 64),
+      sistemaOperativo: (input.os || "").slice(0, 64),
+      agenteUtilizador: input.agenteUtilizador.slice(0, 512),
+      pais: country.slice(0, 128),
+      codigoPais: codigoPais.slice(0, 8),
+      cidade: city.slice(0, 128),
       latitude: coords.latitude != null ? String(coords.latitude).slice(0, 32) : "",
       longitude: coords.longitude != null ? String(coords.longitude).slice(0, 32) : "",
-      coordinates: formatCoordinates(coords.latitude, coords.longitude).slice(0, 64),
-      pageId: input.pageId.slice(0, 255),
-      referer: (input.referer || "").slice(0, 512),
-      createdAt: new Date().toISOString(),
+      coordenadas: formatCoordinates(coords.latitude, coords.longitude).slice(0, 64),
+      idPagina: input.idPagina.slice(0, 255),
+      origem: (input.referer || "").slice(0, 512),
+      criadoEm: new Date().toISOString(),
     });
   } catch (error) {
     // Se duas requests viram a coleção vazia ao mesmo tempo, só uma pode

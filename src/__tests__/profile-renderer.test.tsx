@@ -24,11 +24,11 @@ vi.mock("@/components/ui/platform-icon", () => ({
 }));
 
 const profile: PageProfile = {
-  username: "joao",
-  displayName: "João Silva",
-  bio: "Olá, bem-vindo!",
-  published: true,
-  pageType: "minimal",
+  nomeUtilizador: "joao",
+  nomeExibicao: "João Silva",
+  biografia: "Olá, bem-vindo!",
+  publicado: true,
+  tipoPagina: "minimal",
 };
 
 const appearance = defaultAppearance();
@@ -36,14 +36,14 @@ const appearance = defaultAppearance();
 function makeLink(url: string): LinkItem {
   return {
     id: "l1",
-    type: "link",
-    title: "Meu link",
+    tipo: "link",
+    titulo: "Meu link",
     url,
-    active: true,
-    visible: true,
-    newTab: true,
-    order: 0,
-    clicks: 0,
+    ativo: true,
+    visivel: true,
+    novaAba: true,
+    ordem: 0,
+    cliques: 0,
   };
 }
 

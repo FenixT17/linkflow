@@ -189,7 +189,7 @@ const trustFeatures = [
   { icon: Users, title: "Login Google e GitHub", desc: "Acesso rápido sem passwords." },
   { icon: QrCode, title: "QR Code", desc: "Partilhe a sua página em qualquer lado." },
   { icon: Crown, title: "Temas & 12 Templates", desc: "Designs profissionais exclusivos." },
-  { icon: Sparkles, title: "44+ Redes sociais", desc: "Integração instantânea por username." },
+  { icon: Sparkles, title: "44+ Redes sociais", desc: "Integração instantânea por nomeUtilizador." },
   { icon: Layout, title: "Domínio personalizado", desc: "Suporte em desenvolvimento." },
 ];
 

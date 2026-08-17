@@ -4,23 +4,23 @@ import { useEffect, useRef } from "react";
 import { hasStudyConsent } from "@/lib/study-consent";
 
 interface ViewTrackerProps {
-  pageId: string;
+  idPagina: string;
 }
 
-export function ViewTracker({ pageId }: ViewTrackerProps) {
+export function ViewTracker({ idPagina }: ViewTrackerProps) {
   const tracked = useRef(false);
 
   useEffect(() => {
-    if (!pageId || tracked.current) return;
+    if (!idPagina || tracked.current) return;
     tracked.current = true;
     fetch("/api/view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pageId, studyConsent: hasStudyConsent() }),
+      body: JSON.stringify({ idPagina, studyConsent: hasStudyConsent() }),
     }).catch((error) => {
       console.error("[ViewTracker] failed to record view:", error);
     });
-  }, [pageId]);
+  }, [idPagina]);
 
   return null;
 }

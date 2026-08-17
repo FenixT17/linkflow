@@ -194,12 +194,12 @@ export function DashboardSidebar() {
             )}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-sm font-medium text-white/80">
-              {account?.displayName?.charAt(0) || "U"}
+              {account?.nomeExibicao?.charAt(0) || "U"}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate text-white/90">
-                  {account?.displayName ?? "Utilizador"}
+                  {account?.nomeExibicao ?? "Utilizador"}
                 </p>
                 <p className="text-xs text-white/40 truncate">
                   {account?.email ?? ""}

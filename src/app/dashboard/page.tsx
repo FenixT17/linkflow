@@ -62,8 +62,8 @@ function formatDate(dateStr: string) {
 
 interface ChartPoint {
   label: string;
-  views: number;
-  clicks: number;
+  visualizacoes: number;
+  cliques: number;
 }
 
 function useChartData(): ChartPoint[] {
@@ -73,8 +73,8 @@ function useChartData(): ChartPoint[] {
     if (analytics?.dailyStats && analytics.dailyStats.length > 0) {
       return analytics.dailyStats.map((d) => ({
         label: formatDate(d.day),
-        views: d.views,
-        clicks: d.clicks,
+        visualizacoes: d.visualizacoes,
+        cliques: d.cliques,
       }));
     }
     return [];
@@ -128,8 +128,8 @@ function parseActivityDetails(details?: string): string | undefined {
     const parsed = JSON.parse(details) as Record<string, unknown>;
     const title = typeof parsed.title === "string" ? parsed.title : undefined;
     if (title) return title;
-    const username = typeof parsed.username === "string" ? parsed.username : undefined;
-    if (username) return `@${username}`;
+    const nomeUtilizador = typeof parsed.nomeUtilizador === "string" ? parsed.nomeUtilizador : undefined;
+    if (nomeUtilizador) return `@${nomeUtilizador}`;
     return undefined;
   } catch {
     return undefined;
@@ -173,7 +173,7 @@ export default function DashboardPage() {
     () => [
       {
         label: "Visualizações hoje",
-        value: formatNumber(analytics?.views ?? 0),
+        value: formatNumber(analytics?.visualizacoes ?? 0),
         icon: Eye,
         trend: hasWeeklyGrowth
           ? { value: `+${analytics!.weeklyGrowth}% esta semana`, positive: true }
@@ -181,7 +181,7 @@ export default function DashboardPage() {
       },
       {
         label: "Cliques hoje",
-        value: formatNumber(analytics?.clicks ?? 0),
+        value: formatNumber(analytics?.cliques ?? 0),
         icon: MousePointer,
         trend: hasMonthlyGrowth
           ? { value: `+${analytics!.monthlyGrowth}% este mês`, positive: true }
@@ -214,15 +214,15 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-glass-fade-in">
       <SectionHeader
         title="Visão geral"
-        description={`Bem-vindo de volta, ${account?.displayName || "Utilizador"}.`}
+        description={`Bem-vindo de volta, ${account?.nomeExibicao || "Utilizador"}.`}
       >
         <div className="flex items-center gap-2">
-          {page?.username && (
+          {page?.nomeUtilizador && (
             <GlassButton
               variant="outline"
               size="sm"
               onClick={async () => {
-                const url = `${window.location.origin}/u/${page.username}`;
+                const url = `${window.location.origin}/u/${page.nomeUtilizador}`;
                 try {
                   if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
                   await navigator.clipboard.writeText(url);
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                   <Tooltip content={<ChartTooltip />} />
                   <Area
                     type="monotone"
-                    dataKey="views"
+                    dataKey="visualizacoes"
                     name="Visualizações"
                     stroke="rgba(255,255,255,0.6)"
                     strokeWidth={2}
@@ -330,7 +330,7 @@ export default function DashboardPage() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="clicks"
+                    dataKey="cliques"
                     name="Cliques"
                     stroke="#22c55e"
                     strokeWidth={2}
@@ -378,12 +378,12 @@ export default function DashboardPage() {
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white/90 truncate">
-                      {link.title}
+                      {link.titulo}
                     </p>
                     <p className="text-xs text-white/40">{link.ctr}% CTR</p>
                   </div>
                   <span className="text-sm font-medium text-white/70">
-                    {link.clicks} cliques
+                    {link.cliques} cliques
                   </span>
                 </div>
               ))}
@@ -415,7 +415,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {recentVisitors.map((visitor) => (
               <div
-                // O mesmo visitante (visitorHash) pode voltar várias vezes — a
+                // O mesmo visitante (hashVisitante) pode voltar várias vezes — a
                 // chave tem de ser única por ACESSO (id + hora), não por visitante.
                 key={`${visitor.id}-${visitor.time}`}
                 className="flex items-center gap-3 rounded-xl bg-white/[0.03] border border-white/[0.06] px-4 py-3 hover:bg-white/[0.05] transition-colors"
@@ -426,12 +426,12 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-white/90 truncate">
                     <span className="text-base leading-none" aria-hidden="true">
-                      {countryFlag(visitor.countryCode)}
+                      {countryFlag(visitor.codigoPais)}
                     </span>
-                    <span className="truncate">{visitor.country || "Desconhecido"}</span>
+                    <span className="truncate">{visitor.pais || "Desconhecido"}</span>
                   </p>
                   <p className="text-xs text-white/40 truncate">
-                    {visitor.browser} • {visitor.os}
+                    {visitor.navegador} • {visitor.sistemaOperativo}
                   </p>
                 </div>
                 <div
@@ -484,9 +484,9 @@ export default function DashboardPage() {
              evita que o scroll do cartão "contagie" a página (bug de scroll em cadeia). */
           <div className="mt-5 max-h-80 overflow-y-auto overscroll-contain glass-scrollbar space-y-2.5 pr-1">
             {activities.slice(0, 15).map((activity) => {
-              const meta = ACTIVITY_META[activity.action] ?? { label: activity.action, icon: Activity };
+              const meta = ACTIVITY_META[activity.acao] ?? { label: activity.acao, icon: Activity };
               const Icon = meta.icon;
-              const detail = parseActivityDetails(activity.details);
+              const detail = parseActivityDetails(activity.detalhes);
               return (
                 <div
                   key={activity.$id}
@@ -502,13 +502,13 @@ export default function DashboardPage() {
                     </p>
                     {/* Privacidade: o IP não é mostrado ao utilizador. */}
                     <p className="text-xs text-white/40 truncate">
-                      {formatVisitTime(activity.createdAt)}
+                      {formatVisitTime(activity.criadoEm)}
                     </p>
 
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-xs text-white/50">
                     <Clock className="h-3 w-3" />
-                    <span className="tabular-nums">{timeAgo(activity.createdAt)}</span>
+                    <span className="tabular-nums">{timeAgo(activity.criadoEm)}</span>
                   </div>
                 </div>
               );

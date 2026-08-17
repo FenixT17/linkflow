@@ -68,30 +68,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const eventType = typeof body.eventType === "string" ? body.eventType.trim() : "";
-    if (!eventType || !VALID_EVENTS.includes(eventType as typeof VALID_EVENTS[number])) {
-      return NextResponse.json({ error: "Invalid eventType" }, { status: 400 });
+    const tipoEvento = typeof body.tipoEvento === "string" ? body.tipoEvento.trim() : "";
+    if (!tipoEvento || !VALID_EVENTS.includes(tipoEvento as typeof VALID_EVENTS[number])) {
+      return NextResponse.json({ error: "Invalid tipoEvento" }, { status: 400 });
     }
 
     const { databases } = createServerClient();
 
     // IP confiável da infraestrutura (cf-connecting-ip da Cloudflare) — nunca
     // do body nem de headers falsificáveis pelo cliente.
-    const ipAddress = getClientIp(request);
-    const userAgent = request.headers.get("user-agent") ?? "";
+    const enderecoIP = getClientIp(request);
+    const agenteUtilizador = request.headers.get("user-agent") ?? "";
 
     // Sanitize email: hash it to avoid storing PII in plain text
     const rawEmail = typeof body.email === "string" ? body.email.trim() : "";
     const emailHash = rawEmail ? await hashForLog(rawEmail) : "";
 
     await databases.createDocument(databaseId, "security_logs", ID.unique(), {
-      userId: user.$id,
-      eventType,
+      idUtilizador: user.$id,
+      tipoEvento,
       email: emailHash,
-      ipAddress,
-      userAgent,
-      metadata: body.metadata ? JSON.stringify(body.metadata).slice(0, MAX_METADATA_BYTES) : "",
-      createdAt: new Date().toISOString(),
+      enderecoIP,
+      agenteUtilizador,
+      metadados: body.metadados ? JSON.stringify(body.metadados).slice(0, MAX_METADATA_BYTES) : "",
+      criadoEm: new Date().toISOString(),
     });
 
     return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rate) });

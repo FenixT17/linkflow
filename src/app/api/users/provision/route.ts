@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const { databases } = createServerClient();
-    const userId = auth.user.$id;
+    const idUtilizador = auth.user.$id;
     const existing = await databases.listDocuments(databaseId, COLLECTION_USERS, [
-      Query.equal("userId", userId),
+      Query.equal("idUtilizador", idUtilizador),
       Query.limit(1),
     ]);
 
@@ -56,14 +56,14 @@ export async function POST(request: NextRequest) {
         COLLECTION_USERS,
         existingDoc.$id,
         {
-          userId,
+          idUtilizador,
           email: auth.user.email || String(existingDoc.email ?? ""),
-          displayName: String(existingDoc.displayName ?? auth.user.name ?? "Utilizador"),
-          plan: ["free", "pro", "business", "enterprise"].includes(String(existingDoc.plan))
-            ? String(existingDoc.plan)
+          nomeExibicao: String(existingDoc.nomeExibicao ?? auth.user.name ?? "Utilizador"),
+          plano: ["free", "pro", "business", "enterprise"].includes(String(existingDoc.plano))
+            ? String(existingDoc.plano)
             : "free",
         },
-        [Permission.read(Role.user(userId))]
+        [Permission.read(Role.user(idUtilizador))]
       );
       return NextResponse.json(
         { profile: mapProfile(repaired) },
@@ -71,23 +71,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const geo = await resolveGeo(ip, request).catch(() => ({ country: "", countryCode: "" }));
-    const countryCode = geo.countryCode?.toUpperCase() ?? "";
+    const geo = await resolveGeo(ip, request).catch(() => ({ country: "", codigoPais: "" }));
+    const codigoPais = geo.codigoPais?.toUpperCase() ?? "";
     const profile = await databases.createDocument(
       databaseId,
       COLLECTION_USERS,
       ID.unique(),
       {
-        userId,
+        idUtilizador,
         email: auth.user.email || "",
-        displayName: auth.user.name || "Utilizador",
-        plan: "free",
-        country: geo.country ?? "",
-        countryCode,
-        currency: currencyForCountry(countryCode),
-        createdAt: auth.user.$createdAt || new Date().toISOString(),
+        nomeExibicao: auth.user.name || "Utilizador",
+        plano: "free",
+        pais: geo.country ?? "",
+        codigoPais,
+        moeda: currencyForCountry(codigoPais),
+        criadoEm: auth.user.$createdAt || new Date().toISOString(),
       },
-      [Permission.read(Role.user(userId))]
+      [Permission.read(Role.user(idUtilizador))]
     );
 
     return NextResponse.json(
@@ -105,13 +105,13 @@ export async function POST(request: NextRequest) {
 function mapProfile(doc: Record<string, unknown>) {
   return {
     email: String(doc.email ?? ""),
-    displayName: String(doc.displayName ?? "Utilizador"),
-    createdAt: String(doc.createdAt ?? ""),
-    plan: ["free", "pro", "business", "enterprise"].includes(String(doc.plan))
-      ? String(doc.plan)
+    nomeExibicao: String(doc.nomeExibicao ?? "Utilizador"),
+    criadoEm: String(doc.criadoEm ?? ""),
+    plano: ["free", "pro", "business", "enterprise"].includes(String(doc.plano))
+      ? String(doc.plano)
       : "free",
-    country: doc.country ? String(doc.country) : undefined,
-    countryCode: doc.countryCode ? String(doc.countryCode) : undefined,
-    currency: doc.currency ? String(doc.currency) : undefined,
+    pais: doc.pais ? String(doc.pais) : undefined,
+    codigoPais: doc.codigoPais ? String(doc.codigoPais) : undefined,
+    moeda: doc.moeda ? String(doc.moeda) : undefined,
   };
 }

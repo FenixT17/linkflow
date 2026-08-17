@@ -132,17 +132,17 @@ export function SectionLabel({
  */
 export function TemplateLinkPill({
   link,
-  pageId,
+  idPagina,
   iconColor,
-  textColor,
+  corTexto,
   iconBg = "rgba(255,255,255,0.06)",
   chevronColor,
   className,
 }: {
   link: LinkItem;
-  pageId: string;
+  idPagina: string;
   iconColor: string;
-  textColor?: string;
+  corTexto?: string;
   iconBg?: string;
   chevronColor?: string;
   className?: string;
@@ -150,7 +150,7 @@ export function TemplateLinkPill({
   return (
     <TrackedLink
       link={link}
-      pageId={pageId}
+      idPagina={idPagina}
       className={cn(
         "group flex w-full items-center gap-3 rounded-full px-4 py-3 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
         className
@@ -162,16 +162,16 @@ export function TemplateLinkPill({
         aria-hidden="true"
       >
         <PlatformIcon
-          platformId={link.icon ?? "link"}
+          platformId={link.icone ?? "link"}
           size={16}
           color={iconColor}
         />
       </span>
       <span
         className="flex-1 truncate text-center text-sm font-medium"
-        style={{ color: textColor ?? iconColor }}
+        style={{ color: corTexto ?? iconColor }}
       >
-        {link.title || "Link"}
+        {link.titulo || "Link"}
       </span>
       <ChevronDown
         className="h-4 w-4 shrink-0 opacity-60 transition-transform duration-200 group-hover:translate-y-0.5"
@@ -183,13 +183,13 @@ export function TemplateLinkPill({
 }
 
 /** Rodapé LinkFlow consistente em todos os templates */
-export function TemplateFooter({ textColor }: { textColor?: string }) {
+export function TemplateFooter({ corTexto }: { corTexto?: string }) {
   return (
     <footer className="pt-14 pb-10 text-center">
       <Link
         href="/"
         className="inline-flex items-center gap-2 text-xs font-medium opacity-60 transition-opacity hover:opacity-100"
-        style={{ color: textColor }}
+        style={{ color: corTexto }}
       >
         <Logo size={14} className="brightness-150 contrast-125" />
         LinkFlow

@@ -36,17 +36,17 @@ export function isSafeThemeFont(value: unknown): value is string {
 }
 
 export function validateThemeField(field: string, value: unknown): boolean {
-  if (["backgroundColor", "cardColor", "textColor", "accentColor", "borderColor"].includes(field)) {
+  if (["corFundo", "corCartao", "corTexto", "corDestaque", "borderColor"].includes(field)) {
     return isSafeThemeColor(value);
   }
-  if (field === "fontFamily") return isSafeThemeFont(value);
+  if (field === "familiaFonte") return isSafeThemeFont(value);
   return true;
 }
 
 export function validateThemePayload(payload: unknown): string | null {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "Tema inválido.";
   const record = payload as Record<string, unknown>;
-  for (const field of ["backgroundColor", "cardColor", "textColor", "accentColor", "borderColor", "fontFamily"]) {
+  for (const field of ["corFundo", "corCartao", "corTexto", "corDestaque", "borderColor", "familiaFonte"]) {
     if (field in record && !validateThemeField(field, record[field])) {
       return `Valor de tema inválido: ${field}.`;
     }

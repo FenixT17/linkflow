@@ -21,13 +21,13 @@ const TABLET_RE =
  * 2. Se corresponde a mobile → "mobile"
  * 3. Caso contrário → "desktop"
  */
-export function detectDeviceType(userAgent: string | null | undefined): DeviceType {
-  if (!userAgent) return "desktop";
+export function detectDeviceType(agenteUtilizador: string | null | undefined): DeviceType {
+  if (!agenteUtilizador) return "desktop";
 
   // Tablet primeiro — alguns tablets Android reportam "Mobile" no UA,
   // mas o padrão tablet é mais específico e deve ter prioridade.
-  if (TABLET_RE.test(userAgent)) return "tablet";
-  if (MOBILE_RE.test(userAgent)) return "mobile";
+  if (TABLET_RE.test(agenteUtilizador)) return "tablet";
+  if (MOBILE_RE.test(agenteUtilizador)) return "mobile";
 
   return "desktop";
 }
@@ -35,9 +35,9 @@ export function detectDeviceType(userAgent: string | null | undefined): DeviceTy
 /**
  * Deteta o browser a partir do user-agent.
  */
-export function detectBrowser(userAgent: string | null | undefined): string {
-  if (!userAgent) return "Desconhecido";
-  const ua = userAgent.toLowerCase();
+export function detectBrowser(agenteUtilizador: string | null | undefined): string {
+  if (!agenteUtilizador) return "Desconhecido";
+  const ua = agenteUtilizador.toLowerCase();
   if (ua.includes("edg/")) return "Edge";
   if (ua.includes("opr/") || ua.includes("opera")) return "Opera";
   if (ua.includes("chrome") && !ua.includes("chromium")) return "Chrome";
@@ -51,9 +51,9 @@ export function detectBrowser(userAgent: string | null | undefined): string {
 /**
  * Deteta o sistema operativo a partir do user-agent.
  */
-export function detectOS(userAgent: string | null | undefined): string {
-  if (!userAgent) return "Desconhecido";
-  const ua = userAgent.toLowerCase();
+export function detectOS(agenteUtilizador: string | null | undefined): string {
+  if (!agenteUtilizador) return "Desconhecido";
+  const ua = agenteUtilizador.toLowerCase();
   if (ua.includes("windows")) return "Windows";
   if (ua.includes("android")) return "Android";
   if (ua.includes("iphone") || ua.includes("ipod")) return "iOS";
@@ -64,17 +64,17 @@ export function detectOS(userAgent: string | null | undefined): string {
 }
 
 /**
- * Regista o tipo de dispositivo no metricsJson.
- * Devolve o metricsJson atualizado.
+ * Regista o tipo de dispositivo no metricasJson.
+ * Devolve o metricasJson atualizado.
  */
 export function recordDeviceVisit(
-  metricsJson: Record<string, unknown>,
-  userAgent: string
+  metricasJson: Record<string, unknown>,
+  agenteUtilizador: string
 ): Record<string, unknown> {
-  const deviceType = detectDeviceType(userAgent);
-  const deviceLog: string[] = Array.isArray(metricsJson.deviceLog) ? metricsJson.deviceLog : [];
+  const deviceType = detectDeviceType(agenteUtilizador);
+  const deviceLog: string[] = Array.isArray(metricasJson.deviceLog) ? metricasJson.deviceLog : [];
   deviceLog.push(deviceType);
   // Manter apenas as últimas 1000 entradas para evitar crescimento ilimitado
   const trimmedDeviceLog = deviceLog.length > 1000 ? deviceLog.slice(-1000) : deviceLog;
-  return { ...metricsJson, deviceLog: trimmedDeviceLog };
+  return { ...metricasJson, deviceLog: trimmedDeviceLog };
 }

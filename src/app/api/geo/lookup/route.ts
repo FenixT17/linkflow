@@ -34,12 +34,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const geo = await resolveGeo(ip, request);
-    const countryCode = geo.countryCode?.toUpperCase() ?? "";
+    const codigoPais = geo.codigoPais?.toUpperCase() ?? "";
     return NextResponse.json(
       {
         country: geo.country ?? "",
-        countryCode,
-        currency: currencyForCountry(countryCode),
+        codigoPais,
+        currency: currencyForCountry(codigoPais),
       },
       { headers: mergeRateLimitHeaders(undefined, rate) },
     );
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         country: "",
-        countryCode: "",
+        codigoPais: "",
         currency: "EUR",
       },
       { headers: mergeRateLimitHeaders(undefined, rate) },

@@ -21,7 +21,7 @@ import type { PageTemplateId } from "@/lib/types";
 
 export default function PagesPage() {
   const router = useRouter();
-  const { page, pageId, updatePage } = useAuth();
+  const { page, idPagina, updatePage } = useAuth();
   const { showToast } = useToast();
   const [savingId, setSavingId] = useState<string | null>(null);
 
@@ -31,8 +31,8 @@ export default function PagesPage() {
   }, [page, router]);
 
   // Template atual (valida contra a whitelist — nunca valores inválidos)
-  const current: PageTemplateId = isPageTemplate(page?.pageTemplate)
-    ? page.pageTemplate
+  const current: PageTemplateId = isPageTemplate(page?.modeloPagina)
+    ? page.modeloPagina
     : DEFAULT_PAGE_TEMPLATE;
 
   if (!page) {
@@ -40,10 +40,10 @@ export default function PagesPage() {
   }
 
   const handleSelect = async (templateId: PageTemplateId) => {
-    if (!pageId || templateId === current || savingId) return;
+    if (!idPagina || templateId === current || savingId) return;
     setSavingId(templateId);
     try {
-      await updatePage({ pageTemplate: templateId });
+      await updatePage({ modeloPagina: templateId });
       showToast("Página atualizada com sucesso!", "success");
     } catch (error) {
       console.error("[PagesPage] Failed to update template:", error);
@@ -161,14 +161,14 @@ export default function PagesPage() {
             <p className="mt-1 text-xs text-white/45">
               Abra a sua página pública para ver o layout em ação:
               <span className="ml-1 font-medium text-white/70">
-                /u/{page.username}
+                /u/{page.nomeUtilizador}
               </span>
             </p>
           </div>
           <GlassButton
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/u/${page.username}`)}
+            onClick={() => router.push(`/u/${page.nomeUtilizador}`)}
           >
             <ExternalLink className="h-4 w-4" /> Ver página
           </GlassButton>

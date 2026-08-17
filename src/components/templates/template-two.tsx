@@ -13,7 +13,7 @@ export function TemplateTwo({ profile, links, appearance, publicUrl }: TemplateP
   const muted = "rgba(245,245,247,0.5)";
   const violet = "#8b5cf6";
   const violetSoft = "#c4b5fd";
-  const font = appearance.fontFamily || "Inter";
+  const font = appearance.familiaFonte || "Inter";
 
   return (
     <div
@@ -28,23 +28,23 @@ export function TemplateTwo({ profile, links, appearance, publicUrl }: TemplateP
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 py-16">
         {/* Perfil centrado */}
         <header className="flex flex-col items-center text-center">
-          {appearance.showAvatar !== false && (
+          {appearance.mostrarAvatar !== false && (
             <TemplateAvatar
               src={profile.avatar}
-              name={profile.displayName}
+              name={profile.nomeExibicao}
               size={88}
-              badges={profile.badges}
+              badges={profile.emblemas}
               className="ring-2 ring-violet-500/40 shadow-[0_0_45px_-6px_rgba(139,92,246,0.55)]"
             />
           )}
-          <h1 className="mt-6 text-2xl font-bold tracking-tight">{profile.displayName}</h1>
-          <ProfileBadges badges={profile.badges} className="mt-2" />
+          <h1 className="mt-6 text-2xl font-bold tracking-tight">{profile.nomeExibicao}</h1>
+          <ProfileBadges badges={profile.emblemas} className="mt-2" />
           <p className="mt-1 text-sm font-medium" style={{ color: muted }}>
-            @{profile.username}
+            @{profile.nomeUtilizador}
           </p>
-          {appearance.showBio !== false && profile.bio && (
+          {appearance.mostrarBiografia !== false && profile.biografia && (
             <p className="mt-3 max-w-xs text-sm leading-relaxed" style={{ color: muted }}>
-              {profile.bio}
+              {profile.biografia}
             </p>
           )}
         </header>
@@ -60,9 +60,9 @@ export function TemplateTwo({ profile, links, appearance, publicUrl }: TemplateP
             <TemplateLinkPill
               key={link.id}
               link={link}
-              pageId={profile.$id}
+              idPagina={profile.$id}
               iconColor={violet}
-              textColor={violetSoft}
+              corTexto={violetSoft}
               iconBg="rgba(139,92,246,0.12)"
               chevronColor={violet}
               className="bg-[#131318] ring-1 ring-violet-500/25 shadow-[0_10px_30px_-12px_rgba(139,92,246,0.25)] hover:bg-[#181824] hover:ring-violet-500/45"
@@ -70,7 +70,7 @@ export function TemplateTwo({ profile, links, appearance, publicUrl }: TemplateP
           ))}
         </nav>
 
-        <TemplateFooter textColor={muted} />
+        <TemplateFooter corTexto={muted} />
       </div>
     </div>
   );

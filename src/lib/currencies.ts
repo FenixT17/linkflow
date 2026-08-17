@@ -2,7 +2,7 @@
  * Moedas por país e formatação de preços na moeda local.
  *
  * Quando o utilizador cria uma conta, o SaaS recolhe o país (via IP no
- * servidor) e guarda `country`/`countryCode`/`currency` no documento users.
+ * servidor) e guarda `country`/`codigoPais`/`currency` no documento users.
  * A página de Faturação mostra os preços convertidos para a moeda do país
  * (base EUR com taxas indicativas — substituíveis por taxas reais futuras).
  */
@@ -62,9 +62,9 @@ const CURRENCY_LOCALE: Record<string, string> = {
 };
 
 /** Moeda para um código de país ISO alpha-2 (fallback EUR). */
-export function currencyForCountry(countryCode?: string | null): string {
-  if (!countryCode) return DEFAULT_CURRENCY;
-  const code = countryCode.toUpperCase();
+export function currencyForCountry(codigoPais?: string | null): string {
+  if (!codigoPais) return DEFAULT_CURRENCY;
+  const code = codigoPais.toUpperCase();
   return COUNTRY_CURRENCY[code] ?? DEFAULT_CURRENCY;
 }
 

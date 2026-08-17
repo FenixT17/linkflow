@@ -27,9 +27,9 @@ export default function DemoPage() {
           </p>
           <div className="mt-8 flex justify-center">
             <PreviewPhone
-              username={page?.username ?? "utilizador"}
-              displayName={page?.displayName ?? "O seu nome"}
-              bio={page?.bio ?? ""}
+              nomeUtilizador={page?.nomeUtilizador ?? "utilizador"}
+              nomeExibicao={page?.nomeExibicao ?? "O seu nome"}
+              bio={page?.biografia ?? ""}
               links={links.length > 0 ? links : []}
             />
           </div>

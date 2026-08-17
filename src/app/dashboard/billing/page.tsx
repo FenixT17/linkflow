@@ -51,10 +51,10 @@ export default function BillingPage() {
   const [annual, setAnnual] = useState(false);
   const [detecting, setDetecting] = useState(false);
 
-  const currentPlan = account?.plan || "free";
-  const currency = account?.currency || DEFAULT_CURRENCY;
-  const countryCode = account?.countryCode || "";
-  const country = account?.country || "";
+  const currentPlan = account?.plano || "free";
+  const currency = account?.moeda || DEFAULT_CURRENCY;
+  const codigoPais = account?.codigoPais || "";
+  const country = account?.pais || "";
 
   const formatPrice = (eur: number) => convertAndFormat(eur, currency);
 
@@ -70,11 +70,11 @@ export default function BillingPage() {
       // conta já tenha um país guardado (o backfill automático usa o modo
       // sem force, que devolve cedo para poupar quota).
       const geo = await syncUserGeo(true);
-      if (!geo || !geo.countryCode) {
+      if (!geo || !geo.codigoPais) {
         showToast("Não foi possível detetar o seu país. Tente novamente.", "error");
       } else {
         await refreshAccount();
-        showToast(`País detetado: ${geo.country || geo.countryCode} · moeda ${geo.currency || "EUR"}.`);
+        showToast(`País detetado: ${geo.pais || geo.codigoPais} · moeda ${geo.moeda || "EUR"}.`);
       }
     } finally {
       setDetecting(false);
@@ -106,10 +106,10 @@ export default function BillingPage() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-white/90">
-                {countryCode ? (
+                {codigoPais ? (
                   <>
-                    <span className="mr-1.5">{countryFlag(countryCode)}</span>
-                    {country || countryCode}
+                    <span className="mr-1.5">{countryFlag(codigoPais)}</span>
+                    {country || codigoPais}
                   </>
                 ) : (
                   "País não detetado"

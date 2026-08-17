@@ -28,9 +28,9 @@ const FG_PRESETS = ["#0a0a0a", "#8b5cf6", "#0ea5e9", "#10b981", "#ec4899", "#f59
 const BG_PRESETS = ["#ffffff", "#f5f5f5", "#f3f0ff", "#e0f2fe", "#0a0a0a"];
 const EXPORT_SIZES = [512, 1024, 2048] as const;
 
-const DEFAULTS = { fgColor: "#0a0a0a", bgColor: "#ffffff", showLogo: true, exportSize: 1024 };
+const DEFAULTS = { corPrimeiroPlano: "#0a0a0a", corFundo: "#ffffff", showLogo: true, exportSize: 1024 };
 
-function normalizeHex(value: string, fallback = DEFAULTS.fgColor): string {
+function normalizeHex(value: string, fallback = DEFAULTS.corPrimeiroPlano): string {
   return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
 }
 
@@ -121,14 +121,14 @@ export default function QrCodePage() {
   const qrRef = useRef<HTMLDivElement>(null);
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
 
-  const [fgColor, setFgColor] = useQrPref<string>("fgColor", DEFAULTS.fgColor);
-  const [bgColor, setBgColor] = useQrPref<string>("bgColor", DEFAULTS.bgColor);
+  const [corPrimeiroPlano, setFgColor] = useQrPref<string>("corPrimeiroPlano", DEFAULTS.corPrimeiroPlano);
+  const [corFundo, setBgColor] = useQrPref<string>("corFundo", DEFAULTS.corFundo);
   const [showLogo, setShowLogo] = useQrPref<boolean>("logo", DEFAULTS.showLogo);
   const [exportSizePref, setExportSize] = useQrPref<number>("size", DEFAULTS.exportSize);
 
   // Valores normalizados (defesa contra valores corrompidos em localStorage)
-  const fg = normalizeHex(fgColor);
-  const bg = normalizeHex(bgColor, DEFAULTS.bgColor);
+  const fg = normalizeHex(corPrimeiroPlano);
+  const bg = normalizeHex(corFundo, DEFAULTS.corFundo);
   const exportSize = (EXPORT_SIZES as readonly number[]).includes(exportSizePref)
     ? exportSizePref
     : DEFAULTS.exportSize;
@@ -153,11 +153,11 @@ export default function QrCodePage() {
     return null;
   }
 
-  const username = encodeURIComponent(page.username);
+  const nomeUtilizador = encodeURIComponent(page.nomeUtilizador);
   const publicUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/u/${username}`
-      : `${siteUrl}/u/${username}`;
+      ? `${window.location.origin}/u/${nomeUtilizador}`
+      : `${siteUrl}/u/${nomeUtilizador}`;
 
   const contrast = contrastRatio(fg, bg);
   const lowContrast = contrast < 2.5;
@@ -225,7 +225,7 @@ export default function QrCodePage() {
 
           const a = document.createElement("a");
           a.href = canvas.toDataURL("image/png");
-          a.download = `linkflow-${page.username}-qr.png`;
+          a.download = `linkflow-${page.nomeUtilizador}-qr.png`;
           a.click();
           showToast("QR code descarregado!", "success");
         } catch {
@@ -248,8 +248,8 @@ export default function QrCodePage() {
   };
 
   const handleReset = () => {
-    setFgColor(DEFAULTS.fgColor);
-    setBgColor(DEFAULTS.bgColor);
+    setFgColor(DEFAULTS.corPrimeiroPlano);
+    setBgColor(DEFAULTS.corFundo);
     setShowLogo(DEFAULTS.showLogo);
     setExportSize(DEFAULTS.exportSize);
   };
@@ -261,7 +261,7 @@ export default function QrCodePage() {
         description="Gere um código QR que aponta diretamente para a sua página pública. Personalize as cores, o logo e a resolução de exportação."
       />
 
-      {!page.published && (
+      {!page.publicado && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -313,8 +313,8 @@ export default function QrCodePage() {
                       marginSize={2}
                       bgColor={bg}
                       fgColor={fg}
-                      title={`LinkFlow — ${page.username}`}
-                      aria-label={`Código QR da página ${page.username}`}
+                      title={`LinkFlow — ${page.nomeUtilizador}`}
+                      aria-label={`Código QR da página ${page.nomeUtilizador}`}
                       imageSettings={
                         showLogo && logoDataUri
                           ? { src: logoDataUri, width: 38, height: 38, excavate: true }
@@ -326,7 +326,7 @@ export default function QrCodePage() {
                 <p className="mt-6 text-sm font-medium text-white/80">
                   Escaneie para visitar a sua página
                 </p>
-                <p className="mt-1 max-w-full truncate text-xs text-white/40">/u/{page.username}</p>
+                <p className="mt-1 max-w-full truncate text-xs text-white/40">/u/{page.nomeUtilizador}</p>
               </div>
             </PremiumCard>
           </motion.div>
@@ -496,7 +496,7 @@ export default function QrCodePage() {
               <h3 className="text-sm font-semibold text-white/90">O seu link público</h3>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                {page.published ? "Público" : "Privado"}
+                {page.publicado ? "Público" : "Privado"}
               </span>
             </div>
             <button
@@ -522,7 +522,7 @@ export default function QrCodePage() {
                 <Share2 className="h-4 w-4" />
                 Partilhar
               </GlassButton>
-              <GlassButton variant="outline" onClick={() => router.push(`/u/${username}`)}>
+              <GlassButton variant="outline" onClick={() => router.push(`/u/${nomeUtilizador}`)}>
                 <ExternalLink className="h-4 w-4" />
                 Ver página
               </GlassButton>

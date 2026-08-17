@@ -55,7 +55,7 @@ import {
 interface AuthContextValue {
   account: UserAccount | null;
   page: PageProfile | null;
-  pageId: string | null;
+  idPagina: string | null;
   links: LinkItem[];
   appearance: Appearance;
   settings: UserSettings;
@@ -71,7 +71,7 @@ interface AuthContextValue {
   ) => Promise<{ success: boolean; verificationSent?: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
-  createPage: (profile: Omit<PageProfile, "published">) => Promise<void>;
+  createPage: (profile: Omit<PageProfile, "publicado">) => Promise<void>;
   updatePage: (patch: Partial<PageProfile>) => Promise<void>;
   refreshPage: () => Promise<void>;
   refreshAccount: () => Promise<void>;
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [accountData, setAccountData] = useState<UserAccount | null>(null);
   const [page, setPage] = useState<PageProfile | null>(null);
-  const [pageId, setPageId] = useState<string | null>(null);
+  const [idPagina, setPageId] = useState<string | null>(null);
   const [links, setLinksState] = useState<LinkItem[]>([]);
   const [appearance, setAppearance] = useState<Appearance>(() => defaultAppearance());
   const [themeId, setThemeId] = useState<string | null>(null);
@@ -169,11 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const syncGlassCssVars = useCallback((g: Appearance) => {
     if (typeof document === "undefined") return;
     const s = document.documentElement.style;
-    if (g.glassOpacity !== undefined) s.setProperty("--glass-opacity-value", `${g.glassOpacity}%`);
-    if (g.glassBlur !== undefined) s.setProperty("--glass-blur-value", `${g.glassBlur}px`);
-    if (g.glassStrength !== undefined) {
-      const strength = g.glassStrength / 100;
-      s.setProperty("--glass-strength-value", `${g.glassStrength}%`);
+    if (g.opacidadeVidro !== undefined) s.setProperty("--glass-opacity-value", `${g.opacidadeVidro}%`);
+    if (g.desfocoVidro !== undefined) s.setProperty("--glass-blur-value", `${g.desfocoVidro}px`);
+    if (g.intensidadeVidro !== undefined) {
+      const strength = g.intensidadeVidro / 100;
+      s.setProperty("--glass-strength-value", `${g.intensidadeVidro}%`);
       s.setProperty("--glass-highlight-opacity-value", `${6 * strength}%`);
       s.setProperty("--glass-shadow-intensity-value", `${0.3 * strength}`);
       s.setProperty("--glass-saturation-value", `${1 + 0.2 * strength}`);
@@ -190,17 +190,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const applyScheduledPublish = useCallback(async (pageDoc: PageProfile & { $id: string }) => {
     const now = new Date();
-    const schedPublish = pageDoc.scheduledPublishAt ? new Date(pageDoc.scheduledPublishAt) : null;
-    const schedUnpublish = pageDoc.scheduledUnpublishAt ? new Date(pageDoc.scheduledUnpublishAt) : null;
+    const schedPublish = pageDoc.publicacaoAgendadaEm ? new Date(pageDoc.publicacaoAgendadaEm) : null;
+    const schedUnpublish = pageDoc.despublicacaoAgendadaEm ? new Date(pageDoc.despublicacaoAgendadaEm) : null;
     const needsUpdate: Record<string, unknown> = {};
 
-    if (schedPublish && schedPublish <= now && !pageDoc.published) {
-      needsUpdate.published = true;
-      needsUpdate.scheduledPublishAt = "";
+    if (schedPublish && schedPublish <= now && !pageDoc.publicado) {
+      needsUpdate.publicado = true;
+      needsUpdate.publicacaoAgendadaEm = "";
     }
-    if (schedUnpublish && schedUnpublish <= now && pageDoc.published) {
-      needsUpdate.published = false;
-      needsUpdate.scheduledUnpublishAt = "";
+    if (schedUnpublish && schedUnpublish <= now && pageDoc.publicado) {
+      needsUpdate.publicado = false;
+      needsUpdate.despublicacaoAgendadaEm = "";
     }
 
     if (Object.keys(needsUpdate).length > 0) {
@@ -226,8 +226,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAnalytics(fetchedAnalytics ?? emptyAnalytics());
   }, []);
 
-  const loadUserData = useCallback(async (userId: string, sessionFallback?: Models.User<Models.Preferences>) => {
-    if (!userId) {
+  const loadUserData = useCallback(async (idUtilizador: string, sessionFallback?: Models.User<Models.Preferences>) => {
+    if (!idUtilizador) {
       setAccountData(null);
       setPage(null);
       setPageId(null);
@@ -235,8 +235,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const [profile, pageDoc] = await Promise.all([
-        getUserProfile(userId),
-        getPageByUserId(userId),
+        getUserProfile(idUtilizador),
+        getPageByUserId(idUtilizador),
       ]);
 
       // Se o documento de perfil ainda não estiver indexado (comum após
@@ -245,9 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!finalProfile && sessionFallback) {
         finalProfile = {
           email: sessionFallback.email || "",
-          displayName: sessionFallback.name || "Utilizador",
-          createdAt: sessionFallback.$createdAt || new Date().toISOString(),
-          plan: "free",
+          nomeExibicao: sessionFallback.name || "Utilizador",
+          criadoEm: sessionFallback.$createdAt || new Date().toISOString(),
+          plano: "free",
         };
       }
 
@@ -325,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Sincronização OAuth: usa API route server-side para evitar
         // problemas de permissão do client SDK. Falhas não quebram o login.
-        // O endpoint verifica o cookie de sessão e deriva o userId server-side.
+        // O endpoint verifica o cookie de sessão e deriva o idUtilizador server-side.
         const oauthSyncAllowed = await checkAndSyncOAuthUser(session);
         if (!oauthSyncAllowed) {
           throw new Error("Este email não pode ser utilizado no LinkFlow.");
@@ -366,20 +366,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const suspicious = detectSuspiciousInput(email);
       if (suspicious.suspicious) {
         createSecurityLog({
-          userId: "anonymous",
-          eventType: "suspicious_input",
+          idUtilizador: "anonymous",
+          tipoEvento: "suspicious_input",
           email,
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-          metadata: { field: "email", patterns: suspicious.matchedPatterns },
+          agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+          metadados: { field: "email", patterns: suspicious.matchedPatterns },
         });
       }
 
       // Log attempt
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "login_attempt",
+        idUtilizador: "anonymous",
+        tipoEvento: "login_attempt",
         email,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       });
 
       await loginUser(email, password, remember);
@@ -393,11 +393,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Log success (anonymous + authenticated)
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "login_success",
+        idUtilizador: "anonymous",
+        tipoEvento: "login_success",
         email,
-        userAgent: navigator.userAgent,
-        metadata: { authenticatedUserId: session.$id },
+        agenteUtilizador: navigator.userAgent,
+        metadados: { authenticatedUserId: session.$id },
       });
 
       await loadUserData(session.$id, session);
@@ -405,11 +405,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       // Log failure
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "login_failure",
+        idUtilizador: "anonymous",
+        tipoEvento: "login_failure",
         email,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-        metadata: { error: getErrorMessage(error) },
+        agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        metadados: { error: getErrorMessage(error) },
       });
       return { success: false, error: getFriendlyError(error, "login") };
     }
@@ -422,11 +422,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nameCheck = detectSuspiciousInput(name);
       if (emailCheck.suspicious || nameCheck.suspicious) {
         createSecurityLog({
-          userId: "anonymous",
-          eventType: "suspicious_input",
+          idUtilizador: "anonymous",
+          tipoEvento: "suspicious_input",
           email,
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-          metadata: {
+          agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+          metadados: {
             field: emailCheck.suspicious ? "email" : "name",
             patterns: emailCheck.suspicious ? emailCheck.matchedPatterns : nameCheck.matchedPatterns,
           },
@@ -435,38 +435,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Log attempt
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "register_attempt",
+        idUtilizador: "anonymous",
+        tipoEvento: "register_attempt",
         email,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-        metadata: { displayName: name },
+        agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        metadados: { nomeExibicao: name },
       });
 
       const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name);
 
       // Registo de atividade: conta criada
-      void logActivity("register", { displayName: name });
+      void logActivity("register", { nomeExibicao: name });
 
       // Mitigação de session fixation: renova o token CSRF após registo
       refreshCsrfToken().catch(() => {});
 
       // Log success (anonymous for security dashboard visibility)
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "register_success",
+        idUtilizador: "anonymous",
+        tipoEvento: "register_success",
         email,
-        userAgent: navigator.userAgent,
-        metadata: { authenticatedUserId: newAccount.$id },
+        agenteUtilizador: navigator.userAgent,
+        metadados: { authenticatedUserId: newAccount.$id },
       });
 
       setAccountData({
         email,
-        displayName: name,
-        createdAt: new Date().toISOString(),
-        plan: "free",
-        country: geo?.country || undefined,
-        countryCode: geo?.countryCode || undefined,
-        currency: geo?.currency || undefined,
+        nomeExibicao: name,
+        criadoEm: new Date().toISOString(),
+        plano: "free",
+        pais: geo?.pais || undefined,
+        codigoPais: geo?.codigoPais || undefined,
+        moeda: geo?.moeda || undefined,
       });
 
       // Carrega dados da página/ tema / links após registro bem-sucedido.
@@ -481,11 +481,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       // Log failure
       createSecurityLog({
-        userId: "anonymous",
-        eventType: "register_failure",
+        idUtilizador: "anonymous",
+        tipoEvento: "register_failure",
         email,
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
-        metadata: { error: getErrorMessage(error), displayName: name },
+        agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+        metadados: { error: getErrorMessage(error), nomeExibicao: name },
       });
       return { success: false, error: getFriendlyError(error, "register") };
     }
@@ -498,10 +498,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logActivity("logout");
       if (accountData?.email) {
         createSecurityLog({
-          userId: "anonymous",
-          eventType: "logout",
+          idUtilizador: "anonymous",
+          tipoEvento: "logout",
           email: accountData.email,
-          userAgent: navigator.userAgent,
+          agenteUtilizador: navigator.userAgent,
         });
       }
       await logoutUser();
@@ -560,10 +560,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [router]);
 
-  const createPage = useCallback(async (profile: Omit<PageProfile, "published">) => {
+  const createPage = useCallback(async (profile: Omit<PageProfile, "publicado">) => {
     const doc = await createPageService(profile);
     const id = doc.$id;
-    const newPage: PageProfile = { ...profile, published: false };
+    const newPage: PageProfile = { ...profile, publicado: false };
     setPage(newPage);
     setPageId(id);
     setAppearance(defaultAppearance());
@@ -571,13 +571,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updatePage = useCallback(async (patch: Partial<PageProfile>) => {
-    if (!pageId) return;
-    await updatePageService(pageId, patch);
+    if (!idPagina) return;
+    await updatePageService(idPagina, patch);
     setPage((prev) => (prev ? { ...prev, ...patch } : prev));
-  }, [pageId]);
+  }, [idPagina]);
 
   const refreshPage = useCallback(async () => {
-    if (!pageId) return;
+    if (!idPagina) return;
     try {
       const session = await getCurrentSession();
       const refreshed = await getPageByUserId(session.$id);
@@ -587,7 +587,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Mantém o estado local se a atualização falhar.
     }
-  }, [pageId]);
+  }, [idPagina]);
 
   const refreshAccount = useCallback(async () => {
     try {
@@ -600,15 +600,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Backfill do país/moeda para contas antigas (criadas antes da moeda
-  // localizada): quando o documento users não tem countryCode/currency,
+  // localizada): quando o documento users não tem codigoPais/currency,
   // recolhe o geo por IP em background e atualiza o estado. Idempotente
   // (syncUserGeo devolve cedo se já sincronizado) — sem loops de refresh.
   useEffect(() => {
-    if (!accountData || accountData.countryCode || accountData.currency) return;
+    if (!accountData || accountData.codigoPais || accountData.moeda) return;
     let cancelled = false;
     syncUserGeo()
       .then((geo) => {
-        if (cancelled || !geo || !geo.countryCode) return;
+        if (cancelled || !geo || !geo.codigoPais) return;
         setAccountData((prev) => (prev ? { ...prev, ...geo } : prev));
       })
       .catch(() => {});
@@ -618,14 +618,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [accountData]);
 
   const refreshAnalytics = useCallback(async () => {
-    if (!pageId) return;
+    if (!idPagina) return;
     try {
-      const fetched = await getAnalyticsByPageId(pageId);
+      const fetched = await getAnalyticsByPageId(idPagina);
       setAnalytics(fetched ?? emptyAnalytics());
     } catch (error) {
       console.error("[AuthContext] refreshAnalytics failed:", error);
     }
-  }, [pageId]);
+  }, [idPagina]);
 
   const refreshActivities = useCallback(async () => {
     try {
@@ -645,15 +645,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const next = { ...prev, ...patch };
 
       // Sync Liquid Glass controls to CSS custom properties in real time
-      if (next.glassOpacity !== undefined) {
-        document.documentElement.style.setProperty("--glass-opacity-value", `${next.glassOpacity}%`);
+      if (next.opacidadeVidro !== undefined) {
+        document.documentElement.style.setProperty("--glass-opacity-value", `${next.opacidadeVidro}%`);
       }
-      if (next.glassBlur !== undefined) {
-        document.documentElement.style.setProperty("--glass-blur-value", `${next.glassBlur}px`);
+      if (next.desfocoVidro !== undefined) {
+        document.documentElement.style.setProperty("--glass-blur-value", `${next.desfocoVidro}px`);
       }
-      if (next.glassStrength !== undefined) {
-        const strength = next.glassStrength / 100;
-        document.documentElement.style.setProperty("--glass-strength-value", `${next.glassStrength}%`);
+      if (next.intensidadeVidro !== undefined) {
+        const strength = next.intensidadeVidro / 100;
+        document.documentElement.style.setProperty("--glass-strength-value", `${next.intensidadeVidro}%`);
         // Glass strength controls multiple visual properties
         document.documentElement.style.setProperty("--glass-highlight-opacity-value", `${6 * strength}%`);
         document.documentElement.style.setProperty("--glass-shadow-intensity-value", `${0.3 * strength}`);
@@ -681,42 +681,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // fetchWithCsrf fail-closed (M2), um token CSRF indisponível quebraria o
   // tracking destes endpoints que não exigem CSRF.
   const recordView = useCallback(async () => {
-    if (!pageId) return;
-    setAnalytics((prev) => ({ ...prev, views: prev.views + 1 }));
+    if (!idPagina) return;
+    setAnalytics((prev) => ({ ...prev, visualizacoes: prev.visualizacoes + 1 }));
     try {
       await fetch("/api/view", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId }),
+        body: JSON.stringify({ idPagina }),
       });
     } catch (error) {
       console.error("[AuthContext] recordView failed:", error);
     }
-  }, [pageId]);
+  }, [idPagina]);
 
   const recordClick = useCallback(async (linkId?: string) => {
-    if (!pageId) return;
+    if (!idPagina) return;
     setAnalytics((prev) => {
-      const clicks = prev.clicks + 1;
-      const ctr = prev.views > 0 ? Math.round((clicks / prev.views) * 100) : 0;
-      return { ...prev, clicks, ctr };
+      const clicks = prev.cliques + 1;
+      const ctr = prev.visualizacoes > 0 ? Math.round((clicks / prev.visualizacoes) * 100) : 0;
+      return { ...prev, cliques: clicks, ctr };
     });
     try {
       await fetch("/api/click", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pageId, linkId }),
+        body: JSON.stringify({ idPagina, linkId }),
       });
     } catch (error) {
       console.error("[AuthContext] recordClick failed:", error);
     }
-  }, [pageId]);
+  }, [idPagina]);
 
   const value = useMemo(
     () => ({
       account: accountData,
       page,
-      pageId,
+      idPagina,
       links,
       appearance,
       settings,
@@ -744,7 +744,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       accountData,
       page,
-      pageId,
+      idPagina,
       links,
       appearance,
       settings,

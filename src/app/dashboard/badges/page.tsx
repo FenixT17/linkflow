@@ -20,7 +20,7 @@ export default function BadgesPage() {
 
   // Nesta fase, apenas Verificado está implementado.
   const earned = useMemo(
-    () => new Set<string>((page?.badges ?? []).filter((badge) => badge === "verified")),
+    () => new Set<string>((page?.emblemas ?? []).filter((badge) => badge === "verified")),
     [page]
   );
 
@@ -61,7 +61,7 @@ export default function BadgesPage() {
           <div className="flex flex-1 items-center gap-4">
             <div className="relative">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.06] text-xl font-semibold text-white/80 ring-1 ring-white/[0.1]">
-                {page?.displayName?.charAt(0)?.toUpperCase() || "U"}
+                {page?.nomeExibicao?.charAt(0)?.toUpperCase() || "U"}
               </div>
               {has("verified") && (
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 ring-2 ring-[#0a0a0a]">
@@ -74,7 +74,7 @@ export default function BadgesPage() {
                 {earned.size} de {BADGES.length} badges ativas
               </p>
               <p className="truncate text-xs text-white/50">
-                {page ? `@${page.username}` : "Cria a tua página para começar"}
+                {page ? `@${page.nomeUtilizador}` : "Cria a tua página para começar"}
               </p>
             </div>
           </div>

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     const session = await createEmailPasswordSessionResolved(email, password);
     const response = NextResponse.json(
-      { user: { $id: session.userId, email } },
+      { user: { $id: session.idUtilizador, email } },
       { headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
     setAuthSessionCookie(response, session.secret, session.expire, remember);

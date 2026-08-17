@@ -17,7 +17,7 @@
 import { createHash, createHmac } from "node:crypto";
 
 /**
- * Segredo server-side para derivar o visitorHash (HMAC-SHA256).
+ * Segredo server-side para derivar o hashVisitante (HMAC-SHA256).
  *
  * M1 (corrigido): um salt fixo hardcoded permite a um atacante com acesso
  * à base de dados reverter o hash por força bruta sobre o espaço IPv4
@@ -34,7 +34,7 @@ const ipHashSecret = (process.env.IP_HASH_SECRET ?? "").trim();
 
 export interface GeoInfo {
   country?: string;
-  countryCode?: string;
+  codigoPais?: string;
   city?: string;
   /** Latitude aproximada (city-level) — só disponível via lookup externo. */
   latitude?: number;
@@ -55,12 +55,12 @@ export function isPrivateIp(ip: string | null | undefined): boolean {
 }
 
 /** Nome do país a partir do código ISO (fallback para o próprio código). */
-export function getCountryName(countryCode: string): string {
+export function getCountryName(codigoPais: string): string {
   try {
-    const name = new Intl.DisplayNames(["pt"], { type: "region" }).of(countryCode.toUpperCase());
-    return name || countryCode;
+    const name = new Intl.DisplayNames(["pt"], { type: "region" }).of(codigoPais.toUpperCase());
+    return name || codigoPais;
   } catch {
-    return countryCode;
+    return codigoPais;
   }
 }
 
@@ -72,7 +72,7 @@ function readHeaderGeo(request: Request): GeoInfo | null {
   if (code) {
     const name = request.headers.get("x-country-name") ?? getCountryName(code);
     const city = request.headers.get("x-city") || undefined;
-    return { country: name, countryCode: code.toUpperCase(), city };
+    return { country: name, codigoPais: code.toUpperCase(), city };
   }
   return null;
 }
@@ -112,7 +112,7 @@ export async function lookupCoordinates(ip: string): Promise<GeoInfo> {
             latitude: data.latitude,
             longitude: data.longitude,
             country: data.country || undefined,
-            countryCode: data.country_code ? data.country_code.toUpperCase() : undefined,
+            codigoPais: data.country_code ? data.country_code.toUpperCase() : undefined,
             city: data.city || undefined,
           };
     coordsCache.set(ip, { info, expiresAt: Date.now() + COORDS_CACHE_TTL_MS });
@@ -169,7 +169,7 @@ async function lookupCountryIs(ip: string): Promise<GeoInfo | null> {
     if (!data.country) return null;
     return {
       country: getCountryName(data.country),
-      countryCode: data.country.toUpperCase(),
+      codigoPais: data.country.toUpperCase(),
       city: data.city || undefined,
     };
   } catch {
@@ -209,7 +209,7 @@ export async function resolveGeo(ip: string, request?: Request): Promise<GeoInfo
 }
 
 /**
- * Hash determinístico e não reversível do IP (para visitorHash).
+ * Hash determinístico e não reversível do IP (para hashVisitante).
  *
  * Com `IP_HASH_SECRET` definido usa HMAC-SHA256 (RFC 2104) com o segredo
  * server-side — não reversível na prática por quem só tem acesso à BD.
@@ -217,7 +217,7 @@ export async function resolveGeo(ip: string, request?: Request): Promise<GeoInfo
  *
  * Devolve os primeiros 16 hex chars (64 bits): espaço suficiente para
  * deduplicar visitantes sem colisões práticas (birthday bound ~2^32) e
- * compacto o suficiente para caber nos limites de memória do metricsJson
+ * compacto o suficiente para caber nos limites de memória do metricasJson
  * (1MB — visitorSet 2000, dailyVisitors 14×1000).
  */
 export function hashIp(ip: string): string {

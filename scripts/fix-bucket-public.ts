@@ -1,7 +1,7 @@
 /**
  * Fix — Storage Bucket with Public Read
  *
- * Avatars, banners and link images are served on the public /u/[username]
+ * Avatars, banners and link images are served on the public /u/[nomeUtilizador]
  * page through the same-origin `/api/media/[fileId]` proxy. The Appwrite
  * bucket must therefore remain private; the Worker reads files with its
  * server API key.

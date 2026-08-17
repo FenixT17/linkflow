@@ -12,7 +12,7 @@ describe("theme validation", () => {
     expect(isSafeThemeColor("url(javascript:alert(1))")).toBe(false);
     expect(isSafeThemeColor("rgb(999, 0, 0)")).toBe(false);
     expect(isSafeThemeColor("hsl(400, 20%, 40%)")).toBe(false);
-    expect(validateThemePayload({ backgroundColor: "red; background:url(x)" })).toContain("backgroundColor");
+    expect(validateThemePayload({ corFundo: "red; background:url(x)" })).toContain("corFundo");
   });
 
   it("accepts only the font whitelist", () => {
