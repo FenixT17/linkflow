@@ -283,7 +283,15 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   // (ver src/lib/appwrite.ts). GET/HEAD/OPTIONS são ignorados pelo csrfGuard
   // — leituras (listDocuments, account.get, file views) continuam sem token.
   const csrfCheck = csrfGuard(request);
-  if (csrfCheck) return csrfCheck;
+  if (csrfCheck) {
+    // csrfGuard devolve { error } (formato das app routes, cujos clients
+    // lêem data.error). O client SDK expõe data.message — reescrevemos para
+    // o formato nativo do Appwrite, senão o dashboard mostraria o JSON cru.
+    return NextResponse.json(
+      { message: "CSRF token inválido ou ausente. Recarregue a página e tente novamente." },
+      { status: 403 }
+    );
+  }
 
   const sessionSecret = getAuthSessionSecret(request);
   const { path } = await context.params;

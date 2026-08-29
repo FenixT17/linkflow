@@ -81,6 +81,38 @@ export function refreshCsrfToken(): Promise<string> {
   return initCsrfToken();
 }
 
+// Deduplicação do refresh: chamadas concorrentes partilham o MESMO fetch,
+// para não rodar a cookie CSRF com tokens diferentes (race que causaria 403).
+let refreshPromise: Promise<string> | null = null;
+
+/**
+ * Devolve um token CSRF válido garantindo que a cookie está presente e
+ * sincronizada com o token enviado (double-submit).
+ *
+ * - Se a cookie existir, usa o valor dela (a fonte de verdade do servidor).
+ * - Se estiver ausente/expirada, força um /api/csrf NOVO (cookie + token
+ *   frescos), deduplicado para chamadas concorrentes.
+ *
+ * Ao contrário de initCsrfToken(), NUNCA devolve um tokenRef em memória que
+ * possa estar dessincronizado da cookie — ex: cookie expirada com a SPA
+ * aberta, ou tokenRef travado em "__missing__" após uma falha transitória.
+ * Nesses casos o header era enviado sem cookie correspondente (ou nem era
+ * enviado) e o proxy devolvia 403 "CSRF token inválido ou ausente".
+ */
+export function ensureCsrfToken(): Promise<string> {
+  const cookieToken = getCsrfCookieFromDocument();
+  if (cookieToken) return Promise.resolve(cookieToken);
+
+  if (!refreshPromise) {
+    refreshPromise = fetchCsrfToken()
+      .catch(() => "__missing__")
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 /**
  * Limpa o token CSRF da memória e do cookie do navegador.
  * Usar durante o logout para impedir reutilização.
@@ -105,13 +137,9 @@ export async function fetchWithCsrf(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  // Tenta ler o token da cookie primeiro (mais atualizado)
-  let t = getCsrfCookieFromDocument();
-  
-  // Fallback para o token em memória
-  if (!t) {
-    t = tokenRef || (await initCsrfToken());
-  }
+  // Lê a cookie (fonte de verdade) ou força um refresh se ausente — garante
+  // que o header bate sempre com a cookie (ver ensureCsrfToken).
+  const t = await ensureCsrfToken();
 
   // Fail-closed (M2 da auditoria): se o token CSRF não estiver disponível,
   // NÃO degradar silenciosamente para um pedido sem header CSRF. O chamador

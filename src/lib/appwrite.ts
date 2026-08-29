@@ -1,6 +1,6 @@
 import { Client, Account, Databases, Storage, ID, Query } from "appwrite";
 import { normalizeEnvUrl } from "@/lib/utils";
-import { getCsrfCookieFromDocument, initCsrfToken } from "@/hooks/use-csrf";
+import { ensureCsrfToken } from "@/hooks/use-csrf";
 
 export const endpoint = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
@@ -32,10 +32,13 @@ if (projectId) {
 
 // O SDK do browser envia todos os requests para o proxy same-origin
 // (/api/appwrite). O proxy passa a validar CSRF (double-submit) em métodos de
-// mutação, por isso o client injeta o token CSRF em cada request. O token é
-// lido do cookie (sempre atual) e, se ainda não existir (primeiro paint, ex:
-// fluxos de email verify/reset que disparam no mount), o initCsrfToken é
-// aguardado antes do envio — sem quebrar esses fluxos.
+// mutação, por isso o client injeta o token CSRF em cada request.
+//
+// ensureCsrfToken devolve o valor ATUAL da cookie (a fonte de verdade do
+// double-submit); se a cookie estiver ausente/expirada (ex: SPA aberta >1h,
+// ou uma falha transitória anterior ter travado o tokenRef em "__missing__"),
+// força um /api/csrf novo para voltar a ter cookie + token sincronizados —
+// sem isso o header não batia com a cookie e o proxy devolvia 403 CSRF.
 if (typeof window !== "undefined") {
   const originalCall = appwriteClient.call.bind(appwriteClient);
   appwriteClient.call = (async (
@@ -45,13 +48,11 @@ if (typeof window !== "undefined") {
     params: Record<string, unknown> = {},
     responseType: string = "json",
   ) => {
-    let token = getCsrfCookieFromDocument();
-    if (!token) {
-      try {
-        token = await initCsrfToken();
-      } catch {
-        token = null;
-      }
+    let token: string | null = null;
+    try {
+      token = await ensureCsrfToken();
+    } catch {
+      token = null;
     }
     if (token && token !== "__missing__") {
       headers["X-CSRF-Token"] = token;

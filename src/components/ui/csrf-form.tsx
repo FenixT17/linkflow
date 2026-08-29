@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState, useRef, useEffect, useCallback } from "react";
-import { initCsrfToken, getCsrfCookieFromDocument } from "@/hooks/use-csrf";
+import { initCsrfToken, ensureCsrfToken } from "@/hooks/use-csrf";
 
 const CSRF_HEADER_NAME = "x-csrf-token";
 
@@ -160,13 +160,9 @@ export function useCsrfAction() {
 
     setCsrfVerifying(true);
     try {
-      // Tenta ler o token diretamente da cookie primeiro
-      let token = getCsrfCookieFromDocument();
-      
-      // Se não encontrar na cookie, usa o token em memória
-      if (!token) {
-        token = await initCsrfToken();
-      }
+      // Lê a cookie atual (fonte de verdade) ou força um refresh se ausente —
+      // garante que o header bate sempre com a cookie (ver ensureCsrfToken).
+      const token = await ensureCsrfToken();
 
       if (!token || token === "__missing__") {
         setCsrfError("Token CSRF não disponível.");
