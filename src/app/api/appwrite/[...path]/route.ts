@@ -60,17 +60,44 @@ function isDocumentPath(path: string[]): boolean {
   return path[0] === "databases" && path[2] === "collections" && path[4] === "documents";
 }
 
+// Timeout nas validações server-side: um fetch pendurado (sem timeout, o
+// undici não tem timeout por omissão) deixaria a função à espera até ao
+// limite do Netlify e o pedido falharia com "invocation failed" em vez de
+// devolver um 403/503 limpo. Ao abortar, o fetch rejeita e os callers
+// (todos em try/catch) devolvem null → fail-closed.
+const APPWRITE_VALIDATION_TIMEOUT_MS = 4500;
+
 async function fetchAppwriteWithSession(suffix: string, sessionSecret: string): Promise<Response> {
   const base = new URL(APPWRITE_ENDPOINT);
   const target = new URL(`${base.origin}${base.pathname.replace(/\/$/, "")}/${suffix}`);
-  return fetch(target, {
-    headers: {
-      "X-Appwrite-Project": APPWRITE_PROJECT_ID,
-      "X-Appwrite-Session": sessionSecret,
-      accept: "application/json",
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), APPWRITE_VALIDATION_TIMEOUT_MS);
+  try {
+    return await fetch(target, {
+      headers: {
+        "X-Appwrite-Project": APPWRITE_PROJECT_ID,
+        "X-Appwrite-Session": sessionSecret,
+        accept: "application/json",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Serializa queries de listagem no formato exato que o SDK Appwrite envia
+ * (queries[0], queries[1], ... — ver Client.flatten no SDK). O formato
+ * `queries[]` (sem índice) não é o que o SDK usa e pode ser rejeitado pelo
+ * Appwrite Cloud, o que faria as validações devolverem null (fail-closed) e
+ * bloquearia a criação de links para utilizadores free.
+ */
+function buildListDocumentsUrl(databaseId: string, collectionId: string, queries: string[]): string {
+  const params = new URLSearchParams();
+  queries.forEach((query, index) => params.append(`queries[${index}]`, query));
+  return `databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(collectionId)}/documents?${params.toString()}`;
 }
 
 async function getSessionUserId(sessionSecret: string): Promise<string | null> {
@@ -168,11 +195,10 @@ async function validateDocumentOwnership(
 
 async function getUserPlan(databaseId: string, userId: string, sessionSecret: string): Promise<string | null> {
   try {
-    const queries = new URLSearchParams();
-    queries.append("queries[]", `equal("idUtilizador",${JSON.stringify(userId)})`);
-    queries.append("queries[]", "limit(1)");
-    const suffix =
-      `databases/${encodeURIComponent(databaseId)}/collections/users/documents?${queries.toString()}`;
+    const suffix = buildListDocumentsUrl(databaseId, "users", [
+      `equal("idUtilizador",${JSON.stringify(userId)})`,
+      "limit(1)",
+    ]);
     const res = await fetchAppwriteWithSession(suffix, sessionSecret);
     if (!res.ok) return null;
     const data = (await res.json()) as { documents?: Array<{ plano?: unknown }> };
@@ -185,11 +211,10 @@ async function getUserPlan(databaseId: string, userId: string, sessionSecret: st
 
 async function countPageLinks(databaseId: string, idPagina: string, sessionSecret: string): Promise<number | null> {
   try {
-    const queries = new URLSearchParams();
-    queries.append("queries[]", `equal("idPagina",${JSON.stringify(idPagina)})`);
-    queries.append("queries[]", `limit(${FREE_PLAN_LINK_LIMIT + 1})`);
-    const suffix =
-      `databases/${encodeURIComponent(databaseId)}/collections/links/documents?${queries.toString()}`;
+    const suffix = buildListDocumentsUrl(databaseId, "links", [
+      `equal("idPagina",${JSON.stringify(idPagina)})`,
+      `limit(${FREE_PLAN_LINK_LIMIT + 1})`,
+    ]);
     const res = await fetchAppwriteWithSession(suffix, sessionSecret);
     if (!res.ok) return null;
     const data = (await res.json()) as { total?: unknown };
@@ -212,10 +237,12 @@ async function enforceFreeLinkLimit(
 ): Promise<string | null> {
   const limitMessage =
     `Limite de links do plano Gratuito atingido (máx. ${FREE_PLAN_LINK_LIMIT}). Faça upgrade para adicionar mais.`;
-  const plan = await getUserPlan(databaseId, userId, sessionSecret);
+  const [plan, total] = await Promise.all([
+    getUserPlan(databaseId, userId, sessionSecret),
+    countPageLinks(databaseId, idPagina, sessionSecret),
+  ]);
   // Plano não gratuito (e verificável) → sem limite.
   if (plan !== null && plan !== "free") return null;
-  const total = await countPageLinks(databaseId, idPagina, sessionSecret);
   // Fail-closed: contagem não verificável → o limite aplica-se.
   if (total === null || total >= FREE_PLAN_LINK_LIMIT) return limitMessage;
   return null;

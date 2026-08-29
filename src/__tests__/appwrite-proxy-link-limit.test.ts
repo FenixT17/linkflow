@@ -26,11 +26,12 @@ describe("appwrite proxy free plan link limit", () => {
     linkTotal: number | null; // null = falha ao contar links
   }
 
-  function stubFetch({ plan, linkTotal }: FetchScenario) {
+  function stubFetch({ plan, linkTotal }: FetchScenario, seenUrls: string[] = []) {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
+        seenUrls.push(url);
         if (url.endsWith("/account")) {
           return jsonResponse(200, { $id: "user-1" });
         }
@@ -128,5 +129,27 @@ describe("appwrite proxy free plan link limit", () => {
     );
     const response = await POST(request, { params: Promise.resolve({ path }) });
     expect(response.status).toBe(403);
+  });
+
+  it("serializa as queries no formato do SDK (queries[0]=..., não queries[]=)", async () => {
+    const seenUrls: string[] = [];
+    stubFetch({ plan: "pro", linkTotal: 0 }, seenUrls);
+    const { POST } = await importRoute();
+
+    const { request, path } = makeCreateLinkRequest(
+      JSON.stringify({ data: { idPagina: "own-page", titulo: "link", url: "https://me.example" } })
+    );
+    await POST(request, { params: Promise.resolve({ path }) });
+
+    const usersUrl = seenUrls.find((u) => u.includes("/collections/users/documents"));
+    const linksUrl = seenUrls.find((u) => u.includes("/collections/links/documents") && u.includes("queries"));
+    expect(usersUrl).toBeDefined();
+    expect(linksUrl).toBeDefined();
+    // Formato idêntico ao Client.flatten do SDK (queries[0], queries[1]).
+    expect(usersUrl).toContain("queries%5B0%5D");
+    expect(linksUrl).toContain("queries%5B0%5D");
+    // O formato sem índice nunca deve ser usado (pode ser rejeitado pelo Appwrite).
+    expect(usersUrl).not.toContain("queries%5B%5D");
+    expect(linksUrl).not.toContain("queries%5B%5D");
   });
 });
