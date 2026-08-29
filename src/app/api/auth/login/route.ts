@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { csrfGuard } from "@/lib/csrf";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { createEmailPasswordSessionResolved, setAuthSessionCookie } from "@/lib/auth.server";
+import { DISPOSABLE_EMAIL_LOGIN_ERROR, isDisposableEmail } from "@/lib/disposable-email";
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_EMAIL_LENGTH = 254;
@@ -57,6 +58,11 @@ export async function POST(request: NextRequest) {
     const remember = typeof body?.remember === "boolean" ? body.remember : true;
     if (!email || email.length > MAX_EMAIL_LENGTH || password.length < 1 || password.length > MAX_PASSWORD_LENGTH) {
       return NextResponse.json({ error: "Credenciais inválidas." }, { status: 400 });
+    }
+
+    // Emails temporários/descartáveis não podem entrar (nem criar conta).
+    if (isDisposableEmail(email)) {
+      return NextResponse.json({ error: DISPOSABLE_EMAIL_LOGIN_ERROR }, { status: 400 });
     }
 
       let accountRateLimit;

@@ -1,5 +1,6 @@
 import { Client, Account, Databases, Storage, ID, Query } from "appwrite";
 import { normalizeEnvUrl } from "@/lib/utils";
+import { getCsrfCookieFromDocument, initCsrfToken } from "@/hooks/use-csrf";
 
 export const endpoint = normalizeEnvUrl(
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT,
@@ -27,6 +28,36 @@ if (projectId) {
       "OAuth (e qualquer chamada autenticada) falhará até preencher o ID.\n" +
       "Também confirme que '" + window.location.hostname + "' está registado como Web Platform no projeto Appwrite."
   );
+}
+
+// O SDK do browser envia todos os requests para o proxy same-origin
+// (/api/appwrite). O proxy passa a validar CSRF (double-submit) em métodos de
+// mutação, por isso o client injeta o token CSRF em cada request. O token é
+// lido do cookie (sempre atual) e, se ainda não existir (primeiro paint, ex:
+// fluxos de email verify/reset que disparam no mount), o initCsrfToken é
+// aguardado antes do envio — sem quebrar esses fluxos.
+if (typeof window !== "undefined") {
+  const originalCall = appwriteClient.call.bind(appwriteClient);
+  appwriteClient.call = (async (
+    method: string,
+    url: URL,
+    headers: Record<string, string> = {},
+    params: Record<string, unknown> = {},
+    responseType: string = "json",
+  ) => {
+    let token = getCsrfCookieFromDocument();
+    if (!token) {
+      try {
+        token = await initCsrfToken();
+      } catch {
+        token = null;
+      }
+    }
+    if (token && token !== "__missing__") {
+      headers["X-CSRF-Token"] = token;
+    }
+    return originalCall(method, url, headers, params, responseType);
+  }) as typeof appwriteClient.call;
 }
 
 export const account = new Account(appwriteClient);

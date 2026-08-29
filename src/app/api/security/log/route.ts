@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
 
     const { databases } = createServerClient();
 
-    // IP confiável da infraestrutura (cf-connecting-ip da Cloudflare) — nunca
-    // do body nem de headers falsificáveis pelo cliente.
+    // IP confiável da infraestrutura (cf-connecting-ip / x-nf-client-connection-ip) —
+    // nunca do body nem de headers falsificáveis pelo cliente.
     const enderecoIP = getClientIp(request);
     const agenteUtilizador = request.headers.get("user-agent") ?? "";
 

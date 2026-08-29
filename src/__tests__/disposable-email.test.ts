@@ -14,6 +14,16 @@ describe("isDisposableEmail", () => {
       "guerrillamail.net",
       "getnada.com",
       "maildrop.cc",
+      "grr.la",
+      "33mail.com",
+      "mail7.io",
+      "monmail.fr.nf",
+      "tempmail.net",
+      "guerrillamail.biz",
+      "incognitomail.com",
+      "disposable-mail.com",
+      "nospam.ze.tc",
+      "deixa.me",
     ];
 
     for (const domain of domains) {

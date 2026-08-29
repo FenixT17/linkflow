@@ -15,6 +15,7 @@ import { getPlatform, type Platform } from "@/lib/platforms";
 import { buildSocialUrl, getSocialPlatforms, searchSocialPlatforms } from "@/lib/social";
 import { useCsrfAction } from "@/components/ui/csrf-form";
 import { cn } from "@/lib/utils";
+import { FREE_PLAN_LINK_LIMIT } from "@/lib/plans";
 import {
   Plus,
   Search,
@@ -33,8 +34,6 @@ import {
   ArrowLeft,
   Loader2,
 } from "lucide-react";
-
-const FREE_LINK_LIMIT = 3;
 
 type Filter = "all" | "active" | "hidden" | "inactive" | "scheduled";
 type SortBy = "manual" | "title" | "clicks" | "date";
@@ -392,7 +391,7 @@ export default function LinksPage() {
   const { verifyCsrf } = useCsrfAction();
 
   const isFreePlan = !account || account.plano === "free";
-  const linkLimit = isFreePlan ? FREE_LINK_LIMIT : Infinity;
+  const linkLimit = isFreePlan ? FREE_PLAN_LINK_LIMIT : Infinity;
   const canAddLink = links.length < linkLimit;
 
   const [newLink, setNewLink] = useState<Partial<LinkItem>>({
@@ -721,8 +720,8 @@ export default function LinksPage() {
           <div className="flex items-center gap-3 text-sm text-amber-200">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <span>
-              Plano Gratuito: {links.length} de {FREE_LINK_LIMIT} links usados.
-              {links.length >= FREE_LINK_LIMIT && " Faça upgrade para adicionar mais."}
+              Plano Gratuito: {links.length} de {FREE_PLAN_LINK_LIMIT} links usados.
+              {links.length >= FREE_PLAN_LINK_LIMIT && " Faça upgrade para adicionar mais."}
             </span>
           </div>
         </PremiumCard>

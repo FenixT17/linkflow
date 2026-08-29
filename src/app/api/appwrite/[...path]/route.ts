@@ -4,9 +4,11 @@ import {
   getAuthSessionSecret,
   setAuthSessionCookie,
 } from "@/lib/auth.server";
+import { csrfGuard } from "@/lib/csrf";
 import { normalizeEnvUrl } from "@/lib/utils";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { validateThemePayload } from "@/lib/theme-validation";
+import { FREE_PLAN_LINK_LIMIT } from "@/lib/plans";
 
 // `normalizeEnvUrl` garante que APPWRITE_ENDPOINT nunca é vazia nem inválida
 // (o CI injeta secrets não configurados como string vazia, o que faria
@@ -29,6 +31,194 @@ function isAccountPath(path: string[]): boolean {
 
 function isPublicAccountPath(path: string[]): boolean {
   return (path[1] === "verification" || path[1] === "recovery") && path.length <= 2;
+}
+
+// ---- Validação de propriedade de documentos ------------------------------
+//
+// As coleções abaixo têm `create: Role.users()` no Appwrite — qualquer
+// utilizador autenticado pode CRIAR documentos. Sem validação no proxy, um
+// atacante criava documentos com idPagina de OUTRAS páginas (injeção de
+// links/temas/analíticas em páginas de terceiros: a renderização pública
+// lê por idPagina com API key e nunca valida o dono) ou com idUtilizador
+// alheio (spam/impersonação em activity_logs/notifications/subscriptions).
+//
+// Coleções cujo documento referencia a página do dono (campo idPagina).
+const PAGE_REFERENCING_COLLECTIONS = new Set(["links", "themes", "analytics", "qr_codes"]);
+
+// Coleções cujo dono é o próprio utilizador autenticado. Em todos os fluxos
+// legítimos o valor vem do servidor (services.ts deriva da sessão) — rejeitar
+// qualquer valor que não seja o $id da sessão bloqueia spam/impersonação.
+const SELF_REFERENCING_COLLECTIONS: Record<string, string> = {
+  pages: "idUtilizador",
+  activity_logs: "idUtilizador",
+  notifications: "idUtilizador",
+  subscriptions: "idUtilizador",
+  teams: "idProprietario",
+};
+
+function isDocumentPath(path: string[]): boolean {
+  return path[0] === "databases" && path[2] === "collections" && path[4] === "documents";
+}
+
+async function fetchAppwriteWithSession(suffix: string, sessionSecret: string): Promise<Response> {
+  const base = new URL(APPWRITE_ENDPOINT);
+  const target = new URL(`${base.origin}${base.pathname.replace(/\/$/, "")}/${suffix}`);
+  return fetch(target, {
+    headers: {
+      "X-Appwrite-Project": APPWRITE_PROJECT_ID,
+      "X-Appwrite-Session": sessionSecret,
+      accept: "application/json",
+    },
+    cache: "no-store",
+  });
+}
+
+async function getSessionUserId(sessionSecret: string): Promise<string | null> {
+  try {
+    const res = await fetchAppwriteWithSession("account", sessionSecret);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { $id?: unknown };
+    return typeof data.$id === "string" ? data.$id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getPageOwnerId(databaseId: string, idPagina: string, sessionSecret: string): Promise<string | null> {
+  try {
+    const suffix =
+      `databases/${encodeURIComponent(databaseId)}/collections/pages/documents/${encodeURIComponent(idPagina)}`;
+    const res = await fetchAppwriteWithSession(suffix, sessionSecret);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { idUtilizador?: unknown };
+    return typeof data.idUtilizador === "string" ? data.idUtilizador : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Valida a propriedade de mutações de documento nas coleções protegidas.
+ *
+ * - POST (create): o campo dono no body tem de pertencer à sessão
+ *   (idPagina de uma página do utilizador, ou idUtilizador/idProprietario
+ *   igual ao $id da sessão).
+ * - PUT/PATCH: se o body tentar ALTERAR o campo dono, o novo valor tem de
+ *   pertencer à sessão; se não o altera, as permissões por documento já
+ *   restringem quem pode editar (só o dono dos seus próprios documentos).
+ * - DELETE: permissões por documento — o atacante só apaga os seus próprios
+ *   documentos, que não afetam terceiros.
+ *
+ * Devolve null quando a operação é permitida, ou a mensagem do 403.
+ * Requests sem sessão não passam aqui (o Appwrite rejeita mutações
+ * autenticadas); GET/HEAD/OPTIONS, storage e contas não são documentos.
+ */
+async function validateDocumentOwnership(
+  path: string[],
+  method: string,
+  jsonBody: Record<string, unknown> | null,
+  sessionSecret: string
+): Promise<string | null> {
+  if (!isDocumentPath(path) || !sessionSecret) return null;
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH") return null;
+
+  const collectionId = path[3];
+  const data = (jsonBody?.data ?? {}) as Record<string, unknown>;
+
+  if (PAGE_REFERENCING_COLLECTIONS.has(collectionId)) {
+    const idPagina = typeof data.idPagina === "string" ? data.idPagina : null;
+    // PUT/PATCH sem idPagina no body: o documento mantém a página atual —
+    // não há alteração de propriedade (permissões por documento protegem).
+    if (method !== "POST" && !idPagina) return null;
+    if (!idPagina) return "Pedido inválido.";
+    const [userId, pageOwnerId] = await Promise.all([
+      getSessionUserId(sessionSecret),
+      getPageOwnerId(path[1], idPagina, sessionSecret),
+    ]);
+    if (!userId || !pageOwnerId || userId !== pageOwnerId) {
+      return "Ação não permitida.";
+    }
+    // Limite de links do plano gratuito — imposto server-side, no único ponto
+    // de entrada das escritas do browser (ver nota em enforceFreeLinkLimit).
+    if (collectionId === "links" && method === "POST") {
+      const limitError = await enforceFreeLinkLimit(path[1], idPagina, pageOwnerId, sessionSecret);
+      if (limitError) return limitError;
+    }
+    return null;
+  }
+
+  const ownerField = SELF_REFERENCING_COLLECTIONS[collectionId];
+  if (!ownerField) return null;
+
+  const ownerValue = typeof data[ownerField] === "string" ? (data[ownerField] as string) : null;
+  if (method !== "POST" && !ownerValue) return null;
+  if (!ownerValue) return "Pedido inválido.";
+  const userId = await getSessionUserId(sessionSecret);
+  return userId && ownerValue === userId ? null : "Ação não permitida.";
+}
+
+// ---- Limite de links do plano gratuito (server-side) ----------------------
+//
+// A coleção `links` tem `create: Role.users()` e o client SDK pode ser
+// contornado chamando o proxy diretamente — por isso o limite de links do
+// plano free tem de ser verificado AQUI, no único ponto de entrada das
+// escritas do browser, e não no client. As consultas usam a sessão (o dono
+// lê os seus próprios documentos) e falham fechado: se não for possível
+// verificar o plano ou a contagem, o limite aplica-se.
+
+async function getUserPlan(databaseId: string, userId: string, sessionSecret: string): Promise<string | null> {
+  try {
+    const queries = new URLSearchParams();
+    queries.append("queries[]", `equal("idUtilizador",${JSON.stringify(userId)})`);
+    queries.append("queries[]", "limit(1)");
+    const suffix =
+      `databases/${encodeURIComponent(databaseId)}/collections/users/documents?${queries.toString()}`;
+    const res = await fetchAppwriteWithSession(suffix, sessionSecret);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { documents?: Array<{ plano?: unknown }> };
+    const plan = data.documents?.[0]?.plano;
+    return typeof plan === "string" && plan.length > 0 ? plan : "free";
+  } catch {
+    return null;
+  }
+}
+
+async function countPageLinks(databaseId: string, idPagina: string, sessionSecret: string): Promise<number | null> {
+  try {
+    const queries = new URLSearchParams();
+    queries.append("queries[]", `equal("idPagina",${JSON.stringify(idPagina)})`);
+    queries.append("queries[]", `limit(${FREE_PLAN_LINK_LIMIT + 1})`);
+    const suffix =
+      `databases/${encodeURIComponent(databaseId)}/collections/links/documents?${queries.toString()}`;
+    const res = await fetchAppwriteWithSession(suffix, sessionSecret);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { total?: unknown };
+    return typeof data.total === "number" ? data.total : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Impõe o limite de links do plano gratuito (fail-closed).
+ * Devolve a mensagem de erro (→ 403) quando o limite é atingido ou quando
+ * não é possível verificar o plano/contagem; null quando é permitido.
+ */
+async function enforceFreeLinkLimit(
+  databaseId: string,
+  idPagina: string,
+  userId: string,
+  sessionSecret: string
+): Promise<string | null> {
+  const limitMessage =
+    `Limite de links do plano Gratuito atingido (máx. ${FREE_PLAN_LINK_LIMIT}). Faça upgrade para adicionar mais.`;
+  const plan = await getUserPlan(databaseId, userId, sessionSecret);
+  // Plano não gratuito (e verificável) → sem limite.
+  if (plan !== null && plan !== "free") return null;
+  const total = await countPageLinks(databaseId, idPagina, sessionSecret);
+  // Fail-closed: contagem não verificável → o limite aplica-se.
+  if (total === null || total >= FREE_PLAN_LINK_LIMIT) return limitMessage;
+  return null;
 }
 
 function extractSessionSecretFromSetCookie(value: string | null): string | null {
@@ -59,10 +249,53 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     return new NextResponse(null, { status: 405, headers: { Allow: [...ALLOWED_METHODS].join(", ") } });
   }
   if (!APPWRITE_PROJECT_ID) {
-    return NextResponse.json({ error: "Appwrite not configured" }, { status: 503 });
+    return NextResponse.json({ message: "Appwrite not configured" }, { status: 503 });
   }
 
+  // CSRF (double-submit): o client SDK injeta X-CSRF-Token em cada request
+  // (ver src/lib/appwrite.ts). GET/HEAD/OPTIONS são ignorados pelo csrfGuard
+  // — leituras (listDocuments, account.get, file views) continuam sem token.
+  const csrfCheck = csrfGuard(request);
+  if (csrfCheck) return csrfCheck;
+
   const sessionSecret = getAuthSessionSecret(request);
+  const { path } = await context.params;
+  const target = targetUrl(path, request);
+  if (!isAllowedTarget(target)) {
+    return NextResponse.json({ message: "Invalid Appwrite target" }, { status: 400 });
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_PROXY_BODY_BYTES) {
+    return NextResponse.json({ message: "Request too large" }, { status: 413 });
+  }
+
+  const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
+  if (body && body.byteLength > MAX_PROXY_BODY_BYTES) {
+    return NextResponse.json({ message: "Request too large" }, { status: 413 });
+  }
+
+  // Parsing único do body JSON de documentos. O mesmo objeto serve a
+  // validação de propriedade (abaixo) e a validação de tema (mais adiante).
+  let jsonBody: Record<string, unknown> | null = null;
+  if (body && isDocumentPath(path)) {
+    try {
+      jsonBody = JSON.parse(new TextDecoder().decode(body)) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ message: "Pedido inválido." }, { status: 400 });
+    }
+  }
+
+  // Validação de propriedade — depois do CSRF e ANTES do rate limit (pedidos
+  // rejeitados não gastam quota). Bloqueia a injeção de links/temas/
+  // analíticas/páginas de terceiros via chamadas diretas ao proxy.
+  const ownershipError = sessionSecret
+    ? await validateDocumentOwnership(path, request.method, jsonBody, sessionSecret)
+    : null;
+  if (ownershipError) {
+    return NextResponse.json({ message: ownershipError }, { status: 403 });
+  }
+
   const rateLimitIdentifier = sessionSecret ? `user:${sessionSecret}` : `ip:${getClientIp(request)}`;
   let rateLimit;
   try {
@@ -71,24 +304,13 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
       windowMs: 60 * 1000,
     });
   } catch {
-    return NextResponse.json({ error: "Serviço temporariamente indisponível." }, { status: 503 });
+    return NextResponse.json({ message: "Serviço temporariamente indisponível." }, { status: 503 });
   }
   if (!rateLimit.allowed) {
     return NextResponse.json(
-      { error: "Demasiados pedidos. Aguarde antes de tentar novamente." },
+      { message: "Demasiados pedidos. Aguarde antes de tentar novamente." },
       { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) },
     );
-  }
-
-  const { path } = await context.params;
-  const target = targetUrl(path, request);
-  if (!isAllowedTarget(target)) {
-    return NextResponse.json({ error: "Invalid Appwrite target" }, { status: 400 });
-  }
-
-  const contentLength = request.headers.get("content-length");
-  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_PROXY_BODY_BYTES) {
-    return NextResponse.json({ error: "Request too large" }, { status: 413 });
   }
 
   const headers = new Headers();
@@ -109,6 +331,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         "authorization",
         "x-appwrite-jwt",
         "x-appwrite-session",
+        "x-appwrite-key",
+        "x-csrf-token",
       ].includes(lower) ||
       lower.startsWith("x-forwarded-")
     ) {
@@ -121,14 +345,9 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   if (isAccountPath(path) && !sessionSecret && !isOAuthNavigation(path) && !isPublicAccountPath(path)) {
     // Login, registration, password/session creation, JWT issuance and all
     // other account mutations must use the Redis-protected app routes.
-    return NextResponse.json({ error: "Use the application authentication flow." }, { status: 403 });
+    return NextResponse.json({ message: "Use the application authentication flow." }, { status: 403 });
   }
   if (sessionSecret) headers.set("X-Appwrite-Session", sessionSecret);
-
-  const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
-  if (body && body.byteLength > MAX_PROXY_BODY_BYTES) {
-    return NextResponse.json({ error: "Request too large" }, { status: 413 });
-  }
 
   const isThemeDocumentMutation =
     (request.method === "PUT" || request.method === "PATCH") &&
@@ -144,14 +363,9 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     path[3] === "themes" &&
     path[4] === "documents" &&
     path.length === 5;
-  if ((isThemeDocumentMutation || isThemeDocumentCreate) && body) {
-    try {
-      const payload = JSON.parse(new TextDecoder().decode(body)) as { data?: unknown };
-      const validationError = validateThemePayload(payload.data);
-      if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
-    } catch {
-      return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
-    }
+  if ((isThemeDocumentMutation || isThemeDocumentCreate) && jsonBody) {
+    const validationError = validateThemePayload(jsonBody.data);
+    if (validationError) return NextResponse.json({ message: validationError }, { status: 400 });
   }
 
   const upstream = await fetch(target, {

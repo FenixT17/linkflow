@@ -151,6 +151,36 @@ describe("distributed rate limiter", () => {
     }))).toBe("unknown");
   });
 
+  it("accepts the Netlify x-nf-client-connection-ip header (current deploy)", () => {
+    // Netlify injeta x-nf-client-connection-ip — o header oficial e garantido
+    // da plataforma onde o site está atualmente publicado.
+    expect(getClientIp(new Request("https://example.test", {
+      headers: { "x-nf-client-connection-ip": "198.51.100.42" },
+    }))).toBe("198.51.100.42");
+
+    // IPv6 válido também é aceite
+    expect(getClientIp(new Request("https://example.test", {
+      headers: { "x-nf-client-connection-ip": "2001:db8::42" },
+    }))).toBe("2001:db8::42");
+
+    // Valores inválidos (vírgula / múltiplos IPs) são rejeitados
+    expect(getClientIp(new Request("https://example.test", {
+      headers: { "x-nf-client-connection-ip": "203.0.113.1, 198.51.100.2" },
+    }))).toBe("unknown");
+  });
+
+  it("prefers cf-connecting-ip when both infra headers are present", () => {
+    // Quando o site for servido por Cloudflare na frente do Netlify,
+    // o cf-connecting-ip é o IP real do cliente; o header Netlify pode
+    // conter o IP do edge do Cloudflare.
+    expect(getClientIp(new Request("https://example.test", {
+      headers: {
+        "cf-connecting-ip": "198.51.100.7",
+        "x-nf-client-connection-ip": "203.0.113.9",
+      },
+    }))).toBe("198.51.100.7");
+  });
+
   it("fails closed when Upstash credentials are not configured", async () => {
     setRateLimitRedisForTests(null);
     const url = process.env.UPSTASH_REDIS_REST_URL;

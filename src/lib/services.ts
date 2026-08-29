@@ -529,51 +529,11 @@ function mapLinkDocument(doc: AppwriteDocument): LinkItem {
   };
 }
 
-// ---------- M7: cache em memória do plano do utilizador ----------
-// Evita 2-3 queries Appwrite por mutação autenticada (owner check + user
-// doc + listDocuments). TTL curto — só cacheia dados de quota, nunca
-// dados sensíveis. Invalidação implícita pelo TTL (30s).
-const planCache = new Map<string, { plan: string; expiresAt: number }>();
-const PLAN_CACHE_TTL_MS = 30_000;
-
-async function getCachedUserPlan(sessionId: string): Promise<string> {
-  const cached = planCache.get(sessionId);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.plan;
-  }
-  const userDocs = await databases.listDocuments(databaseId, Collections.users, [
-    Query.equal("idUtilizador", sessionId),
-    Query.limit(1),
-  ]);
-  const plan = (userDocs.documents[0]?.plano as string) ?? "free";
-  planCache.set(sessionId, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
-  // Evita crescimento infinito do mapa
-  if (planCache.size > 500) {
-    const now = Date.now();
-    for (const [key, entry] of planCache) {
-      if (entry.expiresAt <= now) planCache.delete(key);
-    }
-  }
-  return plan;
-}
-
 export async function createLink(idPagina: string, link: Omit<LinkItem, "id">) {
+  // O limite de links do plano gratuito é imposto server-side no proxy
+  // /api/appwrite — o único ponto de entrada das escritas do browser (ver
+  // enforceFreeLinkLimit no proxy). O client não duplica a verificação.
   const session = await requireOwnerOfPage(idPagina);
-
-  // Server-side enforcement: count existing links for free plan users
-  const userPlan = await getCachedUserPlan(session.$id);
-
-  if (userPlan === "free") {
-    const existingLinks = await databases.listDocuments(databaseId, Collections.links, [
-      Query.equal("idPagina", idPagina),
-      Query.limit(4), // Só precisamos de saber se há 3 ou mais
-    ]);
-    if (existingLinks.total >= 3) {
-      const error = new Error("Limite de links do plano Gratuito atingido (máx. 3). Faça upgrade para adicionar mais.");
-      (error as Error & { status?: number }).status = 403;
-      throw error;
-    }
-  }
 
   const created = await createOwnedDocument(Collections.links, {
     idPagina,

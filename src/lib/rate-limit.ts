@@ -77,14 +77,21 @@ function normalizeConfig(config: RateLimitConfig): RateLimitConfig {
 }
 
 /**
- * Identificador de cliente fornecido pela infraestrutura Cloudflare.
+ * Identificador de cliente fornecido pela infraestrutura de hosting.
  * Não aceita X-Forwarded-For/X-Real-IP arbitrariamente enviados pelo cliente.
- * O header único aceite é cf-connecting-ip, que é injetado pelo Cloudflare e
- * não pode ser falsificado pelo cliente; quando ausente, usa uma chave
- * conservadora `unknown`.
+ *
+ * Headers confiáveis (injetados pela infraestrutura, não falsificáveis pelo
+ * cliente — a plataforma substitui/remove valores recebidos do cliente):
+ *  - `cf-connecting-ip`: Cloudflare
+ *  - `x-nf-client-connection-ip`: Netlify (header oficial e garantido)
+ *
+ * O deploy atual é Netlify; o cf-connecting-ip é mantido para compatibilidade
+ * caso o site volte a ser servido por Cloudflare. Quando nenhum header
+ * confiável está presente, usa uma chave conservadora `unknown` (nunca
+ * X-Forwarded-For, que o cliente pode forjar).
  */
 export function getClientIp(request: Request): string {
-  const trustedHeaders = ["cf-connecting-ip"];
+  const trustedHeaders = ["cf-connecting-ip", "x-nf-client-connection-ip"];
   for (const header of trustedHeaders) {
     const value = request.headers.get(header)?.trim();
     if (value && isPlausibleIp(value)) return value;
