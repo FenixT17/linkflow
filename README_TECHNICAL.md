@@ -258,7 +258,7 @@ apagada permanentemente").
 ```bash
 npm run verify      # typecheck + lint + testes (o que corre no build do Netlify)
 npm run typecheck   # next typegen && tsc --noEmit
-npm test            # Vitest (293 testes em 36 ficheiros)
+npm test            # Vitest (305 testes em 37 ficheiros)
 npm run lint        # ESLint (src + scripts)
 ```
 
@@ -277,6 +277,23 @@ local e o do CI coincidem.
 > `@/lib/rate-limit` e/ou stubam o `fetch`: o resultado não pode depender das
 > credenciais do ambiente.
 
+### Parâmetros do protocolo do Appwrite (`src/lib/appwrite-params.ts`)
+
+O Appwrite anexa os seus **próprios** parâmetros aos URLs de retorno:
+`/verify-email?userId=..&secret=..` e `/reset-password?userId=..&secret=..`
+(documentado no JSDoc de `createVerification`/`createRecovery` no SDK).
+`userId` **não** é um campo do nosso schema e **não pode ser traduzido**: o
+rename do schema para português (`ac52ea9`) traduziu-o também, e o efeito foi
+todas as confirmações de email caírem em "Link inválido ou expirado" — durante
+semanas, sem erro em lado nenhum, porque a página simplesmente não encontrava
+as credenciais. O mesmo rename partiu a chave `userId` do body do callback
+OAuth.
+
+Por isso esses nomes vivem num só módulo, `lib/appwrite-params.ts`, lido por
+`readAppwriteTokenParams()`. Aceita ainda o nome antigo `idUtilizador` para os
+links de verificação (válidos 7 dias) que ficaram nas caixas de entrada durante
+a janela do bug. Quando renomeares campos do schema, isto é a exceção.
+
 ### Onde os testes não chegam
 
 Os testes cobrem bem as bibliotecas de segurança (CSRF, sanitização, temas,
@@ -288,7 +305,9 @@ de concessão de badges). O que **não** está coberto:
   o handler `/api/badges` em si precisa de um Appwrite a correr);
 - o `/demo` em si (o render é testado — template, avatar e modo de
   pré-visualização — mas o fluxo com sessão a carregar em `AuthContext` não);
-- qualquer fluxo end-to-end contra um Appwrite real.
+- qualquer fluxo end-to-end contra um Appwrite real;
+- o envio real dos emails de verificação/recuperação (o nome dos parâmetros do
+  link está fixado em teste, mas quem os anexa é o Appwrite).
 
 ### `/demo`
 

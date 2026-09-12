@@ -316,7 +316,8 @@ export function setAuthSessionCookie(
  * Dispara o email de verificação de email do Appwrite para a sessão dada
  * (createVerification). O Appwrite envia SEMPRE o seu próprio email (template
  * da consola — Branding → Email Templates → Verification) com o link
- * `{NEXT_PUBLIC_SITE_URL}/verify-email?idUtilizador=..&secret=..`. O secret do token
+ * `{NEXT_PUBLIC_SITE_URL}/verify-email?userId=..&secret=..` (o nome `userId` é do
+ * Appwrite — ver `lib/appwrite-params.ts`). O secret do token
  * só é conhecido do Appwrite (vai no email), por isso não é possível enviar um
  * email personalizado com o mesmo link sem duplicar o envio do Appwrite.
  * Falhas de envio não devem quebrar o registo — quem chama trata como

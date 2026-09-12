@@ -6,14 +6,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Logo } from "@/components/ui/logo";
+import { readAppwriteTokenParams } from "@/lib/appwrite-params";
 import { completeEmailVerification, getEmailVerificationStatus, sendEmailVerification } from "@/lib/services";
 import { ArrowLeft, CheckCircle2, Loader2, MailCheck, XCircle } from "lucide-react";
 
 function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const idUtilizador = searchParams.get("idUtilizador") || "";
-  const secret = searchParams.get("secret") || "";
+  // O Appwrite anexa `userId`+`secret` ao URL de retorno (`/verify-email`).
+  const { idUtilizador, secret } = readAppwriteTokenParams(searchParams);
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [resend, setResend] = useState<"idle" | "sending" | "sent" | "failed">("idle");
 

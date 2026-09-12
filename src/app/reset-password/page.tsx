@@ -6,14 +6,15 @@ import { useSearchParams } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { Logo } from "@/components/ui/logo";
+import { readAppwriteTokenParams } from "@/lib/appwrite-params";
 import { isValidPassword } from "@/lib/sanitize";
 import { completePasswordReset } from "@/lib/services";
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
-  const idUtilizador = searchParams.get("idUtilizador") || "";
-  const secret = searchParams.get("secret") || "";
+  // O Appwrite anexa `userId`+`secret` ao URL de retorno (`/reset-password`).
+  const { idUtilizador, secret } = readAppwriteTokenParams(searchParams);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
