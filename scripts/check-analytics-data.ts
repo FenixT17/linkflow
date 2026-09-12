@@ -19,7 +19,9 @@ async function check() {
           console.log("  id=" + d.$id);
         }
       }
-    } catch(e) { console.log(col + ": collection not found"); }
+    } catch {
+      console.log(col + ": collection not found");
+    }
   }
 }
 check();

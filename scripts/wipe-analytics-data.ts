@@ -7,12 +7,28 @@
  *   - ip_collection (IP data)
  *   - dados_para_estudos (study data)
  *
- * Usage: npx tsx scripts/wipe-analytics-data.ts
+ * ⚠️  DESTRUTIVO E IRREVERSÍVEL — apaga dados GLOBAIS (de todos os utilizadores),
+ *     não apenas os de uma página. Corre primeiro o modo de leitura:
+ *
+ *   npx tsx --env-file=.env.local scripts/wipe-analytics-data.ts
+ *
+ * Para escrever de facto são precisos DOIS argumentos:
+ *
+ *   npx tsx --env-file=.env.local scripts/wipe-analytics-data.ts \
+ *     --yes --confirm=linkflow
+ *
+ * `--confirm=<base de dados>` tem de corresponder ao databaseId configurado:
+ * obriga a escrever o alvo à mão, para que um `--yes` a mais (ou o histórico
+ * do shell) não possa limpar a base de dados de produção por engano.
  */
 import { Client, Databases, Query } from "node-appwrite";
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
+
+const args = process.argv.slice(2);
+const CONFIRM = args.includes("--yes");
+const confirmTarget = args.find((a) => a.startsWith("--confirm="))?.slice("--confirm=".length) ?? "";
 
 const endpoint =
   process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ??
@@ -135,6 +151,24 @@ async function resetAnalyticsDocuments(): Promise<number> {
 async function main() {
   console.log("🔗 Connecting to Appwrite:", endpoint, "/ project:", projectId);
   console.log("🗄  Database:", databaseId);
+  console.log();
+
+  // Duas barreiras: o alvo escrito à mão e o `--yes`. Sem ambas, o script só
+  // relata o que faria — nunca toca em dados.
+  if (!CONFIRM || confirmTarget !== databaseId) {
+    console.log("DRY RUN — nada foi apagado.");
+    console.log(`  Coleções a esvaziar: ${COLLECTIONS_TO_WIPE.join(", ")}`);
+    console.log(`  Coleções a repor a zero: ${COLLECTIONS_TO_RESET.join(", ")}`);
+    console.log();
+    console.log("⚠️  Isto afeta TODOS os utilizadores, é irreversível, e não distingue");
+    console.log("    produção de desenvolvimento — a base de dados é a que está em .env.local.");
+    console.log();
+    console.log("Para apagar de facto:");
+    console.log(`  npx tsx --env-file=.env.local scripts/wipe-analytics-data.ts --yes --confirm=${databaseId}`);
+    process.exit(0);
+  }
+
+  console.log(`🔥 MODO DESTRUTIVO confirmado para a base de dados "${databaseId}".`);
   console.log();
 
   // Wipe collections entirely

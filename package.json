@@ -19,9 +19,12 @@
     "migrate:study-data": "tsx scripts/migrate-study-data.ts",
     "seo:audit": "tsx scripts/seo-audit.ts",
     "check:links": "tsx scripts/check-links.ts",
+    "diagnose:links": "tsx --env-file=.env.local scripts/diagnose-links-permissions.ts",
+    "cleanup:test-pages": "tsx --env-file=.env.local scripts/cleanup-test-pages.ts",
     "verify:account-deletion": "tsx --env-file=.env.local scripts/verify-account-deletion.ts",
     "typegen": "next typegen",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "verify": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -36,7 +39,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "recharts": "^3.10.1",
-    "resend": "^6.18.1",
     "server-only": "^0.0.1",
     "shadcn": "^4.15.0",
     "simple-icons": "^16.27.1",

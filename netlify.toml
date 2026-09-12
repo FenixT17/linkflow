@@ -19,8 +19,14 @@
 # este ficheiro substitui wrangler.jsonc + .github/workflows/deploy.yml.
 # ============================================================================
 
+# O build do Netlify começa por `npm run verify` (typecheck + testes Vitest).
+# `npm run verify` falha (exit code != 0) sempre que houver um erro de tipos
+# ou um teste vermelho, o que aborta o deploy antes de `next build` publicar
+# uma versão quebrada. Os testes correm sem `.env.local` (não dependem de
+# variáveis de ambiente — o Vitest injeta mocks/aliases), por isso funcionam
+# no CI. Para reproduzir localmente: `npm run verify`.
 [build]
-  command = "npm run build"
+  command = "npm run verify && npm run build"
   publish = ".next"
 
 [build.environment]

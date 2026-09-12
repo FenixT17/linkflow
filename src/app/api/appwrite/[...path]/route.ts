@@ -7,6 +7,7 @@ import {
   setAuthSessionCookie,
 } from "@/lib/auth.server";
 import { csrfGuard } from "@/lib/csrf";
+import { filterDocumentBody } from "@/lib/appwrite-fields";
 import { normalizeEnvUrl } from "@/lib/utils";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { validateThemePayload } from "@/lib/theme-validation";
@@ -291,68 +292,10 @@ function isAllowedTarget(target: URL): boolean {
 }
 
 // ---- Filtro de campos (anti-mass-assignment) ------------------------------
-//
-// Mesmo com validação de propriedade, o body encaminhado para o Appwrite pode
-// conter campos que o utilizador não deveria controlar (cliques, emblemas,
-// plano, idPagina em updates de pages, etc.). Estes allowlists garantem que
-// só campos legítimos são escritos, independentemente do que o browser envia.
-const ALLOWED_FIELDS: Record<string, Set<string>> = {
-  pages: new Set([
-    "nomeUtilizador", "nomeExibicao", "biografia",
-    "tipoPagina", "modeloPagina",
-    "publicado", "idAvatar", "idBanner",
-    "publicacaoAgendadaEm", "despublicacaoAgendadaEm", "aEliminar",
-  ]),
-  links: new Set([
-    "idPagina", "tipo", "titulo", "url", "descricao",
-    "icone", "cor", "idImagem", "animacao",
-    "ativo", "visivel", "novaAba", "ordem", "agendadoPara",
-    "cliques",  // required by Appwrite schema; initialised to 0 server-side
-  ]),
-  themes: new Set([
-    "idPagina", "fundo", "botaoFundo", "botaoHover",
-    "fundoSecundario", "texto", "botaoTexto", "bordaAvatar",
-  ]),
-  analytics: new Set(["idPagina", "visualizacoes", "cliques", "seguidores", "metricasJson"]),
-  qr_codes: new Set(["idPagina", "qr_data", "qr_imagem"]),
-};
-
-/**
- * Filtra os campos do body para incluir apenas os permitidos.
- * Devolve true se o body foi modificado (precisa re-serializar).
- */
-function filterDocumentBody(
-  jsonBody: Record<string, unknown> | null,
-  collectionId: string,
-  _method: string
-): boolean {
-  if (!jsonBody) return false;
-  const allowed = ALLOWED_FIELDS[collectionId];
-  if (!allowed) return false;
-
-  const data = jsonBody.data as Record<string, unknown> | undefined;
-  if (!data || typeof data !== "object") return false;
-
-  let modified = false;
-  const filtered: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (allowed.has(key)) {
-      filtered[key] = value;
-    } else {
-      modified = true; // campo removido → body precisa re-serializar
-    }
-  }
-  // Campos obrigatórios não devem ser removidos pelo filtro
-  if (collectionId === "pages" && _method === "POST") {
-    for (const required of ["nomeUtilizador", "nomeExibicao"]) {
-      if (!(required in filtered)) {
-        filtered[required] = data[required] ?? "";
-      }
-    }
-  }
-  jsonBody.data = filtered;
-  return modified;
-}
+// O allowlist por coleção vive em `@/lib/appwrite-fields` (fora do route
+// handler) para ser testável: um allowlist desatualizado remove campos do body
+// em silêncio e a escrita deixa de persistir sem erro. Ver
+// src/__tests__/appwrite-fields.test.ts.
 
 // O handler é privado: o typegen do Next.js 15.5 só aceita exports de métodos
 // HTTP (GET/POST/...) em route handlers — um export extra `handler` faz o

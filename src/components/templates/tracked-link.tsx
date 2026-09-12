@@ -4,6 +4,7 @@ import { LinkItem } from "@/lib/types";
 import { sanitizeUrl } from "@/lib/sanitize";
 import { recordLinkClick } from "@/lib/utils";
 import { hasStudyConsent } from "@/lib/study-consent";
+import { useIsPreview } from "./preview-context";
 
 interface TrackedLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   link: LinkItem;
@@ -15,11 +16,18 @@ interface TrackedLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement>
  * Âncora com tracking de cliques, usada por todos os templates.
  * Cada template controla o estilo via className; aqui só garantimos
  * URL saneada, abrir em nova aba (se configurado) e o POST /api/click.
+ *
+ * Em pré-visualização (`/demo`) o POST é omitido — ver preview-context.tsx.
+ * O link continua a navegar: só as métricas ficam de fora.
  */
 export function TrackedLink({ link, idPagina, children, ...rest }: TrackedLinkProps) {
-  const recordClick = () => {
-    void recordLinkClick(idPagina, link.id, hasStudyConsent());
-  };
+  const isPreview = useIsPreview();
+
+  const recordClick = isPreview
+    ? undefined
+    : () => {
+        void recordLinkClick(idPagina, link.id, hasStudyConsent());
+      };
 
   return (
     <a

@@ -188,8 +188,7 @@ export function escapeCsv(value: string | number): string {
 
 /**
  * Regista um clique num link da página pública (POST /api/click).
- * Partilhado entre os componentes de tracking (trackable-link e
- * tracked-link dos templates) para evitar duplicação.
+ * Usado pelo TrackedLink, o único sink de links dos templates públicos.
  */
 export async function recordLinkClick(idPagina: string, linkId: string, studyConsent = false) {
   try {

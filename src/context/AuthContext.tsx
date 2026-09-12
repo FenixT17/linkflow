@@ -37,7 +37,7 @@ import {
   getUserProfile,
   getPageByUserId,
   getLinksByPageId,
-  getThemeByPageId,
+  ensureThemeForPage,
   getAnalyticsByPageId,
   getRecentActivities,
   logActivity,
@@ -216,38 +216,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadPageData = useCallback(async (id: string) => {
-    // Each fetch is independent — a failure in one does not block the others.
-    let fetchedLinks: LinkItem[] = [];
-    let fetchedTheme: Appearance & { $id: string } = { ...defaultAppearance(), $id: "" };
-    let fetchedAnalytics: AnalyticsData = emptyAnalytics();
-
+    // Cada leitura é independente — uma falha não bloqueia as outras.
+    //
+    // CRÍTICO: uma falha NÃO pode substituir o estado por valores vazios.
+    // Antes, `setLinksState(fetchedLinks)` corria SEMPRE (mesmo com 0 valores),
+    // por isso uma falha transitória de leitura esvaziava a lista na interface
+    // enquanto os links continuavam na base de dados. O utilizador, a ver
+    // "0 links", tentava criar outro — e o servidor recusava com o limite do
+    // plano gratuito (que conta na BD). Uma leitura falhada passa a manter o
+    // último estado bom e a ficar registada na consola.
     const [linksResult, themeResult, analyticsResult] = await Promise.allSettled([
       getLinksByPageId(id),
-      getThemeByPageId(id),
+      // Auto-cura: cria o documento de tema se a página não o tiver (páginas
+      // antigas criadas pelo caminho idempotente). Sem ele, `themeId` fica
+      // vazio e o updateAppearance nunca escreve.
+      ensureThemeForPage(id),
       getAnalyticsByPageId(id),
     ]);
 
     if (linksResult.status === "fulfilled") {
-      fetchedLinks = linksResult.value;
+      setLinksState(linksResult.value);
     } else {
       console.error("[AuthContext] Failed to load links:", linksResult.reason);
     }
+
     if (themeResult.status === "fulfilled") {
-      fetchedTheme = themeResult.value;
+      const { $id: themeDocId, ...safeTheme } = themeResult.value;
+      setThemeId(themeDocId || null);
+      setAppearance(safeTheme);
     } else {
       console.error("[AuthContext] Failed to load theme:", themeResult.reason);
     }
+
     if (analyticsResult.status === "fulfilled") {
-      fetchedAnalytics = analyticsResult.value ?? emptyAnalytics();
+      setAnalytics(analyticsResult.value ?? emptyAnalytics());
     } else {
       console.error("[AuthContext] Failed to load analytics:", analyticsResult.reason);
     }
-
-    setLinksState(fetchedLinks);
-    const { $id: themeDocId, ...safeTheme } = fetchedTheme;
-    setThemeId(themeDocId || null);
-    setAppearance(safeTheme);
-    setAnalytics(fetchedAnalytics);
   }, []);
 
   const loadUserData = useCallback(async (idUtilizador: string, sessionFallback?: Models.User<Models.Preferences>) => {

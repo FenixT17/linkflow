@@ -18,8 +18,7 @@ import {
   StaffApplication,
 } from "./types";
 import { defaultAppearance, emptyAnalytics } from "./defaults";
-import { isBadgeId } from "./badges";
-import { isStaffApplicationApproved, normalizeStaffApplicationMessage } from "./staff-security";
+import { normalizeStaffApplicationMessage } from "./staff-security";
 import { safeThemeColor, safeThemeFont, validateThemeField } from "./theme-validation";
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
@@ -470,6 +469,128 @@ function throwPageConflict(error: unknown): never {
   throw error;
 }
 
+/** Métricas iniciais do documento `analytics` (agregados reais a zeros). */
+function initialMetricsJson(): string {
+  return JSON.stringify({
+    ctr: 0,
+    weeklyGrowth: 0,
+    monthlyGrowth: 0,
+    visitorGrowth: 0,
+    topLinks: [],
+    topCountries: [],
+    topDevices: [],
+    deviceLog: [],
+    recentVisitors: [],
+    hourlyStats: [],
+    dailyStats: [],
+    visitorSet: [],
+    dailyVisitors: [],
+    uniqueVisitors: 0,
+  });
+}
+
+/**
+ * Garante que a página tem os documentos laterais obrigatórios (`themes` e
+ * `analytics`).
+ *
+ * Porque existe: os documentos laterais só eram criados no caminho "página
+ * nova". O caminho idempotente (o utilizador já tem página — dupla submissão,
+ * retry, ou uma tentativa anterior que ficou a meio) fazia `return` cedo e
+ * deixava a página SEM tema. Consequência real, verificada em produção: 7 de 9
+ * páginas não tinham documento de `themes`, e como `getThemeByPageId` devolve
+ * `$id: ""` e o `updateAppearance` do AuthContext só escreve `if (themeId)`,
+ * TODAS as alterações de aparência dessas páginas eram descartadas em
+ * silêncio — o toggle mexia na UI e voltava ao original ao recarregar.
+ *
+ * Idempotente: lê primeiro e só cria o que falta. Um 409 (índice único em
+ * `idPagina`, corrida com outro pedido) conta como sucesso.
+ */
+async function ensurePageSidecars(
+  idPagina: string,
+  session: Models.User<Models.Preferences>,
+): Promise<void> {
+  const [themes, analytics] = await Promise.all([
+    databases.listDocuments(databaseId, Collections.themes, [
+      Query.equal("idPagina", idPagina),
+      Query.limit(1),
+    ]),
+    databases.listDocuments(databaseId, Collections.analytics, [
+      Query.equal("idPagina", idPagina),
+      Query.limit(1),
+    ]),
+  ]);
+
+  const pending: Promise<unknown>[] = [];
+
+  if (themes.documents.length === 0) {
+    // NOTA: o schema Appwrite chama-se `tema` (ver provision-appwrite.ts) —
+    // enviar `theme` falha com "Unknown attribute". O campo é legado (o sistema
+    // atual usa apenas Liquid Glass), enviado por defesa em profundidade.
+    pending.push(
+      createOwnedDocument(
+        Collections.themes,
+        { idPagina, tema: "glass", ...defaultAppearance() },
+        session,
+      ).catch((error) => {
+        if (!isAlreadyExistsError(error)) throw error;
+      }),
+    );
+  }
+
+  if (analytics.documents.length === 0) {
+    pending.push(
+      createOwnedDocument(
+        Collections.analytics,
+        {
+          idPagina,
+          visualizacoes: 0,
+          cliques: 0,
+          seguidores: 0,
+          metricasJson: initialMetricsJson(),
+        },
+        session,
+      ).catch((error) => {
+        if (!isAlreadyExistsError(error)) throw error;
+      }),
+    );
+  }
+
+  await Promise.all(pending);
+}
+
+/**
+ * Devolve o tema da página, criando-o se não existir (auto-cura).
+ *
+ * Sem isto, uma página sem documento de `themes` fica permanentemente sem
+ * aparência persistente: `getThemeByPageId` devolve `$id: ""` e o
+ * `updateAppearance` do AuthContext verifica `if (themeId)` antes de escrever,
+ * por isso nenhuma alteração chega à base de dados. As páginas já existentes
+ * são corrigidas no primeiro carregamento do dashboard.
+ */
+export async function ensureThemeForPage(idPagina: string): Promise<Appearance & { $id: string }> {
+  const existing = await getThemeByPageId(idPagina);
+  if (existing.$id) return existing;
+
+  try {
+    const session = await requireOwnerOfPage(idPagina);
+    await createOwnedDocument(
+      Collections.themes,
+      { idPagina, tema: "glass", ...defaultAppearance() },
+      session,
+    );
+  } catch (error) {
+    // 409 = outro pedido criou-o entretanto (índice único em idPagina) → re-lê.
+    if (!isAlreadyExistsError(error)) {
+      // Nunca bloquear o dashboard: mantém o comportamento anterior (defaults
+      // sem documento) e deixa o erro registado.
+      console.warn("[ensureThemeForPage] não foi possível criar o tema da página:", error);
+      return { ...defaultAppearance(), $id: "" };
+    }
+  }
+
+  return getThemeByPageId(idPagina);
+}
+
 export async function createPage(profile: Omit<PageProfile, "publicado">) {
   const session = await getCurrentSession();
 
@@ -481,13 +602,17 @@ export async function createPage(profile: Omit<PageProfile, "publicado">) {
   if (existing) {
     try {
       // updatePage já regista a atividade (page_updated) e faz o owner check.
-      return await updatePage(existing.$id, {
+      const updated = await updatePage(existing.$id, {
         nomeUtilizador: profile.nomeUtilizador,
         nomeExibicao: profile.nomeExibicao,
         biografia: profile.biografia ?? "",
         tipoPagina: profile.tipoPagina ?? existing.tipoPagina ?? "minimal",
         modeloPagina: profile.modeloPagina ?? existing.modeloPagina ?? "template1",
       });
+      // Este caminho fazia `return` sem criar os documentos laterais, deixando
+      // a página sem tema (aparência nunca persistia). Ver ensurePageSidecars.
+      await ensurePageSidecars(existing.$id, session);
+      return updated;
     } catch (error) {
       // Username alterado para um já usado por OUTRO utilizador → 409 cru.
       throwPageConflict(error);
@@ -516,54 +641,8 @@ export async function createPage(profile: Omit<PageProfile, "publicado">) {
   // redirect do dashboard nem o carregamento.
   void logActivity("page_created", { nomeUtilizador: profile.nomeUtilizador, nomeExibicao: profile.nomeExibicao });
 
-  // Cria o tema e o analytics vazios em paralelo (cada um é independente e
-  // usa o idPagina da página recém-criada). Em vez de dois round trips
-  // sequenciais, é um só tick de rede — relevante no primeiro carregamento
-  // após "Salvar e continuar", onde o utilizador vê o spinner.
-  //
-  // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
-  // único de idPagina), NÃO é um conflito de nomeUtilizador — ignoramos e seguimos.
-  //
-  // NOTA: o schema Appwrite da coleção themes chama-se `tema` (o provision
-  // script cria "tema", opcional com default "glass"). Enviar `theme` produzia
-  // "Invalid document structure: Unknown attribute: \"theme\"" e a criação da
-  // página falhava em /dashboard/create. O campo é legado (sistema atual usa
-  // apenas Liquid Glass), por isso enviamos o valor explicitamente por
-  // defesa em profundidade.
-  const themePromise = createOwnedDocument(Collections.themes, {
-    idPagina: doc.$id,
-    tema: "glass",
-    ...defaultAppearance(),
-  }).catch((error) => {
-    if (!isAlreadyExistsError(error)) throw error;
-  });
-  await Promise.all([
-    themePromise,
-    createOwnedDocument(Collections.analytics, {
-      idPagina: doc.$id,
-      visualizacoes: 0,
-      cliques: 0,
-      seguidores: 0,
-      metricasJson: JSON.stringify({
-        ctr: 0,
-        weeklyGrowth: 0,
-        monthlyGrowth: 0,
-        visitorGrowth: 0,
-        topLinks: [],
-        topCountries: [],
-        topDevices: [],
-        deviceLog: [],
-        recentVisitors: [],
-        hourlyStats: [],
-        dailyStats: [],
-        visitorSet: [],
-        dailyVisitors: [],
-        uniqueVisitors: 0,
-      }),
-    }).catch((error) => {
-      if (!isAlreadyExistsError(error)) throw error;
-    }),
-  ]);
+  // Cria o tema e o analytics vazios (idempotente — ver ensurePageSidecars).
+  await ensurePageSidecars(doc.$id, session);
 
   return doc;
 }
@@ -976,81 +1055,48 @@ export async function getRecentActivities(limit = 15): Promise<ActivityEntry[]> 
 
 // ---------- Badges ----------
 
-/** Badges concedidas APENAS pela equipa (nunca self-service). */
-const TEAM_ONLY_BADGES = new Set<string>(["early", "partner"]);
-
 /**
- * Concede uma badge à página do utilizador autenticado, respeitando as
- * regras de desbloqueio:
- * - verified / supporter: self-service (doação simulada — fluxo da aba Badges).
- * - staff: SÓ depois de a candidatura estar aprovada (status "approved").
- * - pro: SÓ se a conta tiver plano pago (registo em users).
- * - early / partner: exclusivas da equipa — sempre negadas ao utilizador.
+ * Concede uma badge à página do utilizador autenticado.
  *
- * O badgeId é validado contra o registo (isBadgeId) antes de qualquer escrita,
- * e o idUtilizador é sempre derivado da sessão autenticada (nunca do body).
+ * A escrita acontece no servidor (`POST /api/badges`). O documento `pages` é
+ * editável pelo utilizador, por isso o proxy `/api/appwrite` remove `emblemas`
+ * do allowlist — escrevê-lo aqui (client SDK) era silenciosamente descartado e
+ * a badge nunca persistia. As regras de desbloqueio (equipa, plano,
+ * candidatura ao staff) são agora aplicadas no servidor, onde o plano vem do
+ * registo `users` e a aprovação vem de `staff_applications`.
+ *
+ * Devolve `true` quando a badge foi persistida agora. Para badges derivadas
+ * (ex: `staff`, cuja origem é a candidatura aprovada) devolve sempre `false`:
+ * não há nada a escrever em `pages`.
  */
 export async function grantBadge(badgeId: string): Promise<boolean> {
-  if (!isBadgeId(badgeId)) {
-    throw new Error("Badge desconhecida.");
-  }
-  if (TEAM_ONLY_BADGES.has(badgeId)) {
-    throw new Error("Esta badge é concedida apenas pela equipa.");
-  }
-
-  const session = await getCurrentSession();
-
-  // Regra da badge staff: só após aprovação da candidatura
-  if (badgeId === "staff") {
-    const application = await getStaffApplicationStatus();
-    if (!application || !isStaffApplicationApproved(application)) {
-      throw new Error("A badge Staff só é concedida após aprovação da candidatura.");
-    }
-  }
-
-  // Regra da badge pro: só com plano pago (origem real no registo users)
-  if (badgeId === "pro") {
-    const profile = await getUserProfile(session.$id);
-    if (!profile || profile.plano === "free") {
-      throw new Error("A badge Pro requer um plano pago.");
-    }
-  }
-
-  const page = await getPageByUserId(session.$id);
-  if (!page) {
-    throw new Error("Cria primeiro a tua página para desbloquear badges.");
-  }
-  await requireOwnerOfPage(page.$id);
-
-  // Nota: read-modify-write no array — a doação sequencial (verified depois
-  // supporter) evita corridas na prática. Não há append atómico no client SDK.
-  const emblemas = Array.isArray(page.emblemas) ? page.emblemas.filter((badge) => badge !== "staff") : [];
-  if (badgeId === "staff") {
-    // A staff approval is authoritative server data; this client function no
-    // longer writes the staff marker into the user-editable pages document.
-    return false;
-  }
-  if (emblemas.includes(badgeId)) return false;
-  await databases.updateDocument(databaseId, Collections.pages, page.$id, {
-    emblemas: [...emblemas, badgeId],
+  const response = await fetchWithCsrf("/api/badges", {
+    method: "POST",
+    body: JSON.stringify({ badgeId, action: "grant" }),
   });
-  void logActivity("badge_earned", { badge: badgeId });
-  return true;
+  const data = await response.json().catch(() => ({})) as { granted?: boolean; error?: string };
+  if (!response.ok) {
+    throw new Error(data.error || "Não foi possível conceder a badge.");
+  }
+  if (data.granted === true) {
+    void logActivity("badge_earned", { badge: badgeId });
+  }
+  return data.granted === true;
 }
 
 /**
  * Remove uma badge da página (usado para sincronizar a badge pro com o plano).
+ * Passa pela mesma rota server-side, pelas razões descritas em `grantBadge`.
  */
 export async function revokeBadge(badgeId: string): Promise<void> {
-  const session = await getCurrentSession();
-  const page = await getPageByUserId(session.$id);
-  if (!page) return;
-  await requireOwnerOfPage(page.$id);
-  const emblemas = Array.isArray(page.emblemas) ? page.emblemas.filter((badge) => badge !== "staff") : [];
-  if (!emblemas.includes(badgeId)) return;
-  await databases.updateDocument(databaseId, Collections.pages, page.$id, {
-    emblemas: emblemas.filter((b) => b !== badgeId),
+  const response = await fetchWithCsrf("/api/badges", {
+    method: "POST",
+    body: JSON.stringify({ badgeId, action: "revoke" }),
   });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({})) as { error?: string };
+    throw new Error(data.error || "Não foi possível remover a badge.");
+  }
 }
 
 /**
