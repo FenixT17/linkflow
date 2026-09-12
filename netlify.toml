@@ -13,18 +13,19 @@
 #     NEXT_PUBLIC_SITE_URL=https://linkflow-pt.netlify.app
 #   Secret (server-only, nunca expor):
 #     APPWRITE_API_KEY · IP_HASH_SECRET · UPSTASH_REDIS_REST_URL ·
-#     UPSTASH_REDIS_REST_TOKEN (RESEND_* opcionais — email desativado)
+#     UPSTASH_REDIS_REST_TOKEN
 #
 # NOTA: o deploy para Cloudflare Workers foi removido (ver git history) —
 # este ficheiro substitui wrangler.jsonc + .github/workflows/deploy.yml.
 # ============================================================================
 
-# O build do Netlify começa por `npm run verify` (typecheck + testes Vitest).
-# `npm run verify` falha (exit code != 0) sempre que houver um erro de tipos
-# ou um teste vermelho, o que aborta o deploy antes de `next build` publicar
-# uma versão quebrada. Os testes correm sem `.env.local` (não dependem de
-# variáveis de ambiente — o Vitest injeta mocks/aliases), por isso funcionam
-# no CI. Para reproduzir localmente: `npm run verify`.
+# O build do Netlify começa por `npm run verify` — typecheck, ESLint e os testes
+# Vitest. `npm run verify` sai com código != 0 a qualquer erro de tipos, regra do
+# ESLint ou teste vermelho, o que aborta o deploy antes de `next build` publicar
+# uma versão quebrada.
+# Os testes correm sem `.env.local` (não dependem de variáveis de ambiente — o
+# Vitest resolve `server-only` por um shim e não lê esse ficheiro), por isso o
+# resultado local e o do CI coincidem. Reproduzir localmente: `npm run verify`.
 [build]
   command = "npm run verify && npm run build"
   publish = ".next"
