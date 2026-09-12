@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get("origin");
     const sameOrigin =
       (!referer || isSameOriginMediaReferrer(request.url, referer)) &&
-      (!origin || origin === new URL(request.url).origin) &&
-      Boolean(referer || origin);
+      (!origin || origin === new URL(request.url).origin);
     if (!sameOrigin) {
       return NextResponse.json({ error: "Origem inválida." }, { status: 403 });
     }
