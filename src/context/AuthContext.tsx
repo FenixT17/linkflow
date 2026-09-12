@@ -216,16 +216,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadPageData = useCallback(async (id: string) => {
-    const [fetchedLinks, fetchedTheme, fetchedAnalytics] = await Promise.all([
+    // Each fetch is independent — a failure in one does not block the others.
+    let fetchedLinks: LinkItem[] = [];
+    let fetchedTheme: Appearance & { $id: string } = { ...defaultAppearance(), $id: "" };
+    let fetchedAnalytics: AnalyticsData = emptyAnalytics();
+
+    const [linksResult, themeResult, analyticsResult] = await Promise.allSettled([
       getLinksByPageId(id),
       getThemeByPageId(id),
       getAnalyticsByPageId(id),
     ]);
+
+    if (linksResult.status === "fulfilled") {
+      fetchedLinks = linksResult.value;
+    } else {
+      console.error("[AuthContext] Failed to load links:", linksResult.reason);
+    }
+    if (themeResult.status === "fulfilled") {
+      fetchedTheme = themeResult.value;
+    } else {
+      console.error("[AuthContext] Failed to load theme:", themeResult.reason);
+    }
+    if (analyticsResult.status === "fulfilled") {
+      fetchedAnalytics = analyticsResult.value ?? emptyAnalytics();
+    } else {
+      console.error("[AuthContext] Failed to load analytics:", analyticsResult.reason);
+    }
+
     setLinksState(fetchedLinks);
     const { $id: themeDocId, ...safeTheme } = fetchedTheme;
     setThemeId(themeDocId || null);
     setAppearance(safeTheme);
-    setAnalytics(fetchedAnalytics ?? emptyAnalytics());
+    setAnalytics(fetchedAnalytics);
   }, []);
 
   const loadUserData = useCallback(async (idUtilizador: string, sessionFallback?: Models.User<Models.Preferences>) => {
