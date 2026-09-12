@@ -26,9 +26,9 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { iconPath: siGithub.path, href: "https://github.com", label: "GitHub" },
-  { iconPath: siX.path, href: "https://x.com", label: "X" },
-  { iconPath: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z", href: "#", label: "Website" },
+  { iconPath: siGithub.path, hex: siGithub.hex, href: "https://github.com", label: "GitHub" },
+  { iconPath: siX.path, hex: siX.hex, href: "https://x.com", label: "X" },
+  { iconPath: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z", hex: "6366F1", href: "#", label: "Website" },
 ];
 
 export function Footer() {
@@ -62,7 +62,7 @@ export function Footer() {
                     aria-label={s.label}
                     className="glass-btn !h-9 !w-9 !p-0 flex items-center justify-center text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                   >
-                    <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" aria-hidden="true" className="relative z-[1]">
+                    <svg viewBox="0 0 24 24" width={16} height={16} fill={`#${s.hex}`} aria-hidden="true" className="relative z-[1]">
                       <path d={s.iconPath} />
                     </svg>
                   </a>

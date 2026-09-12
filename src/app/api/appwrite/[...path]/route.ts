@@ -307,6 +307,7 @@ const ALLOWED_FIELDS: Record<string, Set<string>> = {
     "idPagina", "tipo", "titulo", "url", "descricao",
     "icone", "cor", "idImagem", "animacao",
     "ativo", "visivel", "novaAba", "ordem", "agendadoPara",
+    "cliques",  // required by Appwrite schema; initialised to 0 server-side
   ]),
   themes: new Set([
     "idPagina", "fundo", "botaoFundo", "botaoHover",
