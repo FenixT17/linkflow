@@ -111,13 +111,26 @@ async function deleteFile(storage: Storage, bucketId: string, fileId: string): P
 }
 
 /**
- * Permanently removes every application resource attributable to one user.
+ * Permanently removes every application resource attributable to one user,
+ * including the Appwrite Auth identity (email, nome, password, OAuth e estado
+ * de verificação).
  *
- * The Appwrite Auth identity is intentionally preserved so the user's email
- * and name remain available in Auth. All active Auth sessions are revoked
- * after the application data is removed. Appwrite has no cross-collection
- * transaction, so the operation is idempotent and must be retried if a
- * transient error is returned.
+ * HISTÓRICO: a identidade era preservada de propósito — o comentário dizia
+ * "para o email e o nome continuarem disponíveis em Auth". Na prática deixava
+ * a conta a meio caminho: os dados desapareciam, mas o login continuava a
+ * funcionar, e quem voltasse a entrar recriava o perfil. O utilizador via a
+ * app dizer que a conta tinha sido apagada e o Appwrite discordava — e uma
+ * eliminação que não elimina identidade não serve para efeitos de RGPD/LGPD.
+ * A UI sempre prometeu "A sua conta será apagada permanentemente"; a
+ * implementação passou a cumprir.
+ *
+ * A identidade é apagada em ÚLTIMO lugar (fim da função). Enquanto existir, o
+ * utilizador consegue autenticar-se e repetir a operação se algo falhar a meio;
+ * apagada primeiro, os dados restantes ficariam sem forma de serem alcançados.
+ *
+ * Todas as sessões são revogadas no início, para fechar o acesso de imediato.
+ * O Appwrite não tem transações entre coleções, por isso a operação é
+ * idempotente (404 tolerado) e pode ser repetida.
  */
 export async function deleteAccountData(idUtilizador: string, email: string): Promise<void> {
   if (!idUtilizador.trim()) throw new Error("Missing user id");
@@ -273,8 +286,21 @@ export async function deleteAccountData(idUtilizador: string, email: string): Pr
     }
   }
 
-  // The Appwrite Auth identity remains intact (email/name/password/OAuth and
-  // verification state). The route clears the browser cookie as well.
+  // Identidade de Auth do Appwrite — email, nome, password, OAuth e estado de
+  // verificação. É o ÚLTIMO passo de propósito: enquanto existir, o utilizador
+  // consegue voltar a autenticar-se e repetir a eliminação se algum passo acima
+  // tiver falhado a meio. Apagá-la primeiro deixaria os restantes dados
+  // inalcançáveis (ninguém poderia autenticar-se para os remover).
+  //
+  // Depende do scope `users.write` na API key (ver .env.example). Se faltar, o
+  // erro é propagado de propósito: falhar em silêncio faria o utilizador crer
+  // que a conta desapareceu quando a identidade continua viva.
+  // Idempotente: uma identidade já apagada (404) conta como sucesso.
+  try {
+    await adminUsers.delete(idUtilizador);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
 }
 
 /** Exposed for focused tests without touching Appwrite. */

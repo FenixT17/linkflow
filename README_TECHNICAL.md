@@ -240,8 +240,16 @@ de tema, ambos com nonce e conteúdo gerado no servidor.
 utilizador — páginas e filhos, ficheiros (incluindo uploads antigos), logs de
 segurança, hashes de IP órfãos e documentos account-scoped — de forma
 **idempotente** (404 tolerado) e re-lista os filhos após despublicar, para
-apanhar escritas que correram em paralelo. A identidade de Auth é preservada
-intencionalmente e as sessões são revogadas antes da limpeza.
+apanhar escritas que correram em paralelo.
+
+As sessões são revogadas no início (fecha o acesso de imediato) e a identidade
+de Auth do Appwrite (email/password/OAuth) é apagada **no fim**. A ordem não é
+arbitrária: enquanto a identidade existir, o utilizador consegue voltar a
+autenticar-se e repetir a eliminação se algo falhar a meio; apagada primeiro,
+os dados restantes ficariam inalcançáveis. Exige o scope `users.write` na API
+key — se faltar, o erro é propagado em vez de silenciado (uma eliminação que
+não elimina a identidade não serve para RGPD/LGPD, e a UI promete "a conta será
+apagada permanentemente").
 
 ---
 
@@ -250,7 +258,7 @@ intencionalmente e as sessões são revogadas antes da limpeza.
 ```bash
 npm run verify      # typecheck + lint + testes (o que corre no build do Netlify)
 npm run typecheck   # next typegen && tsc --noEmit
-npm test            # Vitest (287 testes em 35 ficheiros)
+npm test            # Vitest (293 testes em 36 ficheiros)
 npm run lint        # ESLint (src + scripts)
 ```
 
@@ -313,7 +321,7 @@ continua a registar cliques sem precisar de fazer nada.
 | `npm run migrate:*` | Migrações pontuais (`staff-applications`, `users-permissions`, `study-data`). |
 | `npm run seo:audit` | Audita problemas de SEO. |
 | `npm run check:links` | Verifica links quebrados. |
-| `npm run verify:account-deletion` | Testa o fluxo de eliminação de conta (requer `.env.local`). |
+| `npm run verify:account-deletion` | Testa o fluxo de eliminação de conta ponta-a-ponta, **incluindo** que a identidade de Auth desaparece (requer `.env.local`). |
 | `npm run diagnose:links` | Diagnóstico **read-only** dos links/páginas no Appwrite (permissões, órfãos, analytics em falta). |
 | `npm run cleanup:test-pages` | Remove páginas de teste e os documentos associados. **Dry run por omissão**; apagar exige `--yes`. |
 

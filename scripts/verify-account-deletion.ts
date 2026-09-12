@@ -2,9 +2,9 @@
  * Validação end-to-end da exclusão de conta (Sessão 43).
  *
  * Cria um utilizador de teste + dados em TODAS as coleções + um ficheiro no
- * bucket, executa deleteAccountData() e verifica que os dados da aplicação
- * foram removidos, mas a identidade Auth foi preservada:
- *   - Identidade Auth Appwrite preservada (email/nome continuam disponíveis)
+ * bucket, executa deleteAccountData() e verifica que NADA do utilizador
+ * sobrevive:
+ *   - Identidade Auth Appwrite APAGADA (users.get → 404)
  *   - Zero documentos por página (links, themes, analytics, visits, qr_codes,
  *     dados_para_estudos)
  *   - Zero documentos por utilizador (subscriptions, teams, notifications,
@@ -13,8 +13,9 @@
  *   - collected_ips sem o hash do visitante de teste
  *   - Ficheiro do bucket apagado
  *
- * A identidade Auth é mantida (email/nome/password/OAuth), mas as sessões
- * são revogadas para impedir acesso aos dados apagados.
+ * A identidade Auth é apagada em último lugar; as sessões são revogadas no
+ * início, para fechar o acesso de imediato. Como o email fica livre, a mesma
+ * pessoa pode voltar a registar-se — era o que a UI sempre prometeu.
  *
  * Executar: npm run verify:account-deletion
  * (os imports de src/lib leem process.env ao carregar o módulo, por isso as
@@ -217,20 +218,24 @@ async function createData(uid: string): Promise<void> {
 async function verify(uid: string): Promise<Record<string, boolean>> {
   const results: Record<string, boolean> = {};
 
-  // 1. Identidade Auth Appwrite preservada, incluindo email e nome.
+  // 1. A identidade Auth tem de estar APAGADA — users.get responde 404.
   try {
     const authUser = await users.get(uid);
-    results.identidade_auth_preservada = authUser.email === email && authUser.name === name;
-  } catch {
-    results.identidade_auth_preservada = false;
+    // Se isto responder, a identidade sobreviveu: o utilizador continuaria a
+    // conseguir autenticar-se depois de "eliminar a conta".
+    console.log(`   ⚠ identidade ainda existe: ${authUser.email}`);
+    results.identidade_auth_apagada = false;
+  } catch (error) {
+    results.identidade_auth_apagada = (error as { code?: number }).code === 404;
   }
 
-  // 2. Todas as sessões devem ter sido revogadas sem apagar a identidade.
+  // 2. Sem identidade, as sessões deixam de ser acessíveis (eram revogadas no
+  // início e a identidade foi apagada no fim).
   try {
-    const sessions = await users.listSessions(uid);
-    results.sessoes_auth_revogadas = sessions.total === 0;
-  } catch {
-    results.sessoes_auth_revogadas = false;
+    await users.listSessions(uid);
+    results.sessoes_inacessiveis = false;
+  } catch (error) {
+    results.sessoes_inacessiveis = (error as { code?: number }).code === 404;
   }
 
   // 3. Coleções por página
