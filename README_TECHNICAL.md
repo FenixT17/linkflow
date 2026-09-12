@@ -250,14 +250,24 @@ intencionalmente e as sessões são revogadas antes da limpeza.
 ```bash
 npm run verify      # typecheck + lint + testes (o que corre no build do Netlify)
 npm run typecheck   # next typegen && tsc --noEmit
-npm test            # Vitest (284 testes em 35 ficheiros)
+npm test            # Vitest (287 testes em 35 ficheiros)
 npm run lint        # ESLint (src + scripts)
 ```
 
 **O build do Netlify começa por `npm run verify`** (`netlify.toml`): um erro de
 tipos, uma regra do ESLint ou um teste vermelho aborta o deploy antes de
-`next build` publicar. Os testes são independentes do ambiente (não precisam de
-`.env.local`), por isso o resultado local e o do CI coincidem.
+`next build` publicar. Os testes não leem `.env.local`, por isso o resultado
+local e o do CI coincidem.
+
+> ⚠️ **Os testes que exercitam o proxy `/api/appwrite` têm de isolar o
+> ambiente.** O Netlify corre `npm test` com `UPSTASH_*`, `APPWRITE_API_KEY` e
+> `NEXT_PUBLIC_APPWRITE_*` injetados: um pedido que passe o CSRF continua para o
+> rate limit (Redis real) e daí para o Appwrite real, cujo status é reenviado
+> tal e qual. Um teste que assuma "isto devolve 503 porque não há Redis" passa
+> localmente e falha no deploy — foi exatamente o que aconteceu com o
+> `appwrite-proxy-csrf.test.ts`. Por isso os `appwrite-proxy-*.test.ts` mockam
+> `@/lib/rate-limit` e/ou stubam o `fetch`: o resultado não pode depender das
+> credenciais do ambiente.
 
 ### Onde os testes não chegam
 
