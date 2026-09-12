@@ -125,9 +125,24 @@ function StatCard({
 }
 
 export default function AnalyticsPage() {
-  const { analytics } = useAuth();
+  const { analytics, refreshAnalytics } = useAuth();
   const mounted = useMounted();
   const [range, setRange] = useState<7 | 30 | 90>(30);
+
+  // Auto-refresh analytics every 30s and on window focus
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void refreshAnalytics();
+    }, 30_000);
+    const onFocus = () => {
+      void refreshAnalytics();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refreshAnalytics]);
 
   const safe = useMemo(
     () => ({
@@ -255,8 +270,8 @@ export default function AnalyticsPage() {
                       }}
                       itemStyle={{ color: "#fff" }}
                     />
-                    <Area type="monotone" dataKey="views" stroke="#38bdf8" fill="url(#colorViews)" strokeWidth={2} dot={false} />
-                    <Area type="monotone" dataKey="clicks" stroke="#a78bfa" fill="url(#colorClicks)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="visualizacoes" stroke="#38bdf8" fill="url(#colorViews)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="cliques" stroke="#a78bfa" fill="url(#colorClicks)" strokeWidth={2} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (

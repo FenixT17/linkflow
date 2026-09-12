@@ -313,7 +313,7 @@ const ALLOWED_FIELDS: Record<string, Set<string>> = {
     "idPagina", "fundo", "botaoFundo", "botaoHover",
     "fundoSecundario", "texto", "botaoTexto", "bordaAvatar",
   ]),
-  analytics: new Set(["idPagina", "data", "visualizacoesUnicas", "cliques", "cliquesPorLink"]),
+  analytics: new Set(["idPagina", "visualizacoes", "cliques", "seguidores", "metricasJson"]),
   qr_codes: new Set(["idPagina", "qr_data", "qr_imagem"]),
 };
 
