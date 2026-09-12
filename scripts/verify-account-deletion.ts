@@ -62,7 +62,7 @@ const users = new Users(client);
 
 const stamp = Date.now();
 const email = `deletion-check-${stamp}@linkflow-pt.netlify.app`;
-const password = "Teste!1234Delecao";
+const password = `D${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}!`; // 14 chars: 1 uppercase + 12 random alphanumeric + "!"
 const name = "Deletion Check";
 const nomeUtilizador = `dt${stamp}`;
 const hashVisitante = `vh${stamp}`; // único por execução (índice único em collected_ips)
