@@ -115,13 +115,13 @@ async function createStringAttribute(
   defaultValue?: string
 ) {
   // NOTA: o default é passado mesmo para atributos obrigatórios — o Appwrite
-  // suporta defaults em atributos required (ex: themes.theme = "glass").
+  // suporta defaults em atributos required (ex: themes.tema = "glass").
   // Antes, `required ? undefined : defaultValue` descartava o default, o que
   // fazia o createDocument sem o campo falhar com "Missing required attribute".
   // NOTA: o Appwrite NÃO permite default em atributos obrigatórios
   // ("Cannot set default value for required attribute"). Por isso o default
   // só é passado quando required=false — para required, os documentos têm de
-  // enviar o valor explicitamente (ex: createPage envia theme: "glass").
+  // enviar o valor explicitamente (ex: createPage envia tema: "glass").
   return runWithIdempotency(
     () =>
       databases.createStringAttribute(databaseId, collectionId, key, size, required, required ? undefined : defaultValue),
@@ -313,7 +313,12 @@ async function provision() {
   await createStringAttribute("users", "codigoPais", 8, false, "");
   await createStringAttribute("users", "moeda", 8, false, "EUR");
   await createDatetimeAttribute("users", "criadoEm", true);
-  await waitForAttributes("users", ["idUtilizador", "email", "nomeExibicao", "plano", "pais", "codigoPais", "moeda", "criadoEm"]);
+  // Prova de consentimento (RGPD): data/hora em que o utilizador aceitou a
+  // política de privacidade/consentimento ao criar conta. Opcional para não
+  // quebrar documentos antigos; escrito apenas pelo server SDK (o dono tem
+  // apenas Permission.read no próprio documento, logo não é falsificável).
+  await createDatetimeAttribute("users", "consentimentoAceitoEm", false);
+  await waitForAttributes("users", ["idUtilizador", "email", "nomeExibicao", "plano", "pais", "codigoPais", "moeda", "criadoEm", "consentimentoAceitoEm"]);
   await createIndex("users", "idx_users_idUtilizador", "unique", ["idUtilizador"]);
   await createIndex("users", "idx_users_email", "unique", ["email"]);
 
@@ -525,11 +530,11 @@ async function provision() {
     true
   );
   await createStringAttribute("themes", "idPagina", 255, true);
-  // tema: OBRIGATÓRIO + default é impossível no Appwrite ("Cannot set
-  // default value for required attribute"). Como o campo é legado (Liquid
-  // Glass only), tornamos OPcional com default "glass": documentos criados
-  // sem tema obtêm automaticamente "glass" e o createPage envia-o sempre
-  // explicitamente (Sessão 30) — defesa em profundidade.
+  // tema: campo legado (o sistema atual usa apenas Liquid Glass). O nome no
+  // schema é `tema` — enviar `theme` falha com "Unknown attribute". É
+  // OPCIONAL com default "glass": documentos criados sem tema obtêm
+  // automaticamente "glass" e o createPage envia-o sempre explicitamente —
+  // defesa em profundidade.
   await createStringAttribute("themes", "tema", 64, false, "glass");
   await createIntegerAttribute("themes", "desfoco", true, 25);
   await createIntegerAttribute("themes", "arredondado", true, 16);

@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { ID, Permission, Query, Role } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
 import { requireAuth } from "@/lib/auth.server";
-import { createServerClient, databaseId } from "@/lib/appwrite.server";
+import { createServerClient, databaseId, isUnknownAttributeError } from "@/lib/appwrite.server";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { resolveGeo } from "@/lib/geo";
-import { currencyForCountry } from "@/lib/currencies";
 
 const COLLECTION_USERS = "users";
 
@@ -42,6 +40,12 @@ export async function POST(request: NextRequest) {
   try {
     const { databases } = createServerClient();
     const idUtilizador = auth.user.$id;
+
+    // Do corpo apenas se lê o booleano de consentimento; a data/hora é sempre
+    // definida pelo servidor (nunca se confia em timestamps do cliente).
+    const body = (await request.json().catch(() => ({}))) as { consent?: unknown };
+    const consentGranted = body.consent === true;
+
     const existing = await databases.listDocuments(databaseId, COLLECTION_USERS, [
       Query.equal("idUtilizador", idUtilizador),
       Query.limit(1),
@@ -71,24 +75,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const geo = await resolveGeo(ip, request).catch(() => ({ country: "", codigoPais: "" }));
-    const codigoPais = geo.codigoPais?.toUpperCase() ?? "";
-    const profile = await databases.createDocument(
-      databaseId,
-      COLLECTION_USERS,
-      ID.unique(),
-      {
-        idUtilizador,
-        email: auth.user.email || "",
-        nomeExibicao: auth.user.name || "Utilizador",
-        plano: "free",
-        pais: geo.country ?? "",
-        codigoPais,
-        moeda: currencyForCountry(codigoPais),
-        criadoEm: auth.user.$createdAt || new Date().toISOString(),
-      },
-      [Permission.read(Role.user(idUtilizador))]
-    );
+    // O país e a moeda não são críticos: contas antigas que não têm
+    // codigoPais são preenchidas em background pelo AuthContext em cada
+    // login (syncUserGeo, fail-silently). O utilizador consegue entrar e
+    // criar a página antes do GeoIP resolver.
+    const baseProfile = {
+      idUtilizador,
+      email: auth.user.email || "",
+      nomeExibicao: auth.user.name || "Utilizador",
+      plano: "free",
+      pais: "",
+      codigoPais: "",
+      moeda: "EUR",
+      criadoEm: auth.user.$createdAt || new Date().toISOString(),
+    };
+    const permissions = [Permission.read(Role.user(idUtilizador))];
+
+    // Prova de consentimento (RGPD): data/hora definida pelo servidor. Só o
+    // server SDK escreve este campo — o dono tem apenas Permission.read no
+    // próprio documento, por isso não é falsificável.
+    let profile;
+    try {
+      profile = await databases.createDocument(
+        databaseId,
+        COLLECTION_USERS,
+        ID.unique(),
+        consentGranted ? { ...baseProfile, consentimentoAceitoEm: new Date().toISOString() } : baseProfile,
+        permissions,
+      );
+    } catch (error) {
+      // Atributo ainda não provisionado (falta correr `npm run provision`):
+      // não bloqueia a criação da conta — cria o perfil sem a prova e avisa.
+      if (!consentGranted || !isUnknownAttributeError(error)) throw error;
+      console.warn(
+        "[users/provision] atributo consentimentoAceitoEm em falta — corre `npm run provision`. Perfil criado sem prova de consentimento.",
+      );
+      profile = await databases.createDocument(databaseId, COLLECTION_USERS, ID.unique(), baseProfile, permissions);
+    }
 
     return NextResponse.json(
       { profile: mapProfile(profile) },

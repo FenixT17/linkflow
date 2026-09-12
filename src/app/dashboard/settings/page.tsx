@@ -165,9 +165,9 @@ export default function SettingsPage() {
                   setConfirmOpen(true);
                 }}
                 disabled={deleting}
-                className="w-full flex items-center gap-3 p-3 rounded-xl glass-card hover:bg-red-500/[0.08] transition-colors text-left disabled:opacity-50"
+                className="group/btn w-full flex items-center gap-3 p-3 rounded-xl glass-card border border-white/[0.06] hover:bg-red-500/[0.08] hover:border-red-500/25 hover:shadow-lg hover:shadow-red-500/10 hover:scale-[1.01] active:scale-[0.985] transition-all duration-200 text-left disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none disabled:hover:border-white/[0.06]"
               >
-                <Trash2 className="h-5 w-5 text-red-400" />
+                <Trash2 className="h-5 w-5 text-red-400 transition-transform duration-200 group-hover/btn:rotate-6" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white/90">{deleting ? "A eliminar..." : "Eliminar conta"}</p>
                   <p className="text-xs text-white/40">Apaga permanentemente todos os seus dados</p>
@@ -297,7 +297,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleDeleteAccount}
                   disabled={deleting}
-                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-1"
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-4 text-sm font-medium text-white transition-all duration-200 hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/25 hover:scale-[1.02] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 sm:flex-1"
                 >
                   {deleting ? (
                     <>

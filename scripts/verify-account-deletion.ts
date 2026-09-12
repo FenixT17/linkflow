@@ -120,7 +120,7 @@ async function createData(uid: string): Promise<void> {
     databaseId,
     "themes",
     ID.unique(),
-    { idPagina, theme: "glass", blur: 25, rounded: 16, opacidadeLinks: 100, tamanhoFonte: 16, raioBotao: 12, mostrarAvatar: true, mostrarBiografia: true, mostrarSocial: true, spacing: 6 },
+    { idPagina, tema: "glass", desfoco: 25, arredondado: 16, opacidadeLinks: 100, tamanhoFonte: 16, raioBotao: 12, mostrarAvatar: true, mostrarBiografia: true, mostrarSocial: true, espacamento: 6 },
     perms
   );
 

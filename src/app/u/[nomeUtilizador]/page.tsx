@@ -11,7 +11,6 @@ import { PageTemplate } from "@/components/templates";
 import { LinkItem } from "@/lib/types";
 import { siteUrl, profilePageJsonLd, renderJsonLd, webPageJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
 import { isPageTemplate, DEFAULT_PAGE_TEMPLATE } from "@/lib/page-templates";
-import { PrivacyConsent } from "@/components/public/privacy-consent";
 
 interface PublicProfilePageProps {
   params: Promise<{ nomeUtilizador: string }>;
@@ -95,7 +94,6 @@ export default async function PublicProfilePage({ params }: PublicProfilePagePro
     <main className="relative min-h-dvh overflow-hidden bg-[var(--background)]">
       <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={renderJsonLd([pageWebPageJsonLd, profileJsonLd, breadcrumbJsonLd])} />
       <ViewTracker idPagina={page.$id} />
-      <PrivacyConsent />
       <div className="gradient-orb" aria-hidden="true">
         <div className="gradient-orb-1" />
         <div className="gradient-orb-2" />

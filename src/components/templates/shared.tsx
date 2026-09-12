@@ -7,6 +7,7 @@ import { Logo } from "@/components/ui/logo";
 import { BADGE_BY_ID, isBadgeId } from "@/lib/badges";
 import { TrackedLink } from "./tracked-link";
 import { PlatformIcon } from "@/components/ui/platform-icon";
+import { StudyConsentLink } from "@/components/public/study-consent-link";
 import type { LinkItem } from "@/lib/types";
 
 const BADGE_ICONS: Record<string, typeof BadgeCheck> = {
@@ -194,6 +195,7 @@ export function TemplateFooter({ corTexto }: { corTexto?: string }) {
         <Logo size={14} className="brightness-150 contrast-125" />
         LinkFlow
       </Link>
+      <StudyConsentLink color={corTexto} />
     </footer>
   );
 }

@@ -20,7 +20,39 @@ function buildContentSecurityPolicy(nonce: string): string {
   ].join("; ");
 }
 
+/**
+ * Nome do cookie de sessãoHttpOnly — o mesmo definido em auth.server.ts.
+ * No middleware (edge runtime) não podemos importar de server-only modules,
+ * então o nome é duplicado aqui. Qualquer alteração em auth.server.ts tem
+ * de ser espelhada neste ficheiro.
+ */
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-linkflow-session" : "linkflow-session";
+
+/** Rotas do dashboard que exigem autenticação. */
+const PROTECTED_PATHS = ["/dashboard"];
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export function middleware(request: NextRequest) {
+  // --- Proteção server-side de rotas autenticadas --------------------------
+  // O cookie de sessão é HttpOnly e só é definido após login/logout via API.
+  // A presença do cookie é uma condição NECESSÁRIA (não suficiente) para
+  // autenticação — a validação completa continua no servidor via requireAuth().
+  // Este check impede que o HTML do dashboard seja servido a visitantes não
+  // autenticados (elimina o flash de conteúdo protegido antes do redirect
+  // client-side) e bloqueia ferramentas automatizadas que ignorem JS.
+  if (isProtectedPath(request.nextUrl.pathname)) {
+    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
+    if (!sessionCookie || !sessionCookie.value) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   const nonce = createNonce();
   const requestHeaders = new Headers(request.headers);
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);

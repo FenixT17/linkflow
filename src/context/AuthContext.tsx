@@ -45,6 +45,7 @@ import {
   updatePage as updatePageService,
   updateTheme as updateThemeService,
   getCurrentSession,
+  invalidateSessionCache,
   loginWithGoogle,
   loginWithGitHub,
   checkAndSyncOAuthUser,
@@ -67,7 +68,8 @@ interface AuthContextValue {
   register: (
     name: string,
     email: string,
-    password: string
+    password: string,
+    consent: boolean
   ) => Promise<{ success: boolean; verificationSent?: boolean; error?: string }>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
@@ -81,8 +83,8 @@ interface AuthContextValue {
   updateSettings: (patch: Partial<UserSettings>) => void;
   recordView: () => void;
   recordClick: (linkId?: string) => void;
-  loginWithGoogle: () => void;
-  loginWithGitHub: () => void;
+  loginWithGoogle: (consent?: boolean) => void;
+  loginWithGitHub: (consent?: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -282,56 +284,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Após login OAuth, o cookie de sessão pode demorar alguns
         // milissegundos a propagar. Tentamos obter a sessão várias vezes
         // antes de desistir.
-        let session = null;
-        let lastError: unknown = null;
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-          if (controller.signal.aborted || !mounted) return;
-          try {
-            session = await getCurrentSession();
-            if (session) break;
-          } catch (error) {
-            lastError = error;
-            // Espera crescente: 250ms, 500ms, 750ms, 1000ms
-            if (attempt < 4) {
-              await new Promise((resolve) => {
-                const id = setTimeout(resolve, 250 * (attempt + 1));
-                controller.signal.addEventListener("abort", () => clearTimeout(id), { once: true });
-              });
-            }
-          }
+    let session = null;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (controller.signal.aborted || !mounted) return;
+      try {
+        session = await getCurrentSession();
+        if (session) break;
+      } catch (error) {
+        lastError = error;
+        // Espera curta: primeira tentativa falha raramente num login
+        // bem-sucedido (não é OAuth); não vale a pena esperar.
+        if (attempt < 1) {
+          await new Promise((resolve) => {
+            const id = setTimeout(resolve, 250);
+            controller.signal.addEventListener("abort", () => clearTimeout(id), { once: true });
+          });
         }
-
-        if (!mounted) return;
-
-        if (!session) {
-          if (process.env.NODE_ENV === "development" && lastError) {
-            console.warn("[AuthContext] No session found:", lastError);
-          }
-          // Limpa estado. Só redireciona se estiver numa rota protegida.
-          setAccountData(null);
-          setPage(null);
-          setPageId(null);
-          setLinksState([]);
-          setAppearance(defaultAppearance());
-          setThemeId(null);
-          setAnalytics(emptyAnalytics());
-          setActivities([]);
-          clearAppStorage();
-          if (pathname && isProtectedRoute(pathname)) {
-            router.replace("/login");
-          }
-          return;
-        }
+      }
+    }
 
         // Sincronização OAuth: usa API route server-side para evitar
         // problemas de permissão do client SDK. Falhas não quebram o login.
         // O endpoint verifica o cookie de sessão e deriva o idUtilizador server-side.
-        const oauthSyncAllowed = await checkAndSyncOAuthUser(session);
-        if (!oauthSyncAllowed) {
-          throw new Error("Este email não pode ser utilizado no LinkFlow.");
+        if (session) {
+          const oauthSyncAllowed = await checkAndSyncOAuthUser(session);
+          if (!oauthSyncAllowed) {
+            throw new Error("Este email não pode ser utilizado no LinkFlow.");
+          }
+
+          await loadUserData(session.$id, session);
+          return;
         }
 
-        await loadUserData(session.$id, session);
+        // Sem sessão após as tentativas → utilizador anónimo. Só redireciona se
+        // estiver numa rota protegida.
+        if (process.env.NODE_ENV === "development" && lastError) {
+          console.warn("[AuthContext] No session found:", lastError);
+        }
+        setAccountData(null);
+        setPage(null);
+        setPageId(null);
+        setLinksState([]);
+        setAppearance(defaultAppearance());
+        setThemeId(null);
+        setAnalytics(emptyAnalytics());
+        setActivities([]);
+        clearAppStorage();
+        if (pathname && isProtectedRoute(pathname)) {
+          router.replace("/login");
+        }
       } catch {
         // No session or Appwrite not configured yet — redirect to login if protected
         if (mounted) {
@@ -382,13 +384,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         agenteUtilizador: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
       });
 
-      await loginUser(email, password, remember);
-      const session = await getCurrentSession();
+      const authenticatedUser = await loginUser(email, password, remember);
 
-      // Registo de atividade: login bem-sucedido
+      // Registo de atividade: login bem-sucedido. Fire-and-forget — não bloqueia o
+      // redirect nem o carregamento do dashboard.
       void logActivity("login");
 
-      // Mitigação de session fixation: renova o token CSRF após login
+      // Mitigação de session fixation: renova o token CSRF após login.
       refreshCsrfToken().catch(() => {});
 
       // Log success (anonymous + authenticated)
@@ -397,10 +399,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         tipoEvento: "login_success",
         email,
         agenteUtilizador: navigator.userAgent,
-        metadados: { authenticatedUserId: session.$id },
+        metadados: { authenticatedUserId: authenticatedUser.$id },
       });
 
-      await loadUserData(session.$id, session);
+      await loadUserData(authenticatedUser.$id, authenticatedUser);
       return { success: true };
     } catch (error: unknown) {
       // Log failure
@@ -415,7 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadUserData]);
 
-  const register = useCallback(async (name: string, email: string, password: string) => {
+  const register = useCallback(async (name: string, email: string, password: string, consent: boolean) => {
     try {
       // Detect suspicious input
       const emailCheck = detectSuspiciousInput(email);
@@ -442,7 +444,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         metadados: { nomeExibicao: name },
       });
 
-      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name);
+      const { account: newAccount, geo, verificationSent } = await registerUser(email, password, name, consent);
 
       // Registo de atividade: conta criada
       void logActivity("register", { nomeExibicao: name });
@@ -541,6 +543,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // The server has already deleted the Appwrite identity and session.
+      invalidateSessionCache();
       clearCsrfToken();
       setAccountData(null);
       setPage(null);

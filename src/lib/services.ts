@@ -24,6 +24,27 @@ import { safeThemeColor, safeThemeFont, validateThemeField } from "./theme-valid
 
 type AppwriteDocument = Models.Document & Record<string, unknown>;
 
+/**
+ * Gera uma chave de idempotência única para uma INTENÇÃO de criação.
+ *
+ * A chave acompanha o pedido de criação (header `Idempotency-Key`) e permite
+ * ao proxy /api/appwrite reconhecer pedidos duplicados/concorrentes da mesma
+ * intenção — devolvendo o resultado da primeira execução em vez de criar
+ * outro documento. Reutiliza-se a MESMA chave em retries da mesma intenção
+ * (ex: resposta perdida na rede); uma nova intenção gera uma nova chave, por
+ * isso dois links legitimamente semelhantes continuam a ser permitidos.
+ */
+export function createIdempotencyKey(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // Ambientes sem randomUUID → fallback abaixo.
+  }
+  return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 // ---------- Auth helpers ----------
 
 async function getCurrentSessionOrThrow(): Promise<Models.User<Models.Preferences>> {
@@ -43,6 +64,46 @@ async function createOwnedDocument<T extends Record<string, unknown>>(
     Permission.update(Role.user(current.$id)),
     Permission.delete(Role.user(current.$id)),
   ]);
+}
+
+/**
+ * Cria um documento enviando uma `Idempotency-Key` ao proxy.
+ *
+ * Feito com um fetch explícito (em vez do client SDK) porque a chave é
+ * específica de cada intenção e o SDK não expõe headers por chamada. O corpo
+ * é idêntico ao que o SDK envia (`{ documentId, data, permissions }`), por
+ * isso as validações do proxy (propriedade + limite do plano free) continuam
+ * a aplicar-se sem alterações.
+ */
+async function createOwnedDocumentIdempotent<T extends Record<string, unknown>>(
+  collectionId: string,
+  data: T,
+  session: Models.User<Models.Preferences>,
+  idempotencyKey: string,
+): Promise<AppwriteDocument> {
+  const response = await fetchWithCsrf(
+    `/api/appwrite/databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(collectionId)}/documents`,
+    {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({
+        documentId: ID.unique(),
+        data,
+        permissions: [
+          Permission.read(Role.user(session.$id)),
+          Permission.update(Role.user(session.$id)),
+          Permission.delete(Role.user(session.$id)),
+        ],
+      }),
+    },
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | (AppwriteDocument & { message?: string })
+    | null;
+  if (!response.ok || !payload) {
+    throw new Error(payload?.message || "Não foi possível criar o link.");
+  }
+  return payload;
 }
 
 async function requireOwnerOfPage(idPagina: string): Promise<Models.User<Models.Preferences>> {
@@ -91,10 +152,12 @@ export async function fetchUserGeo(): Promise<{
   }
 }
 
-export async function registerUser(email: string, password: string, name: string) {
+export async function registerUser(email: string, password: string, name: string, consent: boolean) {
+  // O registo cria uma sessão nova — nunca reutilizar a cache anterior.
+  invalidateSessionCache();
   const response = await fetchWithCsrf("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, password, name, consent }),
   });
   const data = await response.json().catch(() => ({})) as {
     user?: Models.User<Models.Preferences>;
@@ -105,9 +168,11 @@ export async function registerUser(email: string, password: string, name: string
     throw new Error(data.error || "Não foi possível criar a conta.");
   }
 
+  // O consentimento é reenviado para o provision, que grava a data/hora
+  // (definida pelo servidor) no perfil — prova auditável do aceite.
   const provision = await fetchWithCsrf("/api/users/provision", {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify({ consent }),
   });
   if (!provision.ok) {
     // Do not leave a newly-created account authenticated if the mandatory
@@ -197,6 +262,8 @@ export async function loginUser(email: string, password: string, remember = true
   if (!response.ok || !data.user) {
     throw new Error(data.error || "Email ou palavra-passe incorretos.");
   }
+  // Sessão nova → a cache não pode devolver o utilizador anterior.
+  invalidateSessionCache();
   return data.user;
 }
 
@@ -205,6 +272,7 @@ export async function logoutUser() {
   if (!response.ok) {
     throw new Error("Não foi possível terminar a sessão.");
   }
+  invalidateSessionCache();
 }
 
 async function migrateLegacyBrowserSession(): Promise<void> {
@@ -223,7 +291,30 @@ async function migrateLegacyBrowserSession(): Promise<void> {
   }
 }
 
-export async function getCurrentSession() {
+/**
+ * Cache de sessão (TTL curto) + deduplicação de chamadas concorrentes.
+ *
+ * Sem isto, cada operação do dashboard repetia `GET /api/auth/me` — e esse
+ * endpoint é um round trip proxied até ao Appwrite (`account.get`). Uma
+ * única ação (criar/editar link, guardar tema) chamava-o 2–3 vezes
+ * (mutação + `logActivity` + refresh), somando centenas de ms ao clique.
+ *
+ * O TTL é curto (5s) de propósito: uma sessão válida é estável nesse
+ * intervalo, e a cache é invalidada explicitamente em login/logout/registo
+ * (ver `invalidateSessionCache`). Uma sessão expirada continua a falhar
+ * normalmente no fim do TTL.
+ */
+const SESSION_CACHE_TTL_MS = 5_000;
+let cachedSession: { user: Models.User<Models.Preferences>; expiresAt: number } | null = null;
+let sessionRequest: Promise<Models.User<Models.Preferences>> | null = null;
+
+/** Invalida a cache de sessão — chamar após login, registo, logout e eliminação de conta. */
+export function invalidateSessionCache(): void {
+  cachedSession = null;
+  sessionRequest = null;
+}
+
+async function fetchCurrentSession(): Promise<Models.User<Models.Preferences>> {
   await migrateLegacyBrowserSession().catch(() => {});
   let response = await fetch("/api/auth/me", { credentials: "include", cache: "no-store" });
 
@@ -249,6 +340,27 @@ export async function getCurrentSession() {
   return data.user;
 }
 
+export async function getCurrentSession() {
+  const now = Date.now();
+  if (cachedSession && cachedSession.expiresAt > now) {
+    return cachedSession.user;
+  }
+  // Chamadas concorrentes partilham o mesmo pedido em vez de dispararem
+  // vários `/api/auth/me` em paralelo (ex: init do AuthContext + logActivity).
+  if (sessionRequest) return sessionRequest;
+
+  sessionRequest = fetchCurrentSession()
+    .then((user) => {
+      cachedSession = { user, expiresAt: Date.now() + SESSION_CACHE_TTL_MS };
+      return user;
+    })
+    .finally(() => {
+      sessionRequest = null;
+    });
+
+  return sessionRequest;
+}
+
 /**
  * Helper partilhado para iniciar OAuth2.
  *
@@ -258,7 +370,7 @@ export async function getCurrentSession() {
  *   Appwrite anexar `error` + `error_description` reais à query string.
  *   Assim a página de login consegue mostrar a mensagem do Appwrite.
  */
-function createOAuthSession(provider: OAuthProvider) {
+function createOAuthSession(provider: OAuthProvider, consent = false) {
   if (!projectId) {
     window.location.assign(`${window.location.origin}/login?error=missing_project`);
     return;
@@ -266,15 +378,17 @@ function createOAuthSession(provider: OAuthProvider) {
   const providerKey = provider === OAuthProvider.Google ? "google" : "github";
   // The server route applies the distributed limit and owns the callback
   // allowlist. It then redirects to Appwrite's provider endpoint.
-  window.location.assign(`/api/auth/oauth/start?provider=${providerKey}`);
+  // `consent=1` (só no registo) marca o cookie que faz /oauth/sync gravar a
+  // prova de consentimento no perfil do novo utilizador.
+  window.location.assign(`/api/auth/oauth/start?provider=${providerKey}${consent ? "&consent=1" : ""}`);
 }
 
-export function loginWithGoogle() {
-  createOAuthSession(OAuthProvider.Google);
+export function loginWithGoogle(consent = false) {
+  createOAuthSession(OAuthProvider.Google, consent);
 }
 
-export function loginWithGitHub() {
-  createOAuthSession(OAuthProvider.Github);
+export function loginWithGitHub(consent = false) {
+  createOAuthSession(OAuthProvider.Github, consent);
 }
 
 async function fetchWithAppwriteAuth(url: string, options: RequestInit = {}): Promise<Response> {
@@ -398,49 +512,58 @@ export async function createPage(profile: Omit<PageProfile, "publicado">) {
     // 409 dos passos seguintes (theme/analytics) são outra coisa (ver abaixo).
     throwPageConflict(error);
   }
-  // Registo de atividade: página criada
+  // Registo de atividade: página criada. Fire-and-forget — não bloqueia o
+  // redirect do dashboard nem o carregamento.
   void logActivity("page_created", { nomeUtilizador: profile.nomeUtilizador, nomeExibicao: profile.nomeExibicao });
 
-  // Create default theme and empty analytics for the page.
-  // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
-  // único de idPagina), NÃO é um conflito de nomeUtilizador — ignoramos e seguimos
-  // (getThemeByPageId/getAnalyticsByPageId têm fallbacks para dados ausentes).
+  // Cria o tema e o analytics vazios em paralelo (cada um é independente e
+  // usa o idPagina da página recém-criada). Em vez de dois round trips
+  // sequenciais, é um só tick de rede — relevante no primeiro carregamento
+  // após "Salvar e continuar", onde o utilizador vê o spinner.
   //
-  // NOTA: o schema Appwrite da coleção themes tem o atributo `theme` como
-  // OBRIGATÓRIO (required=true, default "glass") — mesmo com o sistema atual
-  // a usar apenas Liquid Glass, sem o campo o createDocument falha com
-  // "Invalid document structure: Missing required attribute \"theme\"".
-  await createOwnedDocument(Collections.themes, {
+  // Auto-cura: se uma tentativa parcial anterior já os criou (409 no índice
+  // único de idPagina), NÃO é um conflito de nomeUtilizador — ignoramos e seguimos.
+  //
+  // NOTA: o schema Appwrite da coleção themes chama-se `tema` (o provision
+  // script cria "tema", opcional com default "glass"). Enviar `theme` produzia
+  // "Invalid document structure: Unknown attribute: \"theme\"" e a criação da
+  // página falhava em /dashboard/create. O campo é legado (sistema atual usa
+  // apenas Liquid Glass), por isso enviamos o valor explicitamente por
+  // defesa em profundidade.
+  const themePromise = createOwnedDocument(Collections.themes, {
     idPagina: doc.$id,
-    theme: "glass",
+    tema: "glass",
     ...defaultAppearance(),
   }).catch((error) => {
     if (!isAlreadyExistsError(error)) throw error;
   });
-  await createOwnedDocument(Collections.analytics, {
-    idPagina: doc.$id,
-    visualizacoes: 0,
-    cliques: 0,
-    seguidores: 0,
-    metricasJson: JSON.stringify({
-      ctr: 0,
-      weeklyGrowth: 0,
-      monthlyGrowth: 0,
-      visitorGrowth: 0,
-      topLinks: [],
-      topCountries: [],
-      topDevices: [],
-      deviceLog: [],
-      recentVisitors: [],
-      hourlyStats: [],
-      dailyStats: [],
-      visitorSet: [],
-      dailyVisitors: [],
-      uniqueVisitors: 0,
+  await Promise.all([
+    themePromise,
+    createOwnedDocument(Collections.analytics, {
+      idPagina: doc.$id,
+      visualizacoes: 0,
+      cliques: 0,
+      seguidores: 0,
+      metricasJson: JSON.stringify({
+        ctr: 0,
+        weeklyGrowth: 0,
+        monthlyGrowth: 0,
+        visitorGrowth: 0,
+        topLinks: [],
+        topCountries: [],
+        topDevices: [],
+        deviceLog: [],
+        recentVisitors: [],
+        hourlyStats: [],
+        dailyStats: [],
+        visitorSet: [],
+        dailyVisitors: [],
+        uniqueVisitors: 0,
+      }),
+    }).catch((error) => {
+      if (!isAlreadyExistsError(error)) throw error;
     }),
-  }).catch((error) => {
-    if (!isAlreadyExistsError(error)) throw error;
-  });
+  ]);
 
   return doc;
 }
@@ -529,13 +652,17 @@ function mapLinkDocument(doc: AppwriteDocument): LinkItem {
   };
 }
 
-export async function createLink(idPagina: string, link: Omit<LinkItem, "id">) {
+export async function createLink(
+  idPagina: string,
+  link: Omit<LinkItem, "id">,
+  idempotencyKey?: string,
+) {
   // O limite de links do plano gratuito é imposto server-side no proxy
   // /api/appwrite — o único ponto de entrada das escritas do browser (ver
   // enforceFreeLinkLimit no proxy). O client não duplica a verificação.
   const session = await requireOwnerOfPage(idPagina);
 
-  const created = await createOwnedDocument(Collections.links, {
+  const data = {
     idPagina,
     tipo: link.tipo,
     titulo: link.titulo,
@@ -551,7 +678,13 @@ export async function createLink(idPagina: string, link: Omit<LinkItem, "id">) {
     ordem: link.ordem,
     cliques: link.cliques,
     agendadoPara: link.agendadoPara,
-  }, session);
+  };
+
+  // Com chave de idempotência, pedidos duplicados/concorrentes da mesma
+  // intenção devolvem o mesmo documento (nunca criam dois links).
+  const created = idempotencyKey
+    ? await createOwnedDocumentIdempotent(Collections.links, data, session, idempotencyKey)
+    : await createOwnedDocument(Collections.links, data, session);
   // Registo de atividade: link criado
   void logActivity("link_created", { titulo: link.titulo });
   return created;

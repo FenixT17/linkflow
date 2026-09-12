@@ -247,7 +247,7 @@ export function DashboardSidebar() {
             onClick={() => setMobileOpen(true)}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04] border border-white/[0.08]"
             aria-label="Abrir menu"
-            aria-expanded={mobileOpen}
+            aria-expanded={!mobileOpen}
             aria-controls="mobile-drawer"
           >
             <Menu className="h-5 w-5 text-white/70" />

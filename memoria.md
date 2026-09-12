@@ -2614,3 +2614,81 @@ Pré-push verificado: scan de segredos limpo, typecheck ✅, **216/216 testes** 
 4. Commit + push das alterações para disparar o primeiro build Netlify
 
 **Nota:** o domínio canónico continua `https://linkflow-pt.netlify.app` (Sessão 82.6). O `.env.local` ainda aponta `NEXT_PUBLIC_SITE_URL` para `https://linkflow-pt.netlify.app` (domínio antigo) — alinhar para `https://linkflow-pt.netlify.app` quando o site Netlify novo for criado.
+
+---
+
+### Sessão 84 — 11 Setembro 2026 — Dependências atualizadas (0 vulnerabilidades), cartão de consentimento removido e consentimento no rodapé
+
+**Pedido:** (1) analisar o código da plataforma; (2) atualizar as dependências vulneráveis e garantir que typecheck/lint/testes continuam a passar; (3) remover o cartão de consentimento de estudos que aparecia na página pública (logado ou não); (4) mover esse consentimento para um link discreto no rodapé.
+
+**Contexto:** análise completa do código — typecheck, ESLint, Vitest, `npm audit`, revisão de rotas/lib/componentes e varrimento de código morto.
+
+**1. Dependências — `npm audit` de 9 → 0 vulnerabilidades**
+- `next` 15.5.22 → **15.5.25** (corrige o **crítico**: RCE não autenticado em servidores Windows + RCE no Image Optimization com AVIF)
+- `eslint-config-next` 15.5.22 → **15.5.25** (alinhado com a versão do Next)
+- override `sharp` `^0.35.3` → **`^0.35.4`** (vulnerabilidades do libheif)
+- `npm audit fix`: `fast-uri`, `hono`, `js-yaml`, `nanoid`, `qs` corrigidos (maioritariamente transitivas; 19 pacotes + 2 novos no `package-lock.json`)
+- Só **3 linhas** de `package.json` mudaram; o resto ficou no lockfile
+- Nota: o `next` continua **fixado em versão exata** (sem `^`) — futuros patches de segurança não entram automaticamente (melhoria opcional)
+
+**2. Cartão de consentimento de estudos removido da página pública**
+- `src/app/u/[nomeUtilizador]/page.tsx`: removido o `<PrivacyConsent />` e o respetivo import
+- `src/components/public/privacy-consent.tsx`: **apagado** (era o grande cartão fixo no fundo da página que aparecia a todos os visitantes, logados ou não)
+- Consequência: sem consentimento concedido, a recolha em `dados_para_estudos` fica inativa; a analytics principal (visualizações, cliques, visitantes únicos, CTR, países, dispositivos) **não é afetada**
+
+**3. Consentimento movido para um link discreto no rodapé**
+- **Novo `src/components/public/study-consent-link.tsx`** (client component): link pequeno "Dados para estudos" + painel compacto que **só abre ao tocar**, com o texto de privacidade, link para `/privacidade` e os botões **Recusar** / **Aceitar dados de estudo**
+- `src/components/templates/shared.tsx`: o `TemplateFooter` (partilhado pelos 3 templates) passa a incluir `<StudyConsentLink color={corTexto} />` → aparece no rodapé de **todas** as páginas públicas, por baixo do logo LinkFlow
+- Mostra "· aceite" no link quando o consentimento já foi dado; `Esc` fecha o painel; acessível (`aria-expanded`, `aria-haspopup`, `role="dialog"`)
+- **Hydration-safe**: o estado (localStorage) só é lido depois de montar (`mounted`), pelo que o HTML do servidor e o primeiro render do cliente coincidem (regra do projeto)
+
+**Validação:**
+- typecheck (`next typegen && tsc --noEmit`) ✅ 0 erros
+- ESLint ✅ 0 avisos
+- **247/247 testes** ✅ (31 ficheiros)
+- `npm run build` ✅ (compiled + 29/29 páginas estáticas)
+- `npm audit` (prod + dev) ✅ **0 vulnerabilidades**
+
+**Pendências / observações:**
+- Aviso benigno do `allowScripts`: `unrs-resolver` (dep de dev do ESLint) tem um `postinstall` não listado — não é vulnerabilidade e o lint passa; a allowlist não foi alterada
+- Código morto identificado na análise (não removido nesta sessão): `lib/country-codes.ts`, `lib/email.server.ts` (+ dependência `resend` sem uso), `hooks/use-links.ts`, `components/dashboard/world-map.tsx`, `components/public/template-showcase.tsx`, `components/public/trackable-link.tsx`, `components/ui/{avatar,badge,card,input,skeleton,slider}.tsx`
+- `memoria.md` existe em duplicado (raiz + `frontend/`) — ambas as cópias foram atualizadas nesta sessão; considerar consolidar numa só
+
+---
+
+### Sessão 85 — 11 Setembro 2026 — Página de consentimento, caixa obrigatória no registo e prova auditável no perfil
+
+**Pedido:** (1) ter uma página de consentimento a explicar o que é recolhido, que não se vende nem se usa para fins próprios e que tudo serve para melhorar a segurança e a experiência; (2) caixa obrigatória no registo; (3) persistir a aceitação no servidor (data/hora no perfil) para prova auditável.
+
+**Decisões confirmadas com o utilizador:** expandir a página `/privacidade` existente (sem rota nova); o email indicado no pedido foi engano (ignorado); a caixa é obrigatória.
+
+**1. Página `/privacidade` expandida** (`src/app/privacidade/page.tsx`):
+- Cabeçalho e `title` passam a "Privacidade e consentimento"
+- Nova secção **"Os nossos compromissos"**: não vendemos os dados; não usamos para fins próprios (sem publicidade/perfilização); tudo o que é recolhido serve para melhorar a segurança e a experiência dos utilizadores
+- Nova secção **"O que recolhemos"** (utilização / estudos / conta) + secção **"Consentimento"**
+- Mantidas as secções de fornecedores, retenção/direitos e contacto (sem email)
+
+**2. Caixa obrigatória no registo** (`src/app/register/page.tsx`):
+- Checkbox "Li e aceito a política de privacidade e o consentimento de dados" (link para `/privacidade`, nova aba)
+- "Criar conta", "Continuar com Google" e "Continuar com GitHub" ficam `disabled` até marcar — não dá para contornar via OAuth
+- Validação adicional no `handleSubmit`
+
+**3. Prova de consentimento no servidor (RGPD)** — campo `consentimentoAceitoEm` (datetime, opcional) na coleção `users`:
+- `scripts/provision-appwrite.ts`: novo atributo + `waitForAttributes`
+- `src/app/api/auth/register/route.ts`: exige `consent === true` (400 sem consentimento) — barreira server-side, antes de criar a conta
+- `src/app/api/users/provision/route.ts`: lê apenas o booleano `consent` do corpo e grava `consentimentoAceitoEm` com **time do servidor** no create; fallback resiliente se o atributo ainda não existir (avisa, não bloqueia o registo)
+- `src/lib/services.ts`: `registerUser(..., consent)` reenvia o consentimento; `createOAuthSession`/`loginWithGoogle`/`loginWithGitHub` aceitam `consent` e anexam `?consent=1`
+- `src/context/AuthContext.tsx`: tipo e implementação do `register` com `consent`; OAuth com `consent` opcional
+- Fluxo OAuth: `src/lib/auth.server.ts` (cookie `__Host-linkflow-oauth-consent` HttpOnly de 10 min + helpers), `oauth/start` semeia-o com `?consent=1`, `oauth/sync` lê-o e grava a data/hora no perfil novo (o login normal não envia o parâmetro, por isso contas existentes não são marcadas)
+- `src/lib/appwrite.server.ts`: helper `isUnknownAttributeError` (degrada com aviso em vez de falhar o registo)
+
+**Nota de segurança:** o campo é escrito apenas pelo server SDK; o dono tem só `Permission.read` no próprio documento, logo a prova não é falsificável pelo cliente.
+
+**Validação:**
+- typecheck ✅ · ESLint ✅ · **247/247 testes** ✅ · `npm run build` ✅ (29/29 páginas)
+- `npm run provision` executado ✅ (atributo `consentimentoAceitoEm` confirmado em `listAttributes`)
+- Servidor: `POST /api/auth/register` sem `consent` → **400** (sem criar conta) ✅
+- E2E real (conta de teste `consent-e2e-…@example.com`): registo 201 → provision 201 → perfil com `consentimentoAceitoEm: 2026-09-11T21:10:31.092+00:00` ✅ → conta + perfil **apagados** no fim (0 restantes) ✅
+- Browser (Edge headless via CDP): caixa presente e `required`, botões desativados antes e ativos depois de marcar; `/privacidade` com todos os textos ✅
+
+**Pendências:** código morto identificado nas sessões anteriores continua por remover; `memoria.md` continua duplicado.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ID } from "node-appwrite";
 import { csrfGuard } from "@/lib/csrf";
-import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";import { after } from "next/server";
 import {
   createEmailPasswordSessionResolved,
   createPublicAuthClient,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     const body = (() => {
       try {
-        return JSON.parse(rawBody) as { email?: unknown; password?: unknown; name?: unknown };
+        return JSON.parse(rawBody) as { email?: unknown; password?: unknown; name?: unknown; consent?: unknown };
       } catch {
         return null;
       }
@@ -64,6 +64,16 @@ export async function POST(request: NextRequest) {
     if (isDisposableEmail(email)) {
       return NextResponse.json(
         { error: DISPOSABLE_EMAIL_ERROR },
+        { status: 400 },
+      );
+    }
+
+    // Consentimento obrigatório (RGPD): imposto no servidor para que não seja
+    // possível criar conta a contornar a caixa do formulário. O registo da
+    // data/hora acontece em /api/users/provision, sempre com time do servidor.
+    if (body?.consent !== true) {
+      return NextResponse.json(
+        { error: "É necessário aceitar a política de privacidade e o consentimento de dados." },
         { status: 400 },
       );
     }
@@ -85,14 +95,20 @@ export async function POST(request: NextRequest) {
     // conta nunca falha por causa do email. O utilizador pode reenviar a
     // partir da página "Confirma o teu email" (POST /api/auth/verify).
     let verificationSent = false;
-    try {
-      const verification = createPublicAuthClient();
-      verification.client.setSession(session.secret);
-      await requestEmailVerification(verification.account);
-      verificationSent = true;
-    } catch (error) {
-      console.warn("[Register] Falha ao enviar email de verificação:", error);
-    }
+    // Envia o email de verificação do Appwrite em background (best-effort):
+    // a criação da conta nunca falha por causa do email, e o utilizador pode
+    // reenviar a partir da página "Confirmar o teu email".
+    // `after()` garante que o envio fica fora do caminho crítico do/registro.
+    after(async () => {
+      try {
+        const verification = createPublicAuthClient();
+        verification.client.setSession(session.secret);
+        await requestEmailVerification(verification.account);
+        verificationSent = true;
+      } catch (error) {
+        console.warn("[Register] Falha ao enviar email de verificação:", error);
+      }
+    });
 
     const response = NextResponse.json(
       {

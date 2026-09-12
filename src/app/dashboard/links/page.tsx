@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { LinkItem } from "@/lib/types";
-import { createLink, updateLink, deleteLink as deleteLinkService } from "@/lib/services";
+import { createLink, updateLink, deleteLink as deleteLinkService, createIdempotencyKey } from "@/lib/services";
 import { GlassButton } from "@/components/ui/glass-button";
 import { PremiumCard } from "@/components/ui/premium-card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -214,6 +214,7 @@ function LinkCard({
   onEdit,
   editing,
   saving,
+  duplicating,
   onSave,
   onCancel,
   onToggle,
@@ -234,6 +235,7 @@ function LinkCard({
   onEdit: () => void;
   editing: boolean;
   saving: boolean;
+  duplicating: boolean;
   onSave: (draft: Partial<LinkItem>) => void;
   onCancel: () => void;
   onToggle: (field: "ativo" | "visivel") => void;
@@ -351,10 +353,12 @@ function LinkCard({
               </button>
               <button
                 onClick={onDuplicate}
-                className="p-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/80"
+                disabled={duplicating}
+                aria-busy={duplicating}
+                className="p-2 rounded-lg hover:bg-white/[0.04] text-white/50 hover:text-white/80 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Duplicar link"
               >
-                <Copy className="h-4 w-4" />
+                {duplicating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
               </button>
               <button
                 onClick={onDelete}
@@ -389,6 +393,19 @@ export default function LinksPage() {
   const [platformValue, setPlatformValue] = useState("");
   const [customMode, setCustomMode] = useState(false);
   const { verifyCsrf } = useCsrfAction();
+
+  // Guard SÍNCRONO contra duplo clique / múltiplos cliques rápidos.
+  //
+  // Um `useState` (savingId) só atualiza no fim do handler — o React agrupa
+  // as atualizações e re-renderiza depois —, por isso entre o 1º e o 2º
+  // clique o estado ainda é o antigo e ambos entravam na criação. O ref é
+  // escrito ANTES de qualquer `await` (incluindo o `await verifyCsrf()`), por
+  // isso o 2º clique vê-o de imediato e é ignorado.
+  const createOpRef = useRef(false);
+  // Chave de idempotência da intenção de criação em curso. Reutilizada em
+  // retries da MESMA intenção (para o backend não criar outro link) e
+  // renovada quando a operação termina com sucesso.
+  const pendingCreateKeyRef = useRef<string | null>(null);
 
   const isFreePlan = !account || account.plano === "free";
   const linkLimit = isFreePlan ? FREE_PLAN_LINK_LIMIT : Infinity;
@@ -440,16 +457,23 @@ export default function LinksPage() {
 
   const handleAdd = async () => {
     if (!idPagina) return;
+    // Bloqueio síncrono ANTES de qualquer await (ver createOpRef).
+    if (createOpRef.current) return;
     if (!canAddLink) {
       showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
       return;
     }
     if (!newLink.titulo?.trim() || !newLink.url?.trim()) return;
-    const csrfOk = await verifyCsrf();
-    if (!csrfOk) return;
 
+    createOpRef.current = true;
     setSavingId("add");
+    if (!pendingCreateKeyRef.current) pendingCreateKeyRef.current = createIdempotencyKey();
+    const idempotencyKey = pendingCreateKeyRef.current;
+
     try {
+      const csrfOk = await verifyCsrf();
+      if (!csrfOk) return;
+
       const link: Omit<LinkItem, "id"> = {
         tipo: "link",
         titulo: newLink.titulo.trim(),
@@ -461,7 +485,8 @@ export default function LinksPage() {
         ordem: Math.max(...links.map((l) => l.ordem), -1) + 1,
         cliques: 0,
       };
-      const doc = await createLink(idPagina, link);
+      const doc = await createLink(idPagina, link, idempotencyKey);
+      pendingCreateKeyRef.current = null;
       setLinks((prev) => [...prev, { ...link, id: doc.$id }]);
       setNewLink({ titulo: "", url: "", tipo: "link", ativo: true, visivel: true, novaAba: true, cliques: 0 });
       setIsAdding(false);
@@ -469,6 +494,7 @@ export default function LinksPage() {
     } catch (err: unknown) {
       showMessage(err instanceof Error ? err.message : "Erro ao adicionar link.", "error");
     } finally {
+      createOpRef.current = false;
       setSavingId(null);
     }
   };
@@ -478,10 +504,14 @@ export default function LinksPage() {
     setSelectedPlatform(null);
     setPlatformValue("");
     setCustomMode(false);
+    pendingCreateKeyRef.current = null;
     setIsAdding(true);
   };
 
-  const closeAdd = () => setIsAdding(false);
+  const closeAdd = () => {
+    pendingCreateKeyRef.current = null;
+    setIsAdding(false);
+  };
 
   const backToPicker = () => {
     setSelectedPlatform(null);
@@ -502,6 +532,8 @@ export default function LinksPage() {
 
   const handleAddPlatform = async () => {
     if (!idPagina || !selectedPlatform) return;
+    // Bloqueio síncrono ANTES de qualquer await (ver createOpRef).
+    if (createOpRef.current) return;
     if (!canAddLink) {
       showMessage("Limite de links do plano Gratuito atingido (máx. 3).", "error");
       return;
@@ -511,11 +543,16 @@ export default function LinksPage() {
       showMessage(built.error ?? "URL inválida.", "error");
       return;
     }
-    const csrfOk = await verifyCsrf();
-    if (!csrfOk) return;
 
+    createOpRef.current = true;
     setSavingId("add");
+    if (!pendingCreateKeyRef.current) pendingCreateKeyRef.current = createIdempotencyKey();
+    const idempotencyKey = pendingCreateKeyRef.current;
+
     try {
+      const csrfOk = await verifyCsrf();
+      if (!csrfOk) return;
+
       const link: Omit<LinkItem, "id"> = {
         tipo: "link",
         titulo: selectedPlatform.name,
@@ -527,13 +564,15 @@ export default function LinksPage() {
         ordem: Math.max(...links.map((l) => l.ordem), -1) + 1,
         cliques: 0,
       };
-      const doc = await createLink(idPagina, link);
+      const doc = await createLink(idPagina, link, idempotencyKey);
+      pendingCreateKeyRef.current = null;
       setLinks((prev) => [...prev, { ...link, id: doc.$id }]);
       showMessage(`${selectedPlatform.name} adicionado.`);
       closeAdd();
     } catch (err: unknown) {
       showMessage(err instanceof Error ? err.message : "Erro ao adicionar link.", "error");
     } finally {
+      createOpRef.current = false;
       setSavingId(null);
     }
   };
@@ -565,10 +604,14 @@ export default function LinksPage() {
 
   const handleDuplicate = async (link: LinkItem) => {
     if (!idPagina) return;
+    // Bloqueio síncrono: duplicar duas vezes no mesmo instante criava duas
+    // cópias. (Cada duplicação é uma intenção nova → chave própria.)
+    if (createOpRef.current) return;
     if (!canAddLink) {
       showMessage("Limite do plano atingido.", "error");
       return;
     }
+    createOpRef.current = true;
     setSavingId(`dup-${link.id}`);
     const newLinkData: Omit<LinkItem, "id"> = {
       ...link,
@@ -577,12 +620,13 @@ export default function LinksPage() {
       cliques: 0,
     };
     try {
-      const doc = await createLink(idPagina, newLinkData);
+      const doc = await createLink(idPagina, newLinkData, createIdempotencyKey());
       setLinks((prev) => [...prev, { ...newLinkData, id: doc.$id }]);
       showMessage("Link duplicado.");
     } catch {
       showMessage("Erro ao duplicar link.", "error");
     } finally {
+      createOpRef.current = false;
       setSavingId(null);
     }
   };
@@ -975,6 +1019,7 @@ export default function LinksPage() {
             canDrag={canReorder}
             editing={editingId === link.id}
             saving={savingId === link.id}
+            duplicating={savingId === `dup-${link.id}`}
             onEdit={() => setEditingId(link.id)}
             onCancel={() => setEditingId(null)}
             onSave={(draft) => handleInlineSave(link.id, draft)}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAuthProvider } from "node-appwrite";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
-import { setOAuthStateCookie } from "@/lib/auth.server";
+import { setOAuthConsentCookie, setOAuthStateCookie } from "@/lib/auth.server";
 import { generateToken } from "@/lib/csrf";
 import { normalizeEnvUrl } from "@/lib/utils";
 
@@ -65,5 +65,11 @@ export async function GET(request: NextRequest) {
     headers: mergeRateLimitHeaders(undefined, rateLimit),
   });
   setOAuthStateCookie(response, generateToken());
+  // Prova de consentimento: só o registo envia ?consent=1 (a página de login
+  // não o faz). /api/auth/oauth/sync lê este cookie e grava a data/hora no
+  // perfil do novo utilizador.
+  if (request.nextUrl.searchParams.get("consent") === "1") {
+    setOAuthConsentCookie(response);
+  }
   return response;
 }

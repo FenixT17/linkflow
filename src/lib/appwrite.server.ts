@@ -37,4 +37,14 @@ export function isAppwriteConfigured(): boolean {
   return Boolean(projectId && apiKey);
 }
 
+/**
+ * Deteta o erro do Appwrite quando um atributo ainda não existe no schema
+ * (ex.: o script `npm run provision` ainda não foi executado). Permite
+ * degradar com aviso em vez de falhar operações críticas como o registo.
+ */
+export function isUnknownAttributeError(error: unknown): boolean {
+  const message = ((error as { message?: string } | null)?.message ?? "").toLowerCase();
+  return message.includes("unknown attribute") || message.includes("attribute not found");
+}
+
 export { databaseId };

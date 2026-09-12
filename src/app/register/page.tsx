@@ -12,7 +12,11 @@ import { useAuth } from "@/context/AuthContext";
 import { createSecurityLog } from "@/lib/services";
 import { parseOAuthError } from "@/lib/oauth-errors";
 import { rememberEmail } from "@/lib/email-hint";
+import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
+
+const CONSENT_ERROR =
+  "Tens de aceitar a política de privacidade e o consentimento de dados para criar conta.";
 
 function RegisterForm() {
   const router = useRouter();
@@ -24,6 +28,8 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [consentWarning, setConsentWarning] = useState(false);
 
   // Real-time password strength checks (política L1: 12+ chars + símbolo)
   const passwordChecks = useMemo(() => {
@@ -78,9 +84,19 @@ function RegisterForm() {
     }
   }, [router, searchParams]);
 
+  // Aviso (não bloqueia os botões): ficam sempre visíveis e clicáveis; sem
+  // aceitar, mostramos o aviso e não avançamos com o registo.
+  const requireConsent = () => {
+    if (accepted) return true;
+    setError(CONSENT_ERROR);
+    setConsentWarning(true);
+    return false;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!requireConsent()) return;
     if (!name.trim()) {
       setError("Por favor, insira o seu nome.");
       return;
@@ -101,7 +117,7 @@ function RegisterForm() {
     // user_already_exists (o Appwrite não devolve o email no erro).
     rememberEmail(email);
     setLoading(true);
-    const result = await register(name.trim(), email.trim(), password);
+    const result = await register(name.trim(), email.trim(), password, accepted);
     if (result.success) {
       // Encaminha para a página "Confirma o teu email" (o Appwrite envia o
       // email de verificação). Se o envio automático falhou, a página avisa e
@@ -137,7 +153,10 @@ function RegisterForm() {
         </div>
         <GlassCard className="p-6">
           <div className="relative z-[1]">
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            {/* noValidate: a validação (incl. consentimento) é feita em handleSubmit,
+                para que o aviso do consentimento apareça sempre — mesmo com campos
+                vazios — em vez da bolha nativa do browser. */}
+            <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium text-[var(--foreground)]">
                   Nome completo
@@ -199,7 +218,63 @@ function RegisterForm() {
                     ))}
                   </div>
                 )}
-              </div>              {error && <p className="text-sm text-red-400">{error}</p>}
+              </div>
+              <label
+                className={cn(
+                  "group flex cursor-pointer items-start gap-3 rounded-[var(--glass-radius)] border p-3.5 text-xs leading-relaxed transition-all duration-[250ms] ease-[var(--ease-glass)]",
+                  accepted
+                    ? "border-[var(--foreground)]/25 bg-[var(--foreground)]/[0.06] text-[var(--muted-foreground)]"
+                    : consentWarning
+                      ? "border-red-400/50 bg-red-400/[0.06] text-[var(--muted-foreground)]"
+                      : "border-[var(--border)] bg-white/[0.03] text-[var(--muted-foreground)] hover:border-[var(--foreground)]/20 hover:bg-[var(--foreground)]/[0.05]",
+                )}
+              >
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    setAccepted(value);
+                    if (value) {
+                      setConsentWarning(false);
+                      setError((prev) => (prev === CONSENT_ERROR ? "" : prev));
+                    }
+                  }}
+                  className="peer sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[6px] border transition-all duration-200 ease-[var(--ease-glass)] peer-focus-visible:shadow-[0_0_0_2px_var(--ring)]",
+                    accepted
+                      ? "border-[var(--foreground)] bg-[var(--foreground)]"
+                      : consentWarning
+                        ? "border-red-400/60 bg-white/[0.04]"
+                        : "border-[var(--border)] bg-white/[0.04] group-hover:border-[var(--foreground)]/30",
+                  )}
+                >
+                  <Check
+                    className={cn(
+                      "h-3 w-3 text-[var(--background)] transition-all duration-200 ease-[var(--ease-glass)]",
+                      accepted ? "scale-100 opacity-100" : "scale-50 opacity-0",
+                    )}
+                    strokeWidth={3}
+                  />
+                </span>
+                <span className="select-none">
+                  Li e aceito a{" "}
+                  <Link
+                    href="/privacidade"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[var(--foreground)] underline decoration-dotted underline-offset-2 transition-opacity hover:opacity-80"
+                  >
+                    política de privacidade e o consentimento de dados
+                  </Link>
+                  .
+                </span>
+              </label>
+              {error && <p className="text-sm text-red-400">{error}</p>}
               <GlassButton
                 type="submit"
                 variant="primary"
@@ -217,7 +292,7 @@ function RegisterForm() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={() => loginWithGoogle()}
+                onClick={() => { if (requireConsent()) loginWithGoogle(true); }}
                 disabled={loading}
                 className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-[var(--border)] bg-white/[0.03] text-sm font-medium text-[var(--foreground)] transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-[var(--foreground)]/[0.05] hover:border-[var(--foreground)]/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >
@@ -232,7 +307,7 @@ function RegisterForm() {
 
               <button
                 type="button"
-                onClick={() => loginWithGitHub()}
+                onClick={() => { if (requireConsent()) loginWithGitHub(true); }}
                 disabled={loading}
                 className="group relative flex h-11 w-full items-center justify-center gap-4 rounded-[var(--glass-radius)] border border-[var(--border)] bg-white/[0.03] text-sm font-medium text-[var(--foreground)] transition-all duration-[250ms] ease-[var(--ease-glass)] hover:bg-[var(--foreground)]/[0.05] hover:border-[var(--foreground)]/20 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-35 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--ring)] select-none"
               >

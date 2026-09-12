@@ -2,6 +2,7 @@ import { LinkItem } from "@/lib/types";
 import { ExternalLink } from "lucide-react";
 import { PlatformIcon } from "@/components/ui/platform-icon";
 import { getPlatform } from "@/lib/platforms";
+import { sanitizeUrl } from "@/lib/sanitize";
 
 interface PreviewPhoneProps {
   nomeUtilizador?: string;
@@ -33,7 +34,7 @@ export function PreviewPhone({
             {links.map((link) => (
               <a
                 key={link.id}
-                href={link.url}
+                href={sanitizeUrl(link.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="glass-card-hover flex w-full items-center justify-between rounded-[var(--glass-radius)] glass px-4 py-3 text-sm text-[var(--foreground)]"

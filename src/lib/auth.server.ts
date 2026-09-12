@@ -61,6 +61,44 @@ export function hasOAuthStateCookie(request: NextRequest): boolean {
   return Boolean(request.cookies.get(OAUTH_STATE_COOKIE_NAME)?.value);
 }
 
+/**
+ * Cookie de consentimento do fluxo OAuth (prova auditável — RGPD).
+ *
+ * O registo por OAuth é um redirect completo (sem estado JS entre páginas),
+ * por isso o consentimento dado na caixa do formulário de registo viaja num
+ * cookie HttpOnly curto: /api/auth/oauth/start semeia-o quando recebe
+ * ?consent=1 e /api/auth/oauth/sync lê-o para gravar `consentimentoAceitoEm`
+ * no perfil do novo utilizador. Um login normal (página de login) não envia o
+ * parâmetro, logo não marca consentimento em contas existentes.
+ */
+export const OAUTH_CONSENT_COOKIE_NAME =
+  process.env.NODE_ENV === "production" ? "__Host-linkflow-oauth-consent" : "linkflow-oauth-consent";
+const OAUTH_CONSENT_MAX_AGE = 10 * 60; // 10 minutos
+
+export function setOAuthConsentCookie(response: NextResponse): void {
+  response.cookies.set(OAUTH_CONSENT_COOKIE_NAME, "granted", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: OAUTH_CONSENT_MAX_AGE,
+  });
+}
+
+export function clearOAuthConsentCookie(response: NextResponse): void {
+  response.cookies.set(OAUTH_CONSENT_COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export function hasOAuthConsentCookie(request: NextRequest): boolean {
+  return request.cookies.get(OAUTH_CONSENT_COOKIE_NAME)?.value === "granted";
+}
+
 export interface SessionCookie {
   name: string;
   value: string;

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { Query } from "node-appwrite";
 import { NextRequest, NextResponse } from "next/server";
 import {
   extractLegacySessionSecret,
@@ -9,6 +11,12 @@ import { normalizeEnvUrl } from "@/lib/utils";
 import { checkRateLimit, getClientIp, mergeRateLimitHeaders } from "@/lib/rate-limit";
 import { validateThemePayload } from "@/lib/theme-validation";
 import { FREE_PLAN_LINK_LIMIT } from "@/lib/plans";
+import {
+  claimIdempotencyKey,
+  completeIdempotencyKey,
+  isValidIdempotencyKey,
+  releaseIdempotencyKey,
+} from "@/lib/idempotency.server";
 
 // `normalizeEnvUrl` garante que APPWRITE_ENDPOINT nunca é vazia nem inválida
 // (o CI injeta secrets não configurados como string vazia, o que faria
@@ -60,6 +68,15 @@ function isDocumentPath(path: string[]): boolean {
   return path[0] === "databases" && path[2] === "collections" && path[4] === "documents";
 }
 
+/**
+ * Scope da chave de idempotência: coleção + sessão (nunca inclui o segredo
+ * em claro). Evita que a mesma chave enviada por contas diferentes colida.
+ */
+function idempotencyScope(path: string[], sessionSecret: string): string {
+  const sessionDigest = createHash("sha256").update(sessionSecret, "utf8").digest("hex").slice(0, 16);
+  return `create:${path[3]}:${sessionDigest}`;
+}
+
 // Timeout nas validações server-side: um fetch pendurado (sem timeout, o
 // undici não tem timeout por omissão) deixaria a função à espera até ao
 // limite do Netlify e o pedido falharia com "invocation failed" em vez de
@@ -93,6 +110,12 @@ async function fetchAppwriteWithSession(suffix: string, sessionSecret: string): 
  * `queries[]` (sem índice) não é o que o SDK usa e pode ser rejeitado pelo
  * Appwrite Cloud, o que faria as validações devolverem null (fail-closed) e
  * bloquearia a criação de links para utilizadores free.
+ *
+ * Os VALORES das queries têm de vir do builder do SDK (`Query.equal`,
+ * `Query.limit`): desde o Appwrite 2.x são objetos JSON serializados
+ * (`{"method":"equal",...}`) e o formato legado `equal("campo","valor")`
+ * é rejeitado com "Invalid query: Syntax error" — o que fazia estas
+ * validações falharem sempre e bloquear TODAS as criações de links.
  */
 function buildListDocumentsUrl(databaseId: string, collectionId: string, queries: string[]): string {
   const params = new URLSearchParams();
@@ -196,8 +219,8 @@ async function validateDocumentOwnership(
 async function getUserPlan(databaseId: string, userId: string, sessionSecret: string): Promise<string | null> {
   try {
     const suffix = buildListDocumentsUrl(databaseId, "users", [
-      `equal("idUtilizador",${JSON.stringify(userId)})`,
-      "limit(1)",
+      Query.equal("idUtilizador", userId),
+      Query.limit(1),
     ]);
     const res = await fetchAppwriteWithSession(suffix, sessionSecret);
     if (!res.ok) return null;
@@ -212,8 +235,8 @@ async function getUserPlan(databaseId: string, userId: string, sessionSecret: st
 async function countPageLinks(databaseId: string, idPagina: string, sessionSecret: string): Promise<number | null> {
   try {
     const suffix = buildListDocumentsUrl(databaseId, "links", [
-      `equal("idPagina",${JSON.stringify(idPagina)})`,
-      `limit(${FREE_PLAN_LINK_LIMIT + 1})`,
+      Query.equal("idPagina", idPagina),
+      Query.limit(FREE_PLAN_LINK_LIMIT + 1),
     ]);
     const res = await fetchAppwriteWithSession(suffix, sessionSecret);
     if (!res.ok) return null;
@@ -265,6 +288,69 @@ function targetUrl(path: string[], request: NextRequest): URL {
 function isAllowedTarget(target: URL): boolean {
   const configured = new URL(APPWRITE_ENDPOINT);
   return target.origin === configured.origin && target.pathname.startsWith(`${configured.pathname.replace(/\/$/, "/")}`);
+}
+
+// ---- Filtro de campos (anti-mass-assignment) ------------------------------
+//
+// Mesmo com validação de propriedade, o body encaminhado para o Appwrite pode
+// conter campos que o utilizador não deveria controlar (cliques, emblemas,
+// plano, idPagina em updates de pages, etc.). Estes allowlists garantem que
+// só campos legítimos são escritos, independentemente do que o browser envia.
+const ALLOWED_FIELDS: Record<string, Set<string>> = {
+  pages: new Set([
+    "nomeUtilizador", "nomeExibicao", "biografia",
+    "tipoPagina", "modeloPagina",
+    "publicado", "idAvatar", "idBanner",
+    "publicacaoAgendadaEm", "despublicacaoAgendadaEm", "aEliminar",
+  ]),
+  links: new Set([
+    "idPagina", "tipo", "titulo", "url", "descricao",
+    "icone", "cor", "idImagem", "animacao",
+    "ativo", "visivel", "novaAba", "ordem", "agendadoPara",
+  ]),
+  themes: new Set([
+    "idPagina", "fundo", "botaoFundo", "botaoHover",
+    "fundoSecundario", "texto", "botaoTexto", "bordaAvatar",
+  ]),
+  analytics: new Set(["idPagina", "data", "visualizacoesUnicas", "cliques", "cliquesPorLink"]),
+  qr_codes: new Set(["idPagina", "qr_data", "qr_imagem"]),
+};
+
+/**
+ * Filtra os campos do body para incluir apenas os permitidos.
+ * Devolve true se o body foi modificado (precisa re-serializar).
+ */
+function filterDocumentBody(
+  jsonBody: Record<string, unknown> | null,
+  collectionId: string,
+  _method: string
+): boolean {
+  if (!jsonBody) return false;
+  const allowed = ALLOWED_FIELDS[collectionId];
+  if (!allowed) return false;
+
+  const data = jsonBody.data as Record<string, unknown> | undefined;
+  if (!data || typeof data !== "object") return false;
+
+  let modified = false;
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (allowed.has(key)) {
+      filtered[key] = value;
+    } else {
+      modified = true; // campo removido → body precisa re-serializar
+    }
+  }
+  // Campos obrigatórios não devem ser removidos pelo filtro
+  if (collectionId === "pages" && _method === "POST") {
+    for (const required of ["nomeUtilizador", "nomeExibicao"]) {
+      if (!(required in filtered)) {
+        filtered[required] = data[required] ?? "";
+      }
+    }
+  }
+  jsonBody.data = filtered;
+  return modified;
 }
 
 // O handler é privado: o typegen do Next.js 15.5 só aceita exports de métodos
@@ -368,6 +454,8 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
         "x-appwrite-session",
         "x-appwrite-key",
         "x-csrf-token",
+        // Header interno do proxy (idempotência) — não deve chegar ao Appwrite.
+        "idempotency-key",
       ].includes(lower) ||
       lower.startsWith("x-forwarded-")
     ) {
@@ -403,13 +491,82 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
     if (validationError) return NextResponse.json({ message: validationError }, { status: 400 });
   }
 
+  // ---- Filtro de campos (anti-mass-assignment) ------------------------------
+  // Aplica allowlist por coleção antes de encaminhar para o Appwrite.
+  const collectionIdForFilter = isDocumentPath(path) ? path[3] : null;
+  let bodyModified = false;
+  if (jsonBody && collectionIdForFilter) {
+    bodyModified = filterDocumentBody(jsonBody, collectionIdForFilter, request.method);
+  }
+
+  // Re-serializa o body se o filtro removeu campos proibidos.
+  const bodyToSend: BodyInit | undefined = bodyModified
+    ? JSON.stringify(jsonBody)
+    : body
+      ? new TextDecoder().decode(body)
+      : undefined;
+
+  // ---- Idempotência de criações -------------------------------------------
+  //
+  // Um duplo clique (ou um retry da mesma intenção) envia dois POSTs iguais;
+  // cada `createDocument` no Appwrite gera um documento novo, logo criava
+  // links duplicados. Com `Idempotency-Key` única por intenção, o 1º pedido
+  // executa e os seguintes recebem o resultado guardado. A reserva da chave é
+  // atómica (SET NX no Redis) — não há check-then-create não-atómico.
+  //
+  // Colocado depois da validação de propriedade/limite e do rate limit, para
+  // que pedidos rejeitados não consumam chaves.
+  const idempotencyKeyHeader = request.headers.get("idempotency-key");
+  let claimedIdempotencyKey: string | null = null;
+  if (
+    request.method === "POST" &&
+    isDocumentPath(path) &&
+    sessionSecret &&
+    isValidIdempotencyKey(idempotencyKeyHeader)
+  ) {
+    const claim = await claimIdempotencyKey(idempotencyScope(path, sessionSecret), idempotencyKeyHeader);
+    if (claim.status === "replay") {
+      // Mesma operação já executada → devolver exatamente o mesmo resultado.
+      return new NextResponse(claim.response.body, {
+        status: claim.response.status,
+        headers: {
+          "content-type": claim.response.contentType ?? "application/json",
+          "cache-control": "no-store",
+          "X-Idempotency-Replay": "true",
+        },
+      });
+    }
+    if (claim.status === "in-flight") {
+      return NextResponse.json(
+        { message: "Operação em processamento. Aguarde um instante e tente novamente." },
+        { status: 409 },
+      );
+    }
+    if (claim.status === "acquired") claimedIdempotencyKey = claim.storageKey;
+  }
+
   const upstream = await fetch(target, {
     method: request.method,
     headers,
-    body,
+    body: bodyToSend,
     redirect: "manual",
     cache: "no-store",
   });
+
+  if (claimedIdempotencyKey) {
+    if (upstream.ok) {
+      // Guarda o resultado para que um replay devolva a MESMA resposta.
+      const storedBody = await upstream.clone().text();
+      await completeIdempotencyKey(claimedIdempotencyKey, {
+        status: upstream.status,
+        body: storedBody,
+        contentType: upstream.headers.get("content-type"),
+      });
+    } else {
+      // Nada foi criado → liberta a chave para permitir uma nova tentativa.
+      await releaseIdempotencyKey(claimedIdempotencyKey);
+    }
+  }
 
 
   const responseHeaders = new Headers();
