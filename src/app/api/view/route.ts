@@ -54,7 +54,14 @@ export async function POST(request: NextRequest) {
 
     // Rate limit: max 10 views per IP per minute to prevent metric spam
     const ip = getClientIp(request);
-    const rateLimit = await checkRateLimit("view", ip, { maxRequests: 10, windowMs: 60 * 1000 });
+    let rateLimit;
+    try {
+      rateLimit = await checkRateLimit("view", ip, { maxRequests: 10, windowMs: 60 * 1000 });
+    } catch (rateError) {
+      console.error("[api/view] rate limit unavailable, allowing request:", rateError);
+      // Fail-open for rate limiting — a Redis outage should not block analytics.
+      rateLimit = { allowed: true, remaining: 0, resetTime: Date.now() + 60_000, limit: 10 };
+    }
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: mergeRateLimitHeaders(undefined, rateLimit) });
     }
@@ -98,6 +105,7 @@ export async function POST(request: NextRequest) {
       studyConsent,
     });
 
+    console.log(`[api/view] recorded view for page ${idPagina}`);
     return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.error("[api/view] error:", error);

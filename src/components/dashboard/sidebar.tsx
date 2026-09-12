@@ -193,8 +193,13 @@ export function DashboardSidebar() {
               collapsed && "justify-center px-0"
             )}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-sm font-medium text-white/80">
-              {account?.nomeExibicao?.charAt(0) || "U"}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-sm font-medium text-white/80 overflow-hidden">
+              {page?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={page.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                account?.nomeExibicao?.charAt(0) || "U"
+              )}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">

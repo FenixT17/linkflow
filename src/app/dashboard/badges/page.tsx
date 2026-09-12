@@ -60,8 +60,13 @@ export default function BadgesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-4">
             <div className="relative">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.06] text-xl font-semibold text-white/80 ring-1 ring-white/[0.1]">
-                {page?.nomeExibicao?.charAt(0)?.toUpperCase() || "U"}
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.06] text-xl font-semibold text-white/80 ring-1 ring-white/[0.1] overflow-hidden">
+                {page?.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={page.avatar} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  page?.nomeExibicao?.charAt(0)?.toUpperCase() || "U"
+                )}
               </div>
               {has("verified") && (
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 ring-2 ring-[#0a0a0a]">

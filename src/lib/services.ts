@@ -1179,14 +1179,20 @@ export async function uploadFile(bucketId: string, file: File) {
  * quebra a ação principal: se a limpeza falhar, o ficheiro antigo fica órfão
  * e é recolhido pela eliminação de conta.
  */
-export async function deleteMediaFileServerSide(fileId: string): Promise<void> {
-  if (!fileId) return;
+export async function deleteMediaFileServerSide(fileId: string): Promise<boolean> {
+  if (!fileId) return false;
   try {
-    await fetchWithCsrf(`/api/media/upload/${encodeURIComponent(fileId)}`, {
+    const res = await fetchWithCsrf(`/api/media/upload/${encodeURIComponent(fileId)}`, {
       method: "DELETE",
     });
-  } catch {
-    // Best-effort — nunca bloquear a atualização/remoção da imagem.
+    if (!res.ok) {
+      console.error(`[deleteMediaFileServerSide] DELETE ${fileId} returned ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[deleteMediaFileServerSide] failed to delete file:", fileId, error);
+    return false;
   }
 }
 

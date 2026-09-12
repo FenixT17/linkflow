@@ -17,6 +17,10 @@ export function ViewTracker({ idPagina }: ViewTrackerProps) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idPagina, studyConsent: hasStudyConsent() }),
+    }).then((res) => {
+      if (!res.ok) {
+        console.error("[ViewTracker] server returned", res.status);
+      }
     }).catch((error) => {
       console.error("[ViewTracker] failed to record view:", error);
     });

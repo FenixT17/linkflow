@@ -54,9 +54,15 @@ export async function DELETE(
     }
     await storage.deleteFile(filesBucketId, fileId);
     return NextResponse.json({ deleted: true }, { status: 200 });
-  } catch {
-    // Cleanup is best-effort from the client; do not leak whether a file ID
-    // exists to callers who do not own it.
+  } catch (error) {
+    // Log the real error server-side for debugging, but always return 200 to
+    // the client: cleanup is best-effort and callers must not be blocked by
+    // orphaned files. Only log unexpected errors (not "file not found").
+    const message = error instanceof Error ? error.message : String(error);
+    const isNotFound = message.includes("not found") || message.includes("404");
+    if (!isNotFound) {
+      console.error(`[media DELETE] unexpected error for file ${fileId}:`, error);
+    }
     return NextResponse.json({ deleted: true }, { status: 200 });
   }
 }

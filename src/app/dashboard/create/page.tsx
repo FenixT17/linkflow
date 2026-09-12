@@ -88,7 +88,7 @@ export default function CreatePage() {
               </div>
               {error && <p className="text-sm text-red-400">{error}</p>}
               <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
-                <GlassButton type="button" className="w-full sm:flex-1" onClick={() => router.push("/dashboard")}>
+                <GlassButton type="button" className="w-full sm:flex-1" onClick={() => router.push("/")}>
                   Cancelar
                 </GlassButton>
                 <GlassButton
