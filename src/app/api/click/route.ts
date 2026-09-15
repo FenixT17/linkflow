@@ -14,6 +14,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 // visitantes não autenticados na página pública /u/[nomeUtilizador]. Aplica
 // rate limiting por IP para evitar manipulação de métricas.
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
   try {
     const referer = request.headers.get("referer");
     const origin = request.headers.get("origin");
@@ -72,11 +73,13 @@ export async function POST(request: NextRequest) {
     try {
       pageDoc = await databases.getDocument(databaseId, "pages", idPagina);
       if (!isPublicAt(pageDoc)) {
+        console.log(`[api/click] page ${idPagina} exists but is not published (publicado: ${pageDoc.publicado})`);
         return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
       }
-    } catch {
+    } catch (error) {
       // M5: resposta IDÊNTICA em ambos os casos (doc inexistente vs permissão
       // negada) — sem timing/body diferente que permita enumerar páginas.
+      console.log(`[api/click] page ${idPagina} not found or access denied:`, error);
       return NextResponse.json({ error: "Page not found or not published" }, { status: 404 });
     }
 
@@ -133,6 +136,7 @@ export async function POST(request: NextRequest) {
       studyConsent,
     });
 
+    console.log(`[api/click] recorded click for page ${idPagina}, link ${linkId} in ${Date.now() - startTime}ms`);
     return NextResponse.json({ success: true }, { headers: mergeRateLimitHeaders(undefined, rateLimit) });
   } catch (error) {
     console.error("[api/click] error:", error);

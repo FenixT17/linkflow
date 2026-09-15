@@ -262,6 +262,30 @@ export default function DashboardPage() {
         </div>
       </SectionHeader>
 
+      {/* Aviso de página não publicada */}
+      {page && !page.publicado && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+          <Rocket className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-300">
+              A sua página ainda não está publicada
+            </p>
+            <p className="text-xs text-amber-400/70 mt-1">
+              Para começar a recolher analytics e receber visitantes, precisa de publicar a sua página.
+              Visite a aba <strong>Páginas</strong> para a tornar pública.
+            </p>
+          </div>
+          <GlassButton
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/dashboard/page")}
+            className="shrink-0 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+          >
+            Publicar
+          </GlassButton>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <StatCard
