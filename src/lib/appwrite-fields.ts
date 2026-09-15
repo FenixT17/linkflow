@@ -23,6 +23,7 @@
 
 export const ALLOWED_FIELDS: Record<string, Set<string>> = {
   pages: new Set([
+    "idUtilizador", // obrigatório no schema; validado pelo ownership check do proxy
     "nomeUtilizador", "nomeExibicao", "biografia",
     "tipoPagina", "modeloPagina",
     "publicado", "idAvatar", "idBanner",

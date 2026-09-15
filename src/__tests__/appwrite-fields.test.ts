@@ -152,7 +152,10 @@ describe("allowlist do proxy — o que continua bloqueado", () => {
 
     // As badges só podem ser concedidas por POST /api/badges (API key +
     // validação de plano/candidatura), nunca pelo client SDK.
-    expect(data).toEqual({ nomeUtilizador: "joao" });
+    // `idUtilizador` é permitido no allowlist (obrigatório no schema) mas a
+    // validação de ownership no proxy impede que o utilizador defina o campo
+    // para o ID de outro utilizador.
+    expect(data).toEqual({ nomeUtilizador: "joao", idUtilizador: "outro-utilizador" });
     expect(modified).toBe(true);
   });
 
