@@ -703,11 +703,16 @@ function mapPageDocument(doc: AppwriteDocument): PageProfile & { $id: string } {
 // ---------- Links ----------
 
 export async function getLinksByPageId(idPagina: string): Promise<LinkItem[]> {
-  if (!idPagina) return [];
+  if (!idPagina) {
+    console.warn("[getLinksByPageId] Empty idPagina — returning []");
+    return [];
+  }
+  console.log(`[getLinksByPageId] Querying links for idPagina=${idPagina}`);
   const docs = await databases.listDocuments(databaseId, Collections.links, [
     Query.equal("idPagina", idPagina),
     Query.orderAsc("ordem"),
   ]);
+  console.log(`[getLinksByPageId] Found ${docs.documents.length} links for idPagina=${idPagina}`);
   return docs.documents.map((doc) => mapLinkDocument(doc as AppwriteDocument));
 }
 

@@ -63,6 +63,7 @@ interface AuthContextValue {
   analytics: AnalyticsData;
   activities: ActivityEntry[];
   refreshActivities: () => Promise<void>;
+  refreshLinks: () => Promise<void>;
   isLoading: boolean;
   login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   register: (
@@ -225,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // "0 links", tentava criar outro — e o servidor recusava com o limite do
     // plano gratuito (que conta na BD). Uma leitura falhada passa a manter o
     // último estado bom e a ficar registada na consola.
+    console.log(`[AuthContext] loadPageData: loading for id=${id}`);
     const [linksResult, themeResult, analyticsResult] = await Promise.allSettled([
       getLinksByPageId(id),
       // Auto-cura: cria o documento de tema se a página não o tiver (páginas
@@ -235,7 +237,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ]);
 
     if (linksResult.status === "fulfilled") {
-      setLinksState(linksResult.value);
+      const fetchedLinks = linksResult.value;
+      console.log(`[AuthContext] loadPageData: got ${fetchedLinks.length} links`);
+      // SAFETY: only overwrite if we got a non-empty result OR if we had no
+      // previous links. This prevents a race condition where the query returns
+      // empty due to session timing (e.g., page refresh before session cookie
+      // is fully established), wiping out links that actually exist.
+      setLinksState((prev) => {
+        if (fetchedLinks.length > 0 || prev.length === 0) {
+          return fetchedLinks;
+        }
+        console.warn(
+          `[AuthContext] loadPageData: preserving ${prev.length} existing links — query returned empty (possible session timing issue)`
+        );
+        return prev;
+      });
     } else {
       console.error("[AuthContext] Failed to load links:", linksResult.reason);
     }
@@ -657,6 +673,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [idPagina]);
 
+  const refreshLinks = useCallback(async () => {
+    if (!idPagina) return;
+    try {
+      console.log(`[AuthContext] refreshLinks: fetching for idPagina=${idPagina}`);
+      const fetched = await getLinksByPageId(idPagina);
+      console.log(`[AuthContext] refreshLinks: got ${fetched.length} links`);
+      setLinksState(fetched);
+    } catch (error) {
+      console.error("[AuthContext] refreshLinks failed:", error);
+    }
+  }, [idPagina]);
+
   const refreshActivities = useCallback(async () => {
     try {
       const fetched = await getRecentActivities(15);
@@ -753,6 +781,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics,
       activities,
       refreshActivities,
+      refreshLinks,
       isLoading,
       login,
       register,
@@ -781,6 +810,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics,
       activities,
       refreshActivities,
+      refreshLinks,
       isLoading,
       login,
       register,
