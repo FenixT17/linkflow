@@ -30,16 +30,39 @@ function VerifyEmailForm() {
 
   // Após confirmar no Appwrite, se o utilizador estiver logado e o estado
   // emailVerification = true, segue direto para o dashboard (não fica preso).
+  // Retry com delay para lidar com race condition do Appwrite (propagação
+  // instantânea do emailVerification pode não estar completa imediatamente).
   useEffect(() => {
     if (status !== "success") return;
     let alive = true;
-    getEmailVerificationStatus()
-      .then((s) => {
-        if (alive && s.verified) router.replace("/dashboard");
-      })
-      .catch(() => {
-        // Sem sessão — mostra o botão "Entrar".
-      });
+    let attempt = 0;
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 1000;
+
+    async function checkAndRedirect() {
+      while (alive && attempt < MAX_ATTEMPTS) {
+        try {
+          const s = await getEmailVerificationStatus();
+          if (alive && s.verified) {
+            router.replace("/dashboard");
+            return;
+          }
+        } catch {
+          // Sem sessão — verificamos na primeira tentativa.
+          if (attempt === 0 && alive) {
+            // Sem sessão ativa: redireciona para login com aviso de sucesso.
+            router.replace("/login?verified=1");
+            return;
+          }
+        }
+        attempt++;
+        if (alive && attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+    }
+
+    void checkAndRedirect();
     return () => {
       alive = false;
     };
@@ -61,7 +84,7 @@ function VerifyEmailForm() {
       <div className="relative z-10 w-full max-w-[420px]"><Link href="/login" className="mb-6 inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-white/[0.06] hover:text-[var(--foreground)]"><ArrowLeft className="h-4 w-4" /> Voltar ao login</Link><div className="mb-8 flex flex-col items-center text-center"><Logo size={48} className="mb-4 brightness-150 contrast-125" /><h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">Verificação de email</h1></div><GlassCard className="p-6 sm:p-8"><div className="relative z-10 text-center">
           {status === "loading" && <><Loader2 className="mx-auto h-12 w-12 animate-spin text-[var(--muted-foreground)]" /><p className="mt-5 text-sm text-[var(--muted-foreground)]">A confirmar o seu email...</p></>}
 
-          {status === "success" && <><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" /><h2 className="mt-5 text-lg font-semibold text-[var(--foreground)]">Email confirmado</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">A sua conta está pronta para utilizar.</p><GlassButton href="/login" variant="primary" className="mt-6 w-full">Entrar</GlassButton></>}
+          {status === "success" && <><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" /><h2 className="mt-5 text-lg font-semibold text-[var(--foreground)]">Email confirmado!</h2><p className="mt-2 text-sm text-[var(--muted-foreground)]">A sua conta está ativa e pronta para utilizar.</p><GlassButton href="/login" variant="primary" className="mt-6 w-full">Entrar na conta</GlassButton></>}
 
           {status === "error" && (
             <>

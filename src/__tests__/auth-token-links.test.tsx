@@ -106,7 +106,7 @@ describe("/verify-email — confirmação de email", () => {
     await waitFor(() => {
       expect(mockServices.completeEmailVerification).toHaveBeenCalledWith("6a8f74eb", "abc123");
     });
-    expect(await screen.findByText("Email confirmado")).toBeInTheDocument();
+    expect(await screen.findByText("Email confirmado!")).toBeInTheDocument();
     expect(screen.queryByText("Link inválido ou expirado")).toBeNull();
   });
 

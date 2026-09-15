@@ -30,6 +30,7 @@ function LoginForm() {
   // o utilizador já tem conta — só precisa da palavra-passe. Derivado
   // diretamente do searchParams (sem estado) para nunca ficar obsoleto.
   const oauthExistsHint = searchParams.get("reason") === "oauth_exists";
+  const emailVerified = searchParams.get("verified") === "1";
 
   useEffect(() => {
     const errorParam = searchParams.get("error");
@@ -220,6 +221,12 @@ function LoginForm() {
               {oauthExistsHint && !error && (
                 <p className="text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
                   Já tem uma conta neste serviço — introduza a sua palavra-passe para entrar.
+                </p>
+              )}
+
+              {emailVerified && !error && (
+                <p className="text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-lg">
+                  Email confirmado com sucesso! Agora pode entrar na sua conta.
                 </p>
               )}
 
